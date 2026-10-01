@@ -272,10 +272,13 @@ node --test apps/web/tests/*.test.ts    → tests 16 / pass 16 / fail 0 / cancel
 
 ### Canonical Linux CI (pull request #3, draft)
 
+Both jobs pass on the final commit `d93f466`. `docker` failed on the first run and was fixed in that
+same commit (see below); its green re-run is what confirms the diagnosis.
+
 | job | result | what it covers |
 |---|---|---|
 | `Check / check` | **PASS**, 1m | install, typecheck, web build, 16 web tests, 35 migrations, seed, smoke of the built site, `npm test` (all 139 backend tests) |
-| `Check / docker` | **FAIL**, 53s | docker compose build + up + smoke + seeded source count |
+| `Check / docker` | **PASS**, 59s (FAIL 53s before the fix) | docker compose build + up + smoke + seeded source count |
 
 `check` passing settles three earlier questions in favour of the verticalization: the 5 shutdown tests
 that cannot pass on Windows (KI-3) pass on Linux, the 3 `translate.test.ts` failures were the
@@ -557,7 +560,8 @@ Phase 0 is accepted and frozen at tag `sentinelintel-phase0` (`1deb090`). The Po
 Portability Fix is accepted and merged into `main` at `2938249`.
 
 Phase 1 — Security Verticalization is **IN_PROGRESS** on `phase/1-security-verticalization`, open as
-**draft pull request #3** (`check` PASS; `docker` fixed and awaiting its re-run). It must not be merged.
+**draft pull request #3** with **both CI jobs PASS** (`check` 1m, `docker` 59s) on commit `d93f466`.
+It must not be merged.
 
 The next action is human review of the Phase 1 implementation checkpoint, then the project owner's
 human gold-labelling pass, then the SelectBench baseline and holdout runs — which additionally require
