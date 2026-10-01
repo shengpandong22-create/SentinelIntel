@@ -1,3 +1,79 @@
+# SentinelIntel Development Rules
+
+This repository is being incrementally transformed from AIHOT into SentinelIntel V2.
+
+These rules apply to any Coding Agent working on this repository, regardless of model or product.
+
+Before changing code, read in this order:
+
+1. `AGENTS.md`
+2. `docs/00-sentinelintel/01-SentinelIntel-V2-Technical-Design.md`
+3. `docs/00-sentinelintel/02-AIHOT-to-SentinelIntel-Migration-Spec.md`
+4. `docs/IMPLEMENTATION_STATUS.md`
+5. the AIHOT documentation relevant to the current phase
+6. the source code and tests directly affected by the current phase
+
+## Project Rules
+
+- Work on only the current Phase.
+- Do not skip phases.
+- Do not reimplement existing AIHOT capabilities unless Evaluation demonstrates a concrete deficiency.
+- Do not introduce Java/Spring Boot services.
+- Do not introduce Kafka, Neo4j, Kubernetes, Multi-Agent systems, CrossEncoder, GraphRAG or other infrastructure without evidence that the current design requires it.
+- Do not turn deterministic retry, scheduling, health checks, thresholds or fallback logic into Agents.
+- Do not modify frozen holdout data after observing results.
+- Do not claim any metric improvement that has not been reproduced by Evaluation.
+- Keep changes minimal and compatible with the existing AIHOT architecture.
+- Preserve the original MIT license and upstream attribution.
+- Do not use AIHOT branding as SentinelIntel branding.
+
+## Agent Boundary
+
+Deterministic workflow remains deterministic code.
+
+Agent functionality should be introduced only when the task requires one or more of:
+
+- semantic reasoning
+- dynamic tool selection
+- evidence gathering
+- uncertainty resolution
+- long-running state
+- temporal reasoning
+- human review
+
+## Persistent Project Memory
+
+Chat context is temporary.
+
+The persistent project state is:
+
+- Git history
+- Technical Design
+- Migration Specification
+- `docs/IMPLEMENTATION_STATUS.md`
+- Evaluation artifacts
+- tests
+
+If switching Coding Agents because of model limits or availability, update `IMPLEMENTATION_STATUS.md` first whenever possible.
+
+## Model Handoff
+
+A replacement Coding Agent must first:
+
+1. read the design documents;
+2. read `IMPLEMENTATION_STATUS.md`;
+3. run `git status`;
+4. inspect recent commits;
+5. inspect current Phase files;
+6. verify the smallest relevant test;
+7. continue the existing plan rather than redesigning the project.
+
+Model identity may change.
+
+Project state must remain continuous.
+
+---
+
 # 给 Agent 的说明
 
 这是一个行业热点网站的框架：采集信源、用模型筛选和写作、归组事件、出日报，并通过网站、RSS、公开 API 和 MCP 对外提供。默认配置是一个 AI 行业的示例站。先读 README，再按任务读 `docs/` 里对应的文档。
