@@ -208,7 +208,7 @@ physical-security vendor PSIRT publishes a usable feed; both are real Phase 1 co
 `std.samr.gov.cn` 国标查询 (200 JSON, POST-oriented). Wiring these needs `json_list` config work that
 was not attempted, so they are not in the MVP seed.
 
-**Prompts (16 modified of 27).** Rewritten for the domain: `prefilter.md`, `selection-score.md`,
+**Prompts (19 modified of 27).** Rewritten for the domain: `prefilter.md`, `selection-score.md`,
 `content-understanding.md`, `structure.md`, `rules-domain.md`, `group-definitions.md`,
 `group-method.md`, `group-batch.md`, `group-pair.md`, `group-signal.md`, `story-digest.md`,
 `report-daily-lead.md`, `report-period.md`, `identity-context.md`, `summarize-article.md`,
