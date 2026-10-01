@@ -18,7 +18,7 @@ SentinelIntel design baseline commit:
 
 Working branch:
 
-fix/baseline-portability
+phase/1-security-verticalization
 
 Accepted Phase 0 tag:
 
@@ -43,17 +43,21 @@ were left unfixed because Phase 0 is read-only for business code.
 
 Full Phase 0 record (frozen, do not edit): `docs/00-sentinelintel/03-Phase0-Baseline-Audit.md`
 
-## Current Work
-
-Phase: Post-Phase-0 Baseline Portability Fix (this is **not** Phase 1)
+## Post-Phase-0 Baseline Portability Fix
 
 Branch: `fix/baseline-portability`
 
-Status: COMPLETED — awaiting human acceptance
+Status: ACCEPTED and MERGED into `main` at `2938249` (pull request #2).
 
-Scope: exactly the two code-level findings from the Phase 0 audit, KI-1 and KI-2. No Phase 1 work has
-started: no security taxonomy, sources, prompts, selection thresholds, features, branding, datasets,
-migrations or Python runtime were touched.
+Canonical Linux CI on that pull request: `check` PASS, `docker` PASS.
+
+Resolved:
+
+- **KI-1 — RESOLVED.** Windows SSR dynamic `import()` portability (`apps/web/server.ts`).
+- **KI-2 — RESOLVED.** `scripts/mcp-check.ts` hardcoded the MCP tool-name prefix.
+
+Scope was exactly those two findings. No Phase 1 work was included, and no production behaviour was
+changed beyond the two fixes.
 
 ### KI-1 — FIXED
 
@@ -118,8 +122,196 @@ expected business/validation outcomes on an empty database; the point of the che
 resolve, which they now do.
 
 Deliberately not modified: `tests/analyze-shutdown.test.ts` and `tests/translate-shutdown.test.ts`
-(the Windows POSIX `SIGTERM` limitation, out of scope here). The canonical Linux regression is expected
-from GitHub Actions on this branch's pull request.
+(the Windows POSIX `SIGTERM` limitation, out of scope here).
+
+## Current Phase
+
+Phase: **Phase 1 — Security Verticalization**
+
+Branch: `phase/1-security-verticalization`
+
+Base: `main` = `2938249`
+
+Status: **IN_PROGRESS**
+
+This Phase verticalizes the industry pack (`industry/`) from the AI demo domain to the security
+domain, and prepares the security selection gold dataset. It does not implement any Agent, runtime,
+retrieval or event-grouping change: Phase 2 (security event grouping benchmark) and Phase 3 (Python
+Agent Runtime) have not started.
+
+Phase 1 acceptance additionally requires at least 150–250 human-labelled gold cases with
+development/holdout splits and a SelectBench baseline + holdout run. Neither exists yet, and the
+project owner has not authorized paid model calls, so the Selection baseline and holdout are
+`NOT RUN — COST AUTHORIZATION REQUIRED`. Until those are done the status here cannot become
+`ACCEPTED`.
+
+### Phase 1 delivery — `PHASE 1 IMPLEMENTATION CHECKPOINT REACHED`
+
+**Branding (`industry/site.ts`).** `name: SentinelIntel`, `subject: 安防`, `mcpPrefix: sentinelintel`,
+`crawlerName: SentinelIntelBot`, `organization.name: SentinelIntel`, homepage/about copy rewritten.
+`footerNote` deliberately kept as the AIHOT upstream attribution. `mcpPrefix` has no length/regex
+validator in the repo (only the comment's "lowercase letters, digits, underscores"); `sentinelintel`
+satisfies it.
+
+**Feature flags (`industry/features.ts`).** `leaderboard: false`, `codexResetMonitor: false`. Their
+implementations were not deleted.
+
+**Categories (7).** Owner MVP core: `vulnerability`, `vendor`, `policy-standard`, `procurement`.
+Kept for production-code compatibility, each with a written reason:
+`tip` and `opinion` — `apps/api/src/routes/v1.ts:65` passes the literal `"tip"` where the parameter
+type is `PublicApiCategoryKey` (= `CategoryKey`, derived from `CATEGORIES`), so removing it is a
+compile error; `packages/backend/src/publication/items.ts:98` also maps v1/RSS `tip` to
+`IN ('tip','opinion')`. `industry` — `packages/backend/src/reports/compose.ts:20` takes
+`DEFAULT_SECTION = SECTION_OF.industry`, so keeping it makes unclassified items land in the explicit
+"其他安全动态" section instead of the last section. `incident` / `technology` were not added
+(owner: not required for Phase 1 core).
+
+**Item types (9).** `vulnerability_disclosure`, `vendor_advisory`, `vendor_response`, `policy_standard`,
+`procurement_notice`, `procurement_award`, `incident_report`, `practical_guidance`, `analysis_opinion`.
+These are consumed by `z.enum(ITEM_TYPES)` in `editorial/analyze.ts:131` **without** `.catch()`, so
+`prompts/content-understanding.md` lists exactly the same nine values.
+
+**Taxonomy.** `CATEGORY_TAGS` (11), `TOPIC_TAGS` (16), `ENTITY_TAGS` (14), `TAG_SYNONYMS` (63),
+`CATEGORY_BY_ITEM_TYPE` (9), `ENTITIES` (17), `IDENTITY_LEXICON` (17),
+`PUBLISHER_DOMAINS` (17), `IDENTITY_CONTEXT_ALIASES` (3). Entities are limited to subjects the Phase 1
+sources will actually produce: 7 network/security vendors that appear in the advisory feeds, 6 physical
+security vendors, and 4 government/CERT bodies that are themselves sources.
+
+**Topics (19).** 8 company (entity-backed) + 5 field + 6 genre, down from the AI pack's ~30. Every
+`related` slug resolves; every non-entity topic's tags are members of the taxonomy vocabulary.
+
+**Sources (10, all actually verified on 2026-10-01).** Each entry in `industry/sources.json` carries a
+`$note` with the HTTP status, format and item count. T1=8, T1_5=1, T2=1:
+
+| source | URL | tier | verified |
+|---|---|---|---|
+| CISA Cybersecurity Advisories | cisa.gov/cybersecurity-advisories/all.xml | T1 | 200, RSS, 30 items |
+| CISA News | cisa.gov/news.xml | T1 | 200, RSS, 10 |
+| CERT-EU Security Advisories | cert.europa.eu/publications/security-advisories-rss | T1 | 200, RSS, 10 |
+| UK NCSC Reports | ncsc.gov.uk/api/1/services/v1/report-rss-feed.xml | T1 | 200, RSS, 20 |
+| JPCERT/CC Alerts | jpcert.or.jp/rss/jpcert.rdf | T1 | 200, RDF, 36 (rss.ts has an `rdf:RDF` branch) |
+| Cisco Security Advisories | sec.cloudapps.cisco.com/.../CiscoSecurityAdvisory.xml | T1 | 200, RSS, 50 |
+| Fortinet PSIRT | fortiguard.com/rss/ir.xml | T1 | 200, RSS, 50 |
+| Microsoft MSRC Update Guide | api.msrc.microsoft.com/update-guide/rss | T1 | 200, RSS, 4616 (capped by initialBackfillLimit) |
+| Zero Day Initiative | zerodayinitiative.com/rss/published/ | T1_5 | 200, RSS, 200 |
+| FreeBuf 安全资讯 | freebuf.com/feed | T2 | 200, RSS, 20 |
+
+**Source gaps (recorded, not worked around).** `BLOCKED` / not usable, with the observed status:
+Palo Alto `security.paloaltonetworks.com/rss` (404), BleepingComputer (403), HelpNetSecurity (202
+challenge), SecurityWeek (403), TheHackerNews (fetch failed), CNVD (521 JS challenge), MSRC blog feed
+(HTML), IPA alert feed (404), ENISA (404), Axis/Dahua/Hanwha advisory pages (404 or HTML only),
+ccgp.gov.cn (HTML only). **No procurement source exists at all** with the current adapters, and no
+physical-security vendor PSIRT publishes a usable feed; both are real Phase 1 coverage gaps for the
+`procurement` category and the 安防 vendor tier.
+`CAPABILITY_GAP` (deliberately not built in Phase 1, per Migration Spec §8.6): CISA KEV JSON
+(200, 1.76 MB single-object API), NVD CVE API 2.0 (200, paginated, rate-limited without a key), and
+`std.samr.gov.cn` 国标查询 (200 JSON, POST-oriented). Wiring these needs `json_list` config work that
+was not attempted, so they are not in the MVP seed.
+
+**Prompts (19 modified of 27).** Rewritten for the domain: `prefilter.md`, `selection-score.md`,
+`content-understanding.md`, `structure.md`, `rules-domain.md`, `group-definitions.md`,
+`group-method.md`, `group-batch.md`, `group-pair.md`, `group-signal.md`, `story-digest.md`,
+`report-daily-lead.md`, `report-period.md`, `identity-context.md`, `summarize-article.md`,
+`summarize-long-post.md`, `rules-self-contained-title.md`, `translate-body.md`, `translate-post.md`.
+The grouping definitions explicitly cover the eight hard cases (disclosure vs. vendor confirmation /
+patch / PoC, one CVE across vendors, one vendor's different CVEs, one model's different
+vulnerabilities, tender vs. award, draft vs. final standard). `selection-score.md` has a new 9-row
+integer weight table (each row sums to 10, preserving the existing five-axis arithmetic and the
+single-field output contract) and states that vendor fame, length, jargon density, the presence of a
+CVE number or the words 高危/严重 must never by themselves make an item high-value.
+`rules-domain.md` now requires CVE / model / firmware / fixed version / amount / CVSS level to be kept
+verbatim, and forbids adding severities the source does not state.
+Untouched: `safety.md`, `understand.md`, `rules-anti-hallucination.md`, `rules-answer-first-summary.md`,
+`summarize-short-post.md`, `summarize-article-empty.md`, `summarize-long-post-quoted.md`,
+`summarize-short-post-quoted.md` (generic, no domain vocabulary).
+
+**Selection thresholds: UNCHANGED.** `T1 60 / T1_5 65 / T2 76`, `understandFloor 50`. `selection.ts`
+now carries an explicit `UNVALIDATED FOR SECURITY DOMAIN` note. No threshold was changed and no
+accuracy/precision/recall/F1 claim is made anywhere.
+
+**Security gold dataset: `LABELING_REQUIRED` — 150 unlabelled candidates are ready.**
+
+The agent completed only its own half: candidate sampling and structuring. `datasets/selection/candidates.jsonl`
+holds 150 rows read through the repository's real RSS reader (`fetchRss`), capped per source so MSRC's 4616
+CVEs cannot dominate, quota'd per stratum, and split deterministically (`i % 4 === 3` → holdout) so both
+splits cover every available stratum. Distribution: vulnerability 42/13, vendor-advisory 42/13,
+policy 23/7, generic-cybersecurity 8/2 (development/holdout). Every row carries `gold.decision = "either"`
+(excluded from decisive metrics) and a `"$label": "TODO"` marker, so the file can never be mistaken for
+labelled gold. Protocol and the fill-in workflow: `datasets/selection/README.md`.
+
+**Labelled count: 0 (0 development, 0 holdout). No `gold.decision` value was produced by the agent.**
+
+Sampling also produced harder evidence for the source-coverage gap: the required strata `procurement`,
+`marketing-noise` and `irrelevant-it` have **zero** candidates, because all ten sources are first-party
+government, CERT and vendor feeds that by construction publish no procurement notices, marketing copy or
+unrelated IT news. Covering those strata requires adding sources (and an owner decision on `web_list`
+selectors), so the gold set can currently cover only four of the seven strata — recorded, not papered over.
+
+**Evaluation: `NOT RUN`.** `scripts/eval-selection.ts` was not executed: no gold set exists, no model
+key is available, and no cost authorization has been given. `MODEL_CALLS_ENABLED` stayed `false`.
+Selection baseline: `NOT RUN — COST AUTHORIZATION REQUIRED`. Holdout: `NOT RUN`.
+
+### Phase 1 verified results (Windows, actual output)
+
+```text
+node .data/validate-industry.mjs        → sources 10 / topics 19 / categories 7 / item types 9;
+                                          all industry-pack checks passed;
+                                          27 prompt files scanned, prompt ↔ taxonomy consistency
+                                          passed, no AI-industry leftovers
+npm run typecheck                       → pass, exit 0
+node scripts/migrate.ts   (fresh DB)    → 35 migration(s) applied
+node scripts/seed.ts --topics-only      → topics: 19
+node --test tests/*.test.ts (minus the 2 shutdown files)
+                                        → tests 133 / pass 130 / fail 3 / cancelled 0, 45.9 s
+```
+
+The 3 failures are all in `tests/publication.test.ts`: "an early release keeps the selected ledger in
+order", "a withdrawal waiting behind an unreleased item leaves new snapshots at once", "minimal sync
+projection preserves snapshot fields, pagination bindings and ordered changes". They are **not**
+attributable to the verticalization: the same file passes 13/13 in isolation on a fresh database, the
+assertions concern the global `selected_ledger` watermark rather than categories or tags, and every
+future-dated row in the database after a batch run belongs to `test-publication-*` itself. Root cause is
+narrowed to that file's internal order/clock coupling with `effectiveWatermark()`; no assertion was
+weakened. The canonical Linux CI run then passed **all 139 backend tests**, including these three, so
+they are **environment-specific (Windows)** rather than a code regression. The precise Windows trigger
+is still unexplained and is recorded as an open question rather than a fix. The two
+shutdown test files were excluded here because of the known Windows POSIX `SIGTERM` limitation (KI-3);
+their fixtures were still updated for the new taxonomy so they remain valid on Linux/CI.
+
+```text
+npm run build -w @aihot/web             → pass, exit 0
+node --test apps/web/tests/*.test.ts    → tests 16 / pass 16 / fail 0 / cancelled 0
+```
+
+### Canonical Linux CI (pull request #3, draft)
+
+Both jobs pass on the final commit `d93f466`. `docker` failed on the first run and was fixed in that
+same commit (see below); its green re-run is what confirms the diagnosis.
+
+| job | result | what it covers |
+|---|---|---|
+| `Check / check` | **PASS**, 1m | install, typecheck, web build, 16 web tests, 35 migrations, seed, smoke of the built site, `npm test` (all 139 backend tests) |
+| `Check / docker` | **PASS**, 59s (FAIL 53s before the fix) | docker compose build + up + smoke + seeded source count |
+
+`check` passing settles three earlier questions in favour of the verticalization: the 5 shutdown tests
+that cannot pass on Windows (KI-3) pass on Linux, the 3 `translate.test.ts` failures were the
+Windows cascade described above, and the 3 `publication.test.ts` failures are Windows-specific rather
+than a regression.
+
+The `docker` failure was **not** caused by the industry pack failing to build or seed. Reproduced
+locally, step by step: `docker compose up -d --build` exited 0 (64.3 s), `setup` exited 0 after migrate +
+seed, `/api/health` returned 200, and `scripts/smoke.ts --base http://web:3000` exited **0**. The only
+failing step was the last line of the `Smoke check` block, which hardcoded the AIHOT demo source count:
+`... select count(*) from sources | grep -q '^18$'` against the pack's actual **10** sources.
+
+That assertion is CI configuration encoding demo data, so the workflow was corrected under explicit
+owner authorization to read the expected number from the pack instead (`.github/workflows/check.yml`,
+one line replaced by three): `EXPECTED_SOURCES=$(node -e "process.stdout.write(String(require('./industry/sources.json').sources.length))")`
+followed by `grep -qx "$EXPECTED_SOURCES"`. Verified locally: the dynamic read returns 10 and matches
+the database count. This is the only file outside `industry/`, `tests/`, `docs/` and `datasets/` that
+Phase 1 touched.
+
+Not run: `docker compose --profile https` (needs a real domain and certificate).
 
 ## Completed
 
@@ -171,7 +363,7 @@ Environment constraints encountered:
 ## Tests
 
 These are the Phase 0 audit-time results, kept as the frozen evidence for that Phase. The post-fix
-results for KI-1 / KI-2 are in `## Current Work` above.
+results for KI-1 / KI-2 are in `## Post-Phase-0 Baseline Portability Fix` above.
 
 Backend, `npm test` against a freshly migrated `aihot_ci` database:
 
@@ -271,7 +463,7 @@ domain and certificate).
 ## Known Issues
 
 **KI-1 (CODE_FAILURE, Windows only) — `apps/web/server.ts:38` could not load the SSR build.
-FIXED in the Post-Phase-0 Baseline Portability Fix (see `## Current Work`).**
+FIXED in the Post-Phase-0 Baseline Portability Fix (see `## Post-Phase-0 Baseline Portability Fix`).**
 
 ```text
 node apps/web/server.ts
@@ -297,7 +489,7 @@ const build = await import(pathToFileURL(path.resolve(import.meta.dirname, "buil
 ```
 
 **KI-2 (CODE_FAILURE) — `scripts/mcp-check.ts` hardcoded tool names that do not exist.
-FIXED in the Post-Phase-0 Baseline Portability Fix (see `## Current Work`).**
+FIXED in the Post-Phase-0 Baseline Portability Fix (see `## Post-Phase-0 Baseline Portability Fix`).**
 
 ```text
 node scripts/mcp-check.ts http://127.0.0.1:3001/api/mcp
@@ -368,21 +560,24 @@ can be accepted as complete.
    has no offline or fake mode, so a Phase 1 baseline or holdout evaluation incurs paid model calls. No
    API key is available in the current environment and no budget has been authorized. Until the owner
    authorizes it, no Phase 1 accuracy number can be produced, and none may be claimed.
-3. **KI-1 / KI-2 — RESOLVED, pending acceptance of the fix branch.** Both were fixed in the
-   Post-Phase-0 Baseline Portability Fix on `fix/baseline-portability` (see `## Current Work`). With
-   KI-1 fixed the Windows web suite is 16 of 16, so the earlier caveat that "all tests pass cannot be
+3. **KI-1 / KI-2 — RESOLVED and merged.** Both were fixed in the Post-Phase-0 Baseline Portability Fix
+   and merged into `main` at `2938249` (see `## Post-Phase-0 Baseline Portability Fix`). With KI-1
+   fixed the Windows web suite is 16 of 16, so the earlier caveat that "all tests pass cannot be
    claimed on Windows" no longer applies to the web tests. It still applies to the 5 shutdown tests
-   blocked by the Windows POSIX `SIGTERM` limitation (KI-3), which is out of scope for this fix and is
+   blocked by the Windows POSIX `SIGTERM` limitation (KI-3), which is out of scope for that fix and is
    covered by the canonical Linux run instead.
 
 ## Next Action
 
-Phase 0 is accepted and frozen at tag `sentinelintel-phase0` (`1deb090`).
+Phase 0 is accepted and frozen at tag `sentinelintel-phase0` (`1deb090`). The Post-Phase-0 Baseline
+Portability Fix is accepted and merged into `main` at `2938249`.
 
-The immediate next action is human acceptance of the Post-Phase-0 Baseline Portability Fix on
-`fix/baseline-portability`, together with the canonical Linux regression produced by GitHub Actions on
-that branch's pull request.
+Phase 1 — Security Verticalization is **IN_PROGRESS** on `phase/1-security-verticalization`, open as
+**draft pull request #3** with **both CI jobs PASS** (`check` 1m, `docker` 59s) on commit `d93f466`.
+It must not be merged.
 
-**Phase 1 — Security Verticalization has NOT started and is not authorized by this document.** Before
-Phase 1 can be accepted, the `## Phase 1 Acceptance Prerequisites` above must be resolved — in
-particular the cost authorization for real model calls and the security gold dataset.
+The next action is human review of the Phase 1 implementation checkpoint, then the project owner's
+human gold-labelling pass, then the SelectBench baseline and holdout runs — which additionally require
+the owner's explicit cost authorization for real model calls. Phase 1 cannot be marked accepted until
+those exist. Two coverage gaps also need an owner decision before acceptance: there is no usable
+procurement source, and no physical-security vendor publishes a feed the current adapters can read.
