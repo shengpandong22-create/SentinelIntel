@@ -2,6 +2,12 @@
 // 每篇资料由评分模型独立打两次分（0–100），两次之和 ≥ 2 × 门槛才进精选，卡片上显示两次的平均分。
 // 门槛按信源分级区分：官方一手信源的门槛低一些，媒体和个人的高一些。改了门槛或评分提示词，
 // 用 scripts/eval-selection.ts 在你自己标注的样本上重跑一遍，再决定上线（见 docs/selection.md）。
+//
+// ⚠ UNVALIDATED FOR SECURITY DOMAIN
+// 下面这组数字是 AIHOT 在 AI 领域校准出来的，Phase 1 只做了提示词与分类的安防化，**没有**改门槛：
+// 目前既没有安防领域的 gold 数据集，也没有获得真实模型调用的成本授权，因此无法运行 SelectBench
+// 来校准。在拿到 development 评测与 holdout 结果之前，不得修改这里的数值，也不得对外宣称任何
+// 准确率/查准率/查全率结论。见 docs/IMPLEMENTATION_STATUS.md 的 Phase 1 章节。
 
 export const SELECTION = {
   /**
