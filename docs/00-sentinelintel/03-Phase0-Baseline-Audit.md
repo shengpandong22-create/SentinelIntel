@@ -10,7 +10,34 @@
 
 ## 1. Git baseline
 
-实际执行的核对（2026-10-01）：
+实际执行的核对（2026-10-01）。同一份工作区在两个时点各核对一次：审计开始时一次，人工验收补充阶段一次。
+
+**人工验收补充阶段的实际输出**（原样粘贴，命令：`git remote -v`、`git status`、`git log --oneline --decorate -n 5`）：
+
+```text
+$ git remote -v
+origin	https://github.com/shengpandong22-create/SentinelIntel.git (fetch)
+origin	https://github.com/shengpandong22-create/SentinelIntel.git (push)
+upstream	https://github.com/KKKKhazix/AIHOT.git (fetch)
+upstream	https://github.com/KKKKhazix/AIHOT.git (push)
+
+$ git status
+On branch phase/0-baseline-audit
+Your branch is up to date with 'origin/phase/0-baseline-audit'.
+
+nothing to commit, working tree clean
+
+$ git log --oneline --decorate -n 5
+5b916b0 (HEAD -> phase/0-baseline-audit, origin/phase/0-baseline-audit) chore: audit and freeze AIHOT baseline
+659d6ff (origin/main, main) docs: establish SentinelIntel V2 design and audited AIHOT baseline
+f6c2952 (tag: aihot-baseline-f6c2952) chore: clarify PR review rules and limit checkout credentials (#9)
+e9d40e2 Leaderboard: close the evidence tooltip on scroll (#6)
+1db4b16 fix(sources): preserve Atom XHTML text constructs (#7)
+```
+
+两次核对之间唯一的差别：`phase/0-baseline-audit` 从 `659d6ff`（未提交）前进到 `5b916b0`（Phase 0 文档提交），并已在 origin 上跟踪。
+
+**审计开始时的实际输出**：
 
 ```text
 git status          → On branch phase/0-baseline-audit / nothing to commit, working tree clean
@@ -22,6 +49,15 @@ git log --oneline   → 659d6ff (HEAD -> phase/0-baseline-audit, origin/main, ma
                       ...
 ```
 
+远端实测（`git remote -v`，未做任何修改）：
+
+| remote | URL | 用途 |
+|---|---|---|
+| `origin` | `https://github.com/shengpandong22-create/SentinelIntel.git` | SentinelIntel 本仓库；phase 分支与 PR 的唯一推送目标 |
+| `upstream` | `https://github.com/KKKKhazix/AIHOT.git` | AIHOT 上游，仅用于追溯基线来源；**不向其推送** |
+
+本 Phase 未执行 `git remote add` / `git remote set-url` / `git remote remove` 等任何远端变更。`upstream` 保持只读追溯用途，`origin` 只接收 `phase/0-baseline-audit`（及后续 Phase 分支），`main` 未被推送新提交。
+
 结论：
 
 | 项目 | 实际情况 | 与任务描述是否一致 |
@@ -29,10 +65,11 @@ git log --oneline   → 659d6ff (HEAD -> phase/0-baseline-audit, origin/main, ma
 | 基线 commit | `f6c2952a9984d4840442558be114ac959b512b0c` | 一致 |
 | 基线 tag | `aihot-baseline-f6c2952` 存在，指向 `f6c2952` | 一致 |
 | 设计基线提交 | `659d6fff70804f465b04aea50f796e87983f6450`（`659d6ff`） | 一致 |
-| 当前分支 | `phase/0-baseline-audit`，与 `main` 同为 `659d6ff` | 一致 |
-| 工作区 | 审计开始时 clean | 一致 |
+| 当前分支 | `phase/0-baseline-audit`；审计开始时与 `main` 同为 `659d6ff`，Phase 0 文档提交后为 `5b916b0` | 一致 |
+| 工作区 | 审计开始时 clean，人工验收补充阶段复核仍 clean | 一致 |
+| remote | `origin` = SentinelIntel 本仓库；`upstream` = AIHOT，见 §1 实测表 | 一致 |
 
-Git 历史未做任何修改，未 rebase，未改动 baseline tag。`upstream` / `origin` 远端未在本次审计中做网络校验（`git remote -v` 未单独执行；`git branch -vv` 显示 `origin/main` 已跟踪）。
+Git 历史未做任何修改，未 rebase，未改动 baseline tag，未在最终自检之外执行任何写操作。`git remote -v` 已于人工验收补充阶段实际执行并记录于本节；`origin` 与 `upstream` 均未做新增/改址/删除。`main` 在 `origin` 上仍为 `659d6ff`，未被推送新提交；`phase/0-baseline-audit` 的提交与远端一一对应。
 
 ---
 

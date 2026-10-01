@@ -251,22 +251,37 @@ Full detail in `docs/00-sentinelintel/03-Phase0-Baseline-Audit.md` §12. Summary
 6. `structure` really does run concurrently with `scores` (`editorial/analyze.ts:349-352`), as the
    Migration Spec claims.
 
-## Phase 1 Blockers
+## Phase 1 Start Blockers
 
-NO — for the Phase 1 scope itself (industry-pack verticalisation).
+NO.
 
-None of the observed failures touch `industry/`, the taxonomy, the prompts, the selection thresholds
-or the sources, and the Docker path (which Phase 1 will use for verification) is fully green.
+Nothing in this baseline blocks *starting* Phase 1 work (industry-pack verticalisation). None of the
+observed failures touch `industry/`, the taxonomy, the prompts, the selection thresholds or the
+sources, and the Docker path that Phase 1 will use for verification is fully green.
 
-Prerequisites that must be settled before Phase 1 can be accepted, none of which is a code blocker:
+## Phase 1 Acceptance Prerequisites
 
-1. No real LLM API key is available in this environment. Phase 1 acceptance requires a SelectBench
-   baseline and holdout results, which means paid model calls — an explicit cost/authorization
-   decision by the project owner.
-2. No security gold set exists (100–250 labelled cases required by the Migration Spec).
-3. Decision needed: whether to apply the one-line KI-1 fix (and the KI-2 fix) in a separate, clearly
-   scoped commit, so that a local Windows verification can become fully green. Until then, "all tests
-   pass" is not a statement that can be made on this machine.
+These do **not** block starting Phase 1 development, but each of them must be resolved before Phase 1
+can be accepted as complete.
+
+1. **The security gold dataset does not exist yet.** The Migration Spec's Phase 1 asks for at least
+   150–250 labelled cases with development/holdout splits. The repository currently has no gold
+   dataset at all (no `.data/`; only `industry/gold.example.jsonl` with two made-up cases). Building it
+   is Phase 1 work, but it is also a prerequisite for producing any acceptance metric.
+2. **SelectBench / holdout needs real model calls, which require explicit cost authorization from the
+   project owner.** `scripts/eval-selection.ts` runs the real scoring prompts through `runAnalysis` and
+   has no offline or fake mode, so a Phase 1 baseline or holdout evaluation incurs paid model calls. No
+   API key is available in the current environment and no budget has been authorized. Until the owner
+   authorizes it, no Phase 1 accuracy number can be produced, and none may be claimed.
+3. **KI-1 / KI-2 have not been decided.** Whether to fix the two code-level findings from this audit in
+   a separate, clearly scoped baseline-fix commit is still open:
+   - KI-1 — `apps/web/server.ts:38` passes a bare Windows path to dynamic `import()`, so the web
+     process cannot start on Windows and all 9 cases in `apps/web/tests/cache.test.ts` fail there.
+   - KI-2 — `scripts/mcp-check.ts:12-21` hardcodes `aihot_*` tool names while the server exposes
+     `myhot_*` (derived from `SITE.mcpPrefix`), so the script always fails.
+   Leaving them unfixed is a legitimate Phase 0 outcome (this Phase is audit-only), but the decision
+   must be recorded before Phase 1 acceptance: "all tests pass" cannot be claimed on Windows until
+   KI-1 is resolved.
 
 ## Next Action
 
