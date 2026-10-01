@@ -99,7 +99,10 @@ jobs:
           for i in $(seq 1 90); do curl -fsS -o /dev/null http://127.0.0.1:3000/api/health 2>/dev/null && break; sleep 2; done
           docker compose ps
           docker compose run --rm --no-deps --entrypoint node setup scripts/smoke.ts --base http://web:3000
-          docker compose exec -T db psql -U aihot -d aihot -Atc "select count(*) from sources" | grep -q '^18$'
+          # The seeded source count belongs to the industry pack, not to this workflow: read the
+          # expected number from industry/sources.json so changing the pack cannot break CI.
+          EXPECTED_SOURCES=$(node -e "process.stdout.write(String(require('./industry/sources.json').sources.length))")
+          docker compose exec -T db psql -U aihot -d aihot -Atc "select count(*) from sources" | grep -qx "$EXPECTED_SOURCES"
       - name: Logs
         if: failure()
         run: docker compose logs --tail 80

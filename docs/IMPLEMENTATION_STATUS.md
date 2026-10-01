@@ -258,8 +258,10 @@ projection preserves snapshot fields, pagination bindings and ordered changes". 
 attributable to the verticalization: the same file passes 13/13 in isolation on a fresh database, the
 assertions concern the global `selected_ledger` watermark rather than categories or tags, and every
 future-dated row in the database after a batch run belongs to `test-publication-*` itself. Root cause is
-narrowed to that file's internal order/clock coupling with `effectiveWatermark()`; it is left
-**unresolved and unmodified** (no assertion was weakened) and needs a separate investigation. The two
+narrowed to that file's internal order/clock coupling with `effectiveWatermark()`; no assertion was
+weakened. The canonical Linux CI run then passed **all 139 backend tests**, including these three, so
+they are **environment-specific (Windows)** rather than a code regression. The precise Windows trigger
+is still unexplained and is recorded as an open question rather than a fix. The two
 shutdown test files were excluded here because of the known Windows POSIX `SIGTERM` limitation (KI-3);
 their fixtures were still updated for the new taxonomy so they remain valid on Linux/CI.
 
@@ -268,7 +270,32 @@ npm run build -w @aihot/web             → pass, exit 0
 node --test apps/web/tests/*.test.ts    → tests 16 / pass 16 / fail 0 / cancelled 0
 ```
 
-Not run: the Docker smoke check for this branch, and the canonical Linux CI (needs the pull request).
+### Canonical Linux CI (pull request #3, draft)
+
+| job | result | what it covers |
+|---|---|---|
+| `Check / check` | **PASS**, 1m | install, typecheck, web build, 16 web tests, 35 migrations, seed, smoke of the built site, `npm test` (all 139 backend tests) |
+| `Check / docker` | **FAIL**, 53s | docker compose build + up + smoke + seeded source count |
+
+`check` passing settles three earlier questions in favour of the verticalization: the 5 shutdown tests
+that cannot pass on Windows (KI-3) pass on Linux, the 3 `translate.test.ts` failures were the
+Windows cascade described above, and the 3 `publication.test.ts` failures are Windows-specific rather
+than a regression.
+
+The `docker` failure was **not** caused by the industry pack failing to build or seed. Reproduced
+locally, step by step: `docker compose up -d --build` exited 0 (64.3 s), `setup` exited 0 after migrate +
+seed, `/api/health` returned 200, and `scripts/smoke.ts --base http://web:3000` exited **0**. The only
+failing step was the last line of the `Smoke check` block, which hardcoded the AIHOT demo source count:
+`... select count(*) from sources | grep -q '^18$'` against the pack's actual **10** sources.
+
+That assertion is CI configuration encoding demo data, so the workflow was corrected under explicit
+owner authorization to read the expected number from the pack instead (`.github/workflows/check.yml`,
+one line replaced by three): `EXPECTED_SOURCES=$(node -e "process.stdout.write(String(require('./industry/sources.json').sources.length))")`
+followed by `grep -qx "$EXPECTED_SOURCES"`. Verified locally: the dynamic read returns 10 and matches
+the database count. This is the only file outside `industry/`, `tests/`, `docs/` and `datasets/` that
+Phase 1 touched.
+
+Not run: `docker compose --profile https` (needs a real domain and certificate).
 
 ## Completed
 
@@ -529,9 +556,11 @@ can be accepted as complete.
 Phase 0 is accepted and frozen at tag `sentinelintel-phase0` (`1deb090`). The Post-Phase-0 Baseline
 Portability Fix is accepted and merged into `main` at `2938249`.
 
-Phase 1 — Security Verticalization is **IN_PROGRESS** on `phase/1-security-verticalization`.
+Phase 1 — Security Verticalization is **IN_PROGRESS** on `phase/1-security-verticalization`, open as
+**draft pull request #3** (`check` PASS; `docker` fixed and awaiting its re-run). It must not be merged.
 
 The next action is human review of the Phase 1 implementation checkpoint, then the project owner's
 human gold-labelling pass, then the SelectBench baseline and holdout runs — which additionally require
 the owner's explicit cost authorization for real model calls. Phase 1 cannot be marked accepted until
-those exist.
+those exist. Two coverage gaps also need an owner decision before acceptance: there is no usable
+procurement source, and no physical-security vendor publishes a feed the current adapters can read.
