@@ -97,14 +97,61 @@ Cisco PSIRT、Fortinet PSIRT、Microsoft MSRC、Zero Day Initiative、FreeBuf。
 差距越大。是否为了评测保真度而违反“不提交长正文”的原则，**需要 owner 决定**；默认按版权优先，
 只放短 excerpt，并在报告里注明这一偏差。
 
-## 4. 待 owner 执行的动作
+## 4. 候选样本已就绪：`candidates.jsonl`（150 条）
 
-1. 按第 3 节从真实信源抽取候选样本（可参考 `gold.template.jsonl` 的字段结构）。
-2. 逐条人工判定 `select` / `reject` / `either`，填写 `samplingContext.benchmarkSplit` 与 `samplingStratum`。
-3. 把标好的记录放到 `datasets/selection/`（development / holdout 分开）。
+Agent 已经完成它这一半——**候选抽取与结构化**。`candidates.jsonl` 用仓库真实的 RSS 读取器
+（`packages/backend/src/sources/rss.ts` 的 `fetchRss`）从 10 个已实测信源抓取，因此内容与线上真正
+会入库的一致，不是另写解析器的产物。
+
+采样规则（确定性，可复现）：
+
+- 每个信源设上限，避免 MSRC（4616 条 CVE）淹没作业表；
+- 按 stratum 配额取样，并在列表上按步长均匀抽取，而不是只取开头几条；
+- split 按 `i % 4 === 3` 划分，因此 development / holdout 都覆盖到每个 stratum；
+- **`gold.decision` 一律写 `"either"`（不计入准确率），并带 `"$label": "TODO"` 标记**，
+  所以这份文件在任何情况下都不会被误当成已标注的 gold。
+
+实际分布：
+
+```text
+vulnerability/development      42
+vulnerability/holdout          13
+vendor-advisory/development    42
+vendor-advisory/holdout        13
+policy/development             23
+policy/holdout                  7
+generic-cybersecurity/dev       8
+generic-cybersecurity/holdout   2
+total                         150
+```
+
+### 采样暴露出的 stratum 缺口（重要）
+
+以下三个 spec 要求的 stratum **在当前 10 个信源里候选数为 0**：
+
+| stratum | 为 0 的原因 |
+|---|---|
+| `procurement` | 没有任何招投标信源可用（ccgp 等只有 HTML，无 feed） |
+| `marketing-noise` | 现有信源全是一手政府／厂商／CERT feed，不产生营销稿 |
+| `irrelevant-it` | 同上，一手源不会出现无关的通用 IT 新闻 |
+
+这不是采样参数问题，而是**信源覆盖面问题**：要覆盖这三个 stratum，必须先补信源（媒体/聚合源用于
+噪声类，招投标平台用于 procurement），也就是需要 owner 对 `web_list` 选择器方案拍板。
+在此之前，gold 数据集只能覆盖 4 个 stratum，这一点必须写进验收结论，不能假装完整。
+
+## 5. 待 owner 执行的动作（只剩判断本身）
+
+1. 打开 `datasets/selection/candidates.jsonl`，逐行看 `material.title` 与 `material.bodyOriginal`／`bodyZh`
+   （各约 240 字摘要）。
+2. 把 `"gold":{"decision":"either"}` 里的 `either` 改成 **`select`**（值得看）或 **`reject`**（噪声）。
+   拿不准就用 `either`（不计入准确率）。
+3. 填完后删掉每行的 `"$label":"TODO"`。
 4. 在取得成本授权后运行 SelectBench baseline 与 holdout（当前 `MODEL_CALLS_ENABLED=false`，
    且未获授权，见 `docs/IMPLEMENTATION_STATUS.md`）。
 5. 把结果写回 `docs/IMPLEMENTATION_STATUS.md`；在此之前 Phase 1 不能标记为 accepted。
+
+数量取舍：spec 建议 150–250 条。当前 150 条已可作为第一批 baseline；是否先跑 150 条、
+再按错例补到 250 条，由 owner 决定。`split` 与 `stratum` 已填好，不需要你维护。
 
 ## 5. Agent 不做什么
 
