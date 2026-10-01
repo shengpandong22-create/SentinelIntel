@@ -145,6 +145,131 @@ project owner has not authorized paid model calls, so the Selection baseline and
 `NOT RUN — COST AUTHORIZATION REQUIRED`. Until those are done the status here cannot become
 `ACCEPTED`.
 
+### Phase 1 delivery — `PHASE 1 IMPLEMENTATION CHECKPOINT REACHED`
+
+**Branding (`industry/site.ts`).** `name: SentinelIntel`, `subject: 安防`, `mcpPrefix: sentinelintel`,
+`crawlerName: SentinelIntelBot`, `organization.name: SentinelIntel`, homepage/about copy rewritten.
+`footerNote` deliberately kept as the AIHOT upstream attribution. `mcpPrefix` has no length/regex
+validator in the repo (only the comment's "lowercase letters, digits, underscores"); `sentinelintel`
+satisfies it.
+
+**Feature flags (`industry/features.ts`).** `leaderboard: false`, `codexResetMonitor: false`. Their
+implementations were not deleted.
+
+**Categories (7).** Owner MVP core: `vulnerability`, `vendor`, `policy-standard`, `procurement`.
+Kept for production-code compatibility, each with a written reason:
+`tip` and `opinion` — `apps/api/src/routes/v1.ts:65` passes the literal `"tip"` where the parameter
+type is `PublicApiCategoryKey` (= `CategoryKey`, derived from `CATEGORIES`), so removing it is a
+compile error; `packages/backend/src/publication/items.ts:98` also maps v1/RSS `tip` to
+`IN ('tip','opinion')`. `industry` — `packages/backend/src/reports/compose.ts:20` takes
+`DEFAULT_SECTION = SECTION_OF.industry`, so keeping it makes unclassified items land in the explicit
+"其他安全动态" section instead of the last section. `incident` / `technology` were not added
+(owner: not required for Phase 1 core).
+
+**Item types (9).** `vulnerability_disclosure`, `vendor_advisory`, `vendor_response`, `policy_standard`,
+`procurement_notice`, `procurement_award`, `incident_report`, `practical_guidance`, `analysis_opinion`.
+These are consumed by `z.enum(ITEM_TYPES)` in `editorial/analyze.ts:131` **without** `.catch()`, so
+`prompts/content-understanding.md` lists exactly the same nine values.
+
+**Taxonomy.** `CATEGORY_TAGS` (11), `TOPIC_TAGS` (16), `ENTITY_TAGS` (14), `TAG_SYNONYMS` (63),
+`CATEGORY_BY_ITEM_TYPE` (9), `ENTITIES` (17), `IDENTITY_LEXICON` (17),
+`PUBLISHER_DOMAINS` (17), `IDENTITY_CONTEXT_ALIASES` (3). Entities are limited to subjects the Phase 1
+sources will actually produce: 7 network/security vendors that appear in the advisory feeds, 6 physical
+security vendors, and 4 government/CERT bodies that are themselves sources.
+
+**Topics (19).** 8 company (entity-backed) + 5 field + 6 genre, down from the AI pack's ~30. Every
+`related` slug resolves; every non-entity topic's tags are members of the taxonomy vocabulary.
+
+**Sources (10, all actually verified on 2026-10-01).** Each entry in `industry/sources.json` carries a
+`$note` with the HTTP status, format and item count. T1=8, T1_5=1, T2=1:
+
+| source | URL | tier | verified |
+|---|---|---|---|
+| CISA Cybersecurity Advisories | cisa.gov/cybersecurity-advisories/all.xml | T1 | 200, RSS, 30 items |
+| CISA News | cisa.gov/news.xml | T1 | 200, RSS, 10 |
+| CERT-EU Security Advisories | cert.europa.eu/publications/security-advisories-rss | T1 | 200, RSS, 10 |
+| UK NCSC Reports | ncsc.gov.uk/api/1/services/v1/report-rss-feed.xml | T1 | 200, RSS, 20 |
+| JPCERT/CC Alerts | jpcert.or.jp/rss/jpcert.rdf | T1 | 200, RDF, 36 (rss.ts has an `rdf:RDF` branch) |
+| Cisco Security Advisories | sec.cloudapps.cisco.com/.../CiscoSecurityAdvisory.xml | T1 | 200, RSS, 50 |
+| Fortinet PSIRT | fortiguard.com/rss/ir.xml | T1 | 200, RSS, 50 |
+| Microsoft MSRC Update Guide | api.msrc.microsoft.com/update-guide/rss | T1 | 200, RSS, 4616 (capped by initialBackfillLimit) |
+| Zero Day Initiative | zerodayinitiative.com/rss/published/ | T1_5 | 200, RSS, 200 |
+| FreeBuf 安全资讯 | freebuf.com/feed | T2 | 200, RSS, 20 |
+
+**Source gaps (recorded, not worked around).** `BLOCKED` / not usable, with the observed status:
+Palo Alto `security.paloaltonetworks.com/rss` (404), BleepingComputer (403), HelpNetSecurity (202
+challenge), SecurityWeek (403), TheHackerNews (fetch failed), CNVD (521 JS challenge), MSRC blog feed
+(HTML), IPA alert feed (404), ENISA (404), Axis/Dahua/Hanwha advisory pages (404 or HTML only),
+ccgp.gov.cn (HTML only). **No procurement source exists at all** with the current adapters, and no
+physical-security vendor PSIRT publishes a usable feed; both are real Phase 1 coverage gaps for the
+`procurement` category and the 安防 vendor tier.
+`CAPABILITY_GAP` (deliberately not built in Phase 1, per Migration Spec §8.6): CISA KEV JSON
+(200, 1.76 MB single-object API), NVD CVE API 2.0 (200, paginated, rate-limited without a key), and
+`std.samr.gov.cn` 国标查询 (200 JSON, POST-oriented). Wiring these needs `json_list` config work that
+was not attempted, so they are not in the MVP seed.
+
+**Prompts (16 modified of 27).** Rewritten for the domain: `prefilter.md`, `selection-score.md`,
+`content-understanding.md`, `structure.md`, `rules-domain.md`, `group-definitions.md`,
+`group-method.md`, `group-batch.md`, `group-pair.md`, `group-signal.md`, `story-digest.md`,
+`report-daily-lead.md`, `report-period.md`, `identity-context.md`, `summarize-article.md`,
+`summarize-long-post.md`, `rules-self-contained-title.md`, `translate-body.md`, `translate-post.md`.
+The grouping definitions explicitly cover the eight hard cases (disclosure vs. vendor confirmation /
+patch / PoC, one CVE across vendors, one vendor's different CVEs, one model's different
+vulnerabilities, tender vs. award, draft vs. final standard). `selection-score.md` has a new 9-row
+integer weight table (each row sums to 10, preserving the existing five-axis arithmetic and the
+single-field output contract) and states that vendor fame, length, jargon density, the presence of a
+CVE number or the words 高危/严重 must never by themselves make an item high-value.
+`rules-domain.md` now requires CVE / model / firmware / fixed version / amount / CVSS level to be kept
+verbatim, and forbids adding severities the source does not state.
+Untouched: `safety.md`, `understand.md`, `rules-anti-hallucination.md`, `rules-answer-first-summary.md`,
+`summarize-short-post.md`, `summarize-article-empty.md`, `summarize-long-post-quoted.md`,
+`summarize-short-post-quoted.md` (generic, no domain vocabulary).
+
+**Selection thresholds: UNCHANGED.** `T1 60 / T1_5 65 / T2 76`, `understandFloor 50`. `selection.ts`
+now carries an explicit `UNVALIDATED FOR SECURITY DOMAIN` note. No threshold was changed and no
+accuracy/precision/recall/F1 claim is made anywhere.
+
+**Security gold dataset: `LABELING_REQUIRED`.** See `datasets/selection/README.md` (protocol, real
+evaluator contract, required strata, copyright limits) and `datasets/selection/gold.template.jsonl`
+(template rows only, `gold.decision` = `either`, `$template` marker). Count: 0 labelled cases,
+0 development, 0 holdout. No label was generated by the agent.
+
+**Evaluation: `NOT RUN`.** `scripts/eval-selection.ts` was not executed: no gold set exists, no model
+key is available, and no cost authorization has been given. `MODEL_CALLS_ENABLED` stayed `false`.
+Selection baseline: `NOT RUN — COST AUTHORIZATION REQUIRED`. Holdout: `NOT RUN`.
+
+### Phase 1 verified results (Windows, actual output)
+
+```text
+node .data/validate-industry.mjs        → sources 10 / topics 19 / categories 7 / item types 9;
+                                          all industry-pack checks passed;
+                                          27 prompt files scanned, prompt ↔ taxonomy consistency
+                                          passed, no AI-industry leftovers
+npm run typecheck                       → pass, exit 0
+node scripts/migrate.ts   (fresh DB)    → 35 migration(s) applied
+node scripts/seed.ts --topics-only      → topics: 19
+node --test tests/*.test.ts (minus the 2 shutdown files)
+                                        → tests 133 / pass 130 / fail 3 / cancelled 0, 45.9 s
+```
+
+The 3 failures are all in `tests/publication.test.ts`: "an early release keeps the selected ledger in
+order", "a withdrawal waiting behind an unreleased item leaves new snapshots at once", "minimal sync
+projection preserves snapshot fields, pagination bindings and ordered changes". They are **not**
+attributable to the verticalization: the same file passes 13/13 in isolation on a fresh database, the
+assertions concern the global `selected_ledger` watermark rather than categories or tags, and every
+future-dated row in the database after a batch run belongs to `test-publication-*` itself. Root cause is
+narrowed to that file's internal order/clock coupling with `effectiveWatermark()`; it is left
+**unresolved and unmodified** (no assertion was weakened) and needs a separate investigation. The two
+shutdown test files were excluded here because of the known Windows POSIX `SIGTERM` limitation (KI-3);
+their fixtures were still updated for the new taxonomy so they remain valid on Linux/CI.
+
+```text
+npm run build -w @aihot/web             → pass, exit 0
+node --test apps/web/tests/*.test.ts    → tests 16 / pass 16 / fail 0 / cancelled 0
+```
+
+Not run: the Docker smoke check for this branch, and the canonical Linux CI (needs the pull request).
+
 ## Completed
 
 - Read `AGENTS.md`, Technical Design, Migration Spec, AIHOT `docs/architecture.md` and
