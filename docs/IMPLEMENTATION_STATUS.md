@@ -18,7 +18,7 @@ SentinelIntel design baseline commit:
 
 Working branch:
 
-fix/baseline-portability
+phase/1-security-verticalization
 
 Accepted Phase 0 tag:
 
@@ -43,17 +43,21 @@ were left unfixed because Phase 0 is read-only for business code.
 
 Full Phase 0 record (frozen, do not edit): `docs/00-sentinelintel/03-Phase0-Baseline-Audit.md`
 
-## Current Work
-
-Phase: Post-Phase-0 Baseline Portability Fix (this is **not** Phase 1)
+## Post-Phase-0 Baseline Portability Fix
 
 Branch: `fix/baseline-portability`
 
-Status: COMPLETED — awaiting human acceptance
+Status: ACCEPTED and MERGED into `main` at `2938249` (pull request #2).
 
-Scope: exactly the two code-level findings from the Phase 0 audit, KI-1 and KI-2. No Phase 1 work has
-started: no security taxonomy, sources, prompts, selection thresholds, features, branding, datasets,
-migrations or Python runtime were touched.
+Canonical Linux CI on that pull request: `check` PASS, `docker` PASS.
+
+Resolved:
+
+- **KI-1 — RESOLVED.** Windows SSR dynamic `import()` portability (`apps/web/server.ts`).
+- **KI-2 — RESOLVED.** `scripts/mcp-check.ts` hardcoded the MCP tool-name prefix.
+
+Scope was exactly those two findings. No Phase 1 work was included, and no production behaviour was
+changed beyond the two fixes.
 
 ### KI-1 — FIXED
 
@@ -118,8 +122,28 @@ expected business/validation outcomes on an empty database; the point of the che
 resolve, which they now do.
 
 Deliberately not modified: `tests/analyze-shutdown.test.ts` and `tests/translate-shutdown.test.ts`
-(the Windows POSIX `SIGTERM` limitation, out of scope here). The canonical Linux regression is expected
-from GitHub Actions on this branch's pull request.
+(the Windows POSIX `SIGTERM` limitation, out of scope here).
+
+## Current Phase
+
+Phase: **Phase 1 — Security Verticalization**
+
+Branch: `phase/1-security-verticalization`
+
+Base: `main` = `2938249`
+
+Status: **IN_PROGRESS**
+
+This Phase verticalizes the industry pack (`industry/`) from the AI demo domain to the security
+domain, and prepares the security selection gold dataset. It does not implement any Agent, runtime,
+retrieval or event-grouping change: Phase 2 (security event grouping benchmark) and Phase 3 (Python
+Agent Runtime) have not started.
+
+Phase 1 acceptance additionally requires at least 150–250 human-labelled gold cases with
+development/holdout splits and a SelectBench baseline + holdout run. Neither exists yet, and the
+project owner has not authorized paid model calls, so the Selection baseline and holdout are
+`NOT RUN — COST AUTHORIZATION REQUIRED`. Until those are done the status here cannot become
+`ACCEPTED`.
 
 ## Completed
 
@@ -171,7 +195,7 @@ Environment constraints encountered:
 ## Tests
 
 These are the Phase 0 audit-time results, kept as the frozen evidence for that Phase. The post-fix
-results for KI-1 / KI-2 are in `## Current Work` above.
+results for KI-1 / KI-2 are in `## Post-Phase-0 Baseline Portability Fix` above.
 
 Backend, `npm test` against a freshly migrated `aihot_ci` database:
 
@@ -271,7 +295,7 @@ domain and certificate).
 ## Known Issues
 
 **KI-1 (CODE_FAILURE, Windows only) — `apps/web/server.ts:38` could not load the SSR build.
-FIXED in the Post-Phase-0 Baseline Portability Fix (see `## Current Work`).**
+FIXED in the Post-Phase-0 Baseline Portability Fix (see `## Post-Phase-0 Baseline Portability Fix`).**
 
 ```text
 node apps/web/server.ts
@@ -297,7 +321,7 @@ const build = await import(pathToFileURL(path.resolve(import.meta.dirname, "buil
 ```
 
 **KI-2 (CODE_FAILURE) — `scripts/mcp-check.ts` hardcoded tool names that do not exist.
-FIXED in the Post-Phase-0 Baseline Portability Fix (see `## Current Work`).**
+FIXED in the Post-Phase-0 Baseline Portability Fix (see `## Post-Phase-0 Baseline Portability Fix`).**
 
 ```text
 node scripts/mcp-check.ts http://127.0.0.1:3001/api/mcp
@@ -368,21 +392,21 @@ can be accepted as complete.
    has no offline or fake mode, so a Phase 1 baseline or holdout evaluation incurs paid model calls. No
    API key is available in the current environment and no budget has been authorized. Until the owner
    authorizes it, no Phase 1 accuracy number can be produced, and none may be claimed.
-3. **KI-1 / KI-2 — RESOLVED, pending acceptance of the fix branch.** Both were fixed in the
-   Post-Phase-0 Baseline Portability Fix on `fix/baseline-portability` (see `## Current Work`). With
-   KI-1 fixed the Windows web suite is 16 of 16, so the earlier caveat that "all tests pass cannot be
+3. **KI-1 / KI-2 — RESOLVED and merged.** Both were fixed in the Post-Phase-0 Baseline Portability Fix
+   and merged into `main` at `2938249` (see `## Post-Phase-0 Baseline Portability Fix`). With KI-1
+   fixed the Windows web suite is 16 of 16, so the earlier caveat that "all tests pass cannot be
    claimed on Windows" no longer applies to the web tests. It still applies to the 5 shutdown tests
-   blocked by the Windows POSIX `SIGTERM` limitation (KI-3), which is out of scope for this fix and is
+   blocked by the Windows POSIX `SIGTERM` limitation (KI-3), which is out of scope for that fix and is
    covered by the canonical Linux run instead.
 
 ## Next Action
 
-Phase 0 is accepted and frozen at tag `sentinelintel-phase0` (`1deb090`).
+Phase 0 is accepted and frozen at tag `sentinelintel-phase0` (`1deb090`). The Post-Phase-0 Baseline
+Portability Fix is accepted and merged into `main` at `2938249`.
 
-The immediate next action is human acceptance of the Post-Phase-0 Baseline Portability Fix on
-`fix/baseline-portability`, together with the canonical Linux regression produced by GitHub Actions on
-that branch's pull request.
+Phase 1 — Security Verticalization is **IN_PROGRESS** on `phase/1-security-verticalization`.
 
-**Phase 1 — Security Verticalization has NOT started and is not authorized by this document.** Before
-Phase 1 can be accepted, the `## Phase 1 Acceptance Prerequisites` above must be resolved — in
-particular the cost authorization for real model calls and the security gold dataset.
+The next action is human review of the Phase 1 implementation checkpoint, then the project owner's
+human gold-labelling pass, then the SelectBench baseline and holdout runs — which additionally require
+the owner's explicit cost authorization for real model calls. Phase 1 cannot be marked accepted until
+those exist.
