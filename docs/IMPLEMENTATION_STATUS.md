@@ -18,21 +18,108 @@ SentinelIntel design baseline commit:
 
 Working branch:
 
-phase/0-baseline-audit
+fix/baseline-portability
 
-## Current Phase
+Accepted Phase 0 tag:
 
-Phase 0 — Baseline Audit & Freeze
+sentinelintel-phase0 → `1deb090`
 
-Status:
+## Phase 0
 
-COMPLETED_WITH_LIMITATIONS
+Phase: Phase 0 — Baseline Audit & Freeze
 
-Reason: the baseline is established and frozen with reproducible evidence, but the harness is not
-fully green in this environment. 8 of 139 backend tests and 9 of 16 web tests fail, with root causes
-identified and reproduced but deliberately not fixed (Phase 0 is read-only for business code).
+Status: ACCEPTED by the project owner.
 
-Full record: `docs/00-sentinelintel/03-Phase0-Baseline-Audit.md`
+Accepted state, frozen:
+
+- tag `sentinelintel-phase0` → `1deb090`
+- `main` = `origin/main` = `1deb090` (squash merge of the Phase 0 pull request; its tree is identical
+  to the audited branch tip `2b75e36`, so no Phase 0 content was lost)
+
+Phase 0 was delivered as `COMPLETED_WITH_LIMITATIONS`: the baseline was established and frozen with
+reproducible evidence, but the harness was not fully green in the audit environment — 8 of 139 backend
+tests and 9 of 16 web tests failed, all root-caused to the Windows platform and to KI-1. KI-1 and KI-2
+were left unfixed because Phase 0 is read-only for business code.
+
+Full Phase 0 record (frozen, do not edit): `docs/00-sentinelintel/03-Phase0-Baseline-Audit.md`
+
+## Current Work
+
+Phase: Post-Phase-0 Baseline Portability Fix (this is **not** Phase 1)
+
+Branch: `fix/baseline-portability`
+
+Status: COMPLETED — awaiting human acceptance
+
+Scope: exactly the two code-level findings from the Phase 0 audit, KI-1 and KI-2. No Phase 1 work has
+started: no security taxonomy, sources, prompts, selection thresholds, features, branding, datasets,
+migrations or Python runtime were touched.
+
+### KI-1 — FIXED
+
+`apps/web/server.ts` passed a bare filesystem path — `D:\...` on Windows — to dynamic `import()`,
+raising `ERR_UNSUPPORTED_ESM_URL_SCHEME`. The web process could not start on Windows, and all 9 cases
+in `apps/web/tests/cache.test.ts` failed there.
+
+Applied change (`apps/web/server.ts`, 1 added import + 1 changed line):
+
+```ts
+import { pathToFileURL } from "node:url";
+const build = await import(pathToFileURL(path.resolve(import.meta.dirname, "build/server/index.js")).href);
+```
+
+No SSR logic, proxy, cache, routing or other web behaviour was modified.
+
+### KI-2 — FIXED
+
+`scripts/mcp-check.ts` hardcoded `aihot_*` tool names while the server derives them from
+`SITE.mcpPrefix`, so every call ended in `ProtocolError: Tool aihot_get_hot_topics not found`.
+
+Applied change (`scripts/mcp-check.ts`, 1 added import + 7 call sites): every tool name now comes from
+the single canonical source `MCP_TOOL_NAMES` in `@aihot/contracts/mcp`. `SITE.mcpPrefix` itself, the MCP
+server API, the MCP contracts' semantics and the tool count were not changed, and no business behaviour
+was altered.
+
+### Post-fix test results (Windows, actual output)
+
+```text
+npm run typecheck                     → pass, exit 0
+npm run build -w @aihot/web           → pass, exit 0 (build/server/index.js 729.18 kB)
+node --test apps/web/tests/*.test.ts  → tests 16 / suites 0 / pass 16 / fail 0 / cancelled 0, exit 0 (3.4 s)
+```
+
+Windows web tests were 7 of 16 passing before this fix; they are now 16 of 16. Note that
+`scripts/` is not covered by any tsconfig project (`tests/tsconfig.json` includes only `tests/*.ts`),
+so `npm run typecheck` cannot validate KI-2; that fix is verified by running the script itself, below.
+
+End-to-end safe smoke on Windows with both safety valves closed (`COLLECT_ENABLED=false`,
+`MODEL_CALLS_ENABLED=false`), api on `:3001` against a throwaway PostgreSQL 17, web on `:3100`:
+
+```text
+GET  :3001/api/health                    → 200 {"ok":true,"db":"ok","ms":2,"release":"dev"}
+node apps/web/server.ts                  → {"level":"info","msg":"web started","port":3100,"pid":37644}
+                                           ERR_UNSUPPORTED_ESM_URL_SCHEME occurrences: 0
+GET  :3100/                              → 200 (29084 bytes of SSR HTML)
+GET  :3100/api/health                    → 200 (the api proxy path is unaffected)
+node scripts/mcp-check.ts :3001/api/mcp  → exit 0
+    server: {"name":"myhot","version":"2.0.0"}
+    tools:  myhot_get_latest, myhot_search, myhot_get_hot_topics, myhot_get_story, myhot_get_daily
+    myhot_get_latest {"limit":2}         → ok
+    myhot_search {"q":"OpenAI","limit":2}→ ok
+    myhot_get_hot_topics {"limit":3}     → ok
+    myhot_get_daily {}                   → ERROR | 还没有公开的AI 日报。   (business-level empty state)
+    myhot_get_latest {"limit":99}        → ERROR | limit: Too big: expected number to be <=30
+                                           (the script's intentional over-limit probe; a validation
+                                            error, not a tool-name resolution failure)
+```
+
+Tool-name resolution now matches the current `SITE.mcpPrefix` (`myhot`). The two `ERROR` lines are
+expected business/validation outcomes on an empty database; the point of the check is that the names
+resolve, which they now do.
+
+Deliberately not modified: `tests/analyze-shutdown.test.ts` and `tests/translate-shutdown.test.ts`
+(the Windows POSIX `SIGTERM` limitation, out of scope here). The canonical Linux regression is expected
+from GitHub Actions on this branch's pull request.
 
 ## Completed
 
@@ -82,6 +169,9 @@ Environment constraints encountered:
 - Safety valves were kept closed throughout: `COLLECT_ENABLED=false`, `MODEL_CALLS_ENABLED=false`.
 
 ## Tests
+
+These are the Phase 0 audit-time results, kept as the frozen evidence for that Phase. The post-fix
+results for KI-1 / KI-2 are in `## Current Work` above.
 
 Backend, `npm test` against a freshly migrated `aihot_ci` database:
 
@@ -180,7 +270,8 @@ domain and certificate).
 
 ## Known Issues
 
-**KI-1 (CODE_FAILURE, Windows only) — `apps/web/server.ts:38` cannot load the SSR build.**
+**KI-1 (CODE_FAILURE, Windows only) — `apps/web/server.ts:38` could not load the SSR build.
+FIXED in the Post-Phase-0 Baseline Portability Fix (see `## Current Work`).**
 
 ```text
 node apps/web/server.ts
@@ -196,14 +287,17 @@ is a legal specifier, so CI never sees this. Effects: the web process cannot run
 so the native smoke check is impossible, and all 9 tests in `apps/web/tests/cache.test.ts` fail
 (that file spawns the production server).
 
-Not fixed in Phase 0 (read-only rule; the baseline runs via Docker). Proposed minimal change:
+Not fixed in Phase 0 (read-only rule; the baseline runs via Docker). **Applied** in the Post-Phase-0
+Baseline Portability Fix — the change below is exactly what now sits in `apps/web/server.ts`, and the
+Windows web suite is 16 of 16:
 
 ```ts
 import { pathToFileURL } from "node:url";
 const build = await import(pathToFileURL(path.resolve(import.meta.dirname, "build/server/index.js")).href);
 ```
 
-**KI-2 (CODE_FAILURE) — `scripts/mcp-check.ts` hardcodes tool names that do not exist.**
+**KI-2 (CODE_FAILURE) — `scripts/mcp-check.ts` hardcoded tool names that do not exist.
+FIXED in the Post-Phase-0 Baseline Portability Fix (see `## Current Work`).**
 
 ```text
 node scripts/mcp-check.ts http://127.0.0.1:3001/api/mcp
@@ -213,8 +307,9 @@ node scripts/mcp-check.ts http://127.0.0.1:3001/api/mcp
 ```
 
 `packages/contracts/src/mcp.ts` builds tool names from `SITE.mcpPrefix` (`myhot` in
-`industry/site.ts:27`), but the script hardcodes `aihot_*` at `scripts/mcp-check.ts:12-21`. Not fixed
-in Phase 0. Proposed minimal change: import `MCP_TOOL_NAMES` from `@aihot/contracts/mcp` instead.
+`industry/site.ts:27`), but the script hardcoded `aihot_*` at `scripts/mcp-check.ts:12-21`. Not fixed
+in Phase 0. **Applied** in the Post-Phase-0 Baseline Portability Fix: the script now imports
+`MCP_TOOL_NAMES` from `@aihot/contracts/mcp` as its only tool-name source.
 
 **KI-3 (ENVIRONMENT_BLOCKED) — POSIX signals.** 5 shutdown tests cannot pass on Windows
 (see Tests). Unaffected on Linux/CI.
@@ -273,23 +368,21 @@ can be accepted as complete.
    has no offline or fake mode, so a Phase 1 baseline or holdout evaluation incurs paid model calls. No
    API key is available in the current environment and no budget has been authorized. Until the owner
    authorizes it, no Phase 1 accuracy number can be produced, and none may be claimed.
-3. **KI-1 / KI-2 have not been decided.** Whether to fix the two code-level findings from this audit in
-   a separate, clearly scoped baseline-fix commit is still open:
-   - KI-1 — `apps/web/server.ts:38` passes a bare Windows path to dynamic `import()`, so the web
-     process cannot start on Windows and all 9 cases in `apps/web/tests/cache.test.ts` fail there.
-   - KI-2 — `scripts/mcp-check.ts:12-21` hardcodes `aihot_*` tool names while the server exposes
-     `myhot_*` (derived from `SITE.mcpPrefix`), so the script always fails.
-   Leaving them unfixed is a legitimate Phase 0 outcome (this Phase is audit-only), but the decision
-   must be recorded before Phase 1 acceptance: "all tests pass" cannot be claimed on Windows until
-   KI-1 is resolved.
+3. **KI-1 / KI-2 — RESOLVED, pending acceptance of the fix branch.** Both were fixed in the
+   Post-Phase-0 Baseline Portability Fix on `fix/baseline-portability` (see `## Current Work`). With
+   KI-1 fixed the Windows web suite is 16 of 16, so the earlier caveat that "all tests pass cannot be
+   claimed on Windows" no longer applies to the web tests. It still applies to the 5 shutdown tests
+   blocked by the Windows POSIX `SIGTERM` limitation (KI-3), which is out of scope for this fix and is
+   covered by the canonical Linux run instead.
 
 ## Next Action
 
-Proceed to Phase 1 — Security Verticalization is **not** authorized yet by this document alone.
+Phase 0 is accepted and frozen at tag `sentinelintel-phase0` (`1deb090`).
 
-Phase 0 is COMPLETED_WITH_LIMITATIONS and must be accepted by the project owner first. The immediate
-next action is human review of `docs/00-sentinelintel/03-Phase0-Baseline-Audit.md` and of the two
-code-level findings (KI-1, KI-2), plus a decision on the cost/authorization boundary for Phase 1
-evaluation.
+The immediate next action is human acceptance of the Post-Phase-0 Baseline Portability Fix on
+`fix/baseline-portability`, together with the canonical Linux regression produced by GitHub Actions on
+that branch's pull request.
 
-Do not start Phase 1 until that review is done and Phase 0 has been explicitly accepted.
+**Phase 1 — Security Verticalization has NOT started and is not authorized by this document.** Before
+Phase 1 can be accepted, the `## Phase 1 Acceptance Prerequisites` above must be resolved — in
+particular the cost authorization for real model calls and the security gold dataset.
