@@ -132,20 +132,95 @@ Branch: `phase/1-security-verticalization`
 
 Base: `main` = `2938249`
 
-Status: **IN_PROGRESS**
+Status: **COMPLETED_WITH_LIMITATIONS — EVAL COMPLETE**
 
-This Phase verticalizes the industry pack (`industry/`) from the AI demo domain to the security
-domain, and prepares the security selection gold dataset. It does not implement any Agent, runtime,
-retrieval or event-grouping change: Phase 2 (security event grouping benchmark) and Phase 3 (Python
-Agent Runtime) have not started.
+The phase is implementation-complete, development-calibration-complete, tier-calibration-complete, and
+the final holdout has been executed. It is **not** `ACCEPTED`: final acceptance and the merge decision
+are made by the project owner after review.
 
-Phase 1 acceptance additionally requires at least 150–250 human-labelled gold cases with
-development/holdout splits and a SelectBench baseline + holdout run. Neither exists yet, and the
-project owner has not authorized paid model calls, so the Selection baseline and holdout are
-`NOT RUN — COST AUTHORIZATION REQUIRED`. Until those are done the status here cannot become
-`ACCEPTED`.
+It does not implement any Agent, runtime, retrieval or event-grouping change: Phase 2 (security event
+grouping benchmark) and Phase 3 (Python Agent Runtime) have not started.
 
-### Phase 1 delivery — `PHASE 1 IMPLEMENTATION CHECKPOINT REACHED`
+This Phase verticalizes the industry pack (`industry/`) from the AI demo domain to the security domain,
+and produced the security selection benchmark and its evaluation. Full evaluation record:
+`docs/evaluation/selection.md`.
+
+### Phase 1 evaluation — final
+
+| run | split | n | decisive | either | TP | FP | FN | TN | accuracy | precision | recall | F1 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| development baseline (60/65/76) | development | 155 | 147 | 8 | 29 | 1 | 55 | 62 | 0.619 | 0.967 | 0.345 | 0.509 |
+| calibrated development (32/55/60) | development | 155 | 147 | 8 | 67 | 1 | 17 | 62 | 0.878 | 0.985 | 0.798 | 0.882 |
+| tier calibration (32/55/60) | calibration | 24 | 24 | 0 | 11 | 1 | 1 | 11 | 0.917 | 0.917 | 0.917 | 0.917 |
+| **final holdout (32/55/60)** | holdout | 45 | 43 | 2 | 21 | 0 | 5 | 17 | 0.884 | 1.000 | 0.808 | 0.894 |
+
+Frozen thresholds: `T1 = 32 / T1_5 = 55 / T2 = 60`, `understandFloor = 50`. `errors = 0` in all four
+runs. The calibration changed **thresholds only** — `selection-score.md` and `prefilter.md` were not
+changed, and the holdout was not used for tuning before the final run. Errors, run IDs and per-run
+detail: `docs/evaluation/selection.md` §G, §H, §J, §M.
+
+`precision = 1.000` on the holdout is a point estimate over 21 true positives and 0 false positives in a
+45-case, **model-reviewed** holdout. It is not a guarantee of production precision.
+
+All five holdout false negatives had `relevance = pass`: the residual errors are downstream
+scoring/material-value errors, not prefilter blocking. The prefilter blocked 7 holdout cases and every
+one of them was a `reject` from a noise stratum — zero false blocks.
+
+### Phase 1 acceptance-criterion deviation (explicit)
+
+The original Phase 1 acceptance wording requested **150–250 human-labelled gold cases**. What was
+actually delivered is:
+
+- a **200-case `MODEL_REVIEWED` benchmark** (`datasets/selection/candidates.jsonl`), and
+- a **24-case `MODEL_REVIEWED` tier calibration supplement** (`datasets/selection/tier-calibration.jsonl`),
+
+with **no independent human adjudication**. Both annotation passes were performed by the **same model
+family** (first pass model-proposed, second pass model-reviewed), so the labels are not human labels and
+the two passes do not constitute independent adjudication. Human annotation was unavailable during this
+phase.
+
+This is an **explicit acceptance-criterion deviation, not a satisfied requirement**. The metrics above
+are valid as **project-internal, reproducible, model-reviewed benchmark metrics**. They must **not** be
+represented as human-labelled accuracy or as production accuracy. The original requirement is not
+rewritten here and is not claimed to have been met; the substitute delivery is named for what it is.
+
+### Phase 1 final verification (Windows, actual output)
+
+Run at finalization, on the frozen tree, against a throwaway PostgreSQL 17 (`postgres:17-alpine`,
+database `sentinelintel_p1_final_ci`, 35 migrations applied). Safety valves closed
+(`COLLECT_ENABLED=false`, `MODEL_CALLS_ENABLED=false`).
+
+```text
+git diff --check                      → clean, exit 0
+npm run typecheck                     → pass, exit 0
+npm run build -w @aihot/web           → pass, exit 0
+node --test apps/web/tests/*.test.ts  → tests 16 / pass 16 / fail 0 / cancelled 0, exit 0 (3.6 s)
+npm test                              → tests 139 / pass 127 / fail 6 / cancelled 6 / skipped 0,
+                                        exit 1, duration 785089.7 ms
+```
+
+Classification of the 6 failures and 6 cancellations:
+
+| group | count | files | kind |
+|---|---|---|---|
+| deterministic, platform-independent | 4 | `tests/analyze.test.ts` (:95, :117, :140, :169) | **CODE_FAILURE** — assertion contract vs. the calibrated thresholds |
+| Windows POSIX `SIGTERM` cascade | 2 fail + 6 cancelled | `tests/analyze-shutdown.test.ts`, `tests/translate-shutdown.test.ts`, `tests/translate.test.ts` | **ENVIRONMENT_BLOCKED** (KI-3) |
+
+Causality evidence, not inference:
+
+```text
+node --test tests/analyze.test.ts   (fresh DB, isolated)
+  → tests 8 / pass 4 / fail 4, exit 1, 2.6 s — the same four assertions, no timeouts, no other test
+    file involved; therefore these fail on Linux too and are not a Windows artefact.
+
+node --test tests/translate.test.ts (fresh DB, isolated)
+  → tests 3 / pass 3 / fail 0, exit 0, 2.4 s — so the 2 translate failures + 1 cancellation in the
+    full run are the known cascade from translate-shutdown.test.ts.
+```
+
+See `## Phase 1 Acceptance Prerequisites` §3 for the four failing assertions.
+
+### Phase 1 implementation — earlier checkpoint (`PHASE 1 IMPLEMENTATION CHECKPOINT REACHED`, historical)
 
 **Branding (`industry/site.ts`).** `name: SentinelIntel`, `subject: 安防`, `mcpPrefix: sentinelintel`,
 `crawlerName: SentinelIntelBot`, `organization.name: SentinelIntel`, homepage/about copy rewritten.
@@ -225,31 +300,52 @@ Untouched: `safety.md`, `understand.md`, `rules-anti-hallucination.md`, `rules-a
 `summarize-short-post.md`, `summarize-article-empty.md`, `summarize-long-post-quoted.md`,
 `summarize-short-post-quoted.md` (generic, no domain vocabulary).
 
-**Selection thresholds: UNCHANGED.** `T1 60 / T1_5 65 / T2 76`, `understandFloor 50`. `selection.ts`
-now carries an explicit `UNVALIDATED FOR SECURITY DOMAIN` note. No threshold was changed and no
-accuracy/precision/recall/F1 claim is made anywhere.
+**Selection thresholds — earlier checkpoint value, since superseded.** At this checkpoint the thresholds
+were still `T1 60 / T1_5 65 / T2 76` with `understandFloor 50`, and `selection.ts` carried an
+`UNVALIDATED FOR SECURITY DOMAIN` note; no accuracy/precision/recall/F1 claim was made. They were
+subsequently calibrated to the frozen `T1 32 / T1_5 55 / T2 60` — see
+`### Phase 1 evaluation — final` above and `docs/evaluation/selection.md`. The `UNVALIDATED` note and the
+commented-out old threshold line were removed from `industry/selection.ts` in
+`e1e840b docs: clean up calibrated threshold comments`.
 
-**Security gold dataset: `LABELING_REQUIRED` — 150 unlabelled candidates are ready.**
+**Security benchmark — earlier checkpoint state, since superseded.**
 
-The agent completed only its own half: candidate sampling and structuring. `datasets/selection/candidates.jsonl`
-holds 150 rows read through the repository's real RSS reader (`fetchRss`), capped per source so MSRC's 4616
-CVEs cannot dominate, quota'd per stratum, and split deterministically (`i % 4 === 3` → holdout) so both
-splits cover every available stratum. Distribution: vulnerability 42/13, vendor-advisory 42/13,
-policy 23/7, generic-cybersecurity 8/2 (development/holdout). Every row carries `gold.decision = "either"`
-(excluded from decisive metrics) and a `"$label": "TODO"` marker, so the file can never be mistaken for
-labelled gold. Protocol and the fill-in workflow: `datasets/selection/README.md`.
+At this checkpoint the agent had completed only its own half: candidate sampling and structuring.
+`datasets/selection/candidates.jsonl` held **150 unlabelled rows** read through the repository's real RSS
+reader (`fetchRss`), capped per source, quota'd per stratum and split deterministically (`i % 4 === 3` →
+holdout). Every row carried `gold.decision = "either"` and a `"$label": "TODO"` marker. The labelled count
+was **0** (0 development, 0 holdout); no `gold.decision` value had been produced.
 
-**Labelled count: 0 (0 development, 0 holdout). No `gold.decision` value was produced by the agent.**
+Sampling at that checkpoint also produced harder evidence for the source-coverage gap: the required strata
+`procurement`, `marketing-noise` and `irrelevant-it` had **zero** candidates from the then-ten first-party
+government/CERT/vendor feeds, so the set covered only four of the seven strata.
 
-Sampling also produced harder evidence for the source-coverage gap: the required strata `procurement`,
-`marketing-noise` and `irrelevant-it` have **zero** candidates, because all ten sources are first-party
-government, CERT and vendor feeds that by construction publish no procurement notices, marketing copy or
-unrelated IT news. Covering those strata requires adding sources (and an owner decision on `web_list`
-selectors), so the gold set can currently cover only four of the seven strata — recorded, not papered over.
+**Superseded.** The benchmark was afterwards extended to **200 rows covering all seven strata**, with
+`MODEL_REVIEWED` labels — 110 `select` / 80 `reject` / 10 `either`, development 155 / holdout 45 — and a
+separate **24-case tier calibration supplement** was added. Current dataset state and labelling
+protocol: `datasets/selection/README.md`; label distribution and provenance:
+`docs/evaluation/selection.md` §B, §C.
 
-**Evaluation: `NOT RUN`.** `scripts/eval-selection.ts` was not executed: no gold set exists, no model
-key is available, and no cost authorization has been given. `MODEL_CALLS_ENABLED` stayed `false`.
-Selection baseline: `NOT RUN — COST AUTHORIZATION REQUIRED`. Holdout: `NOT RUN`.
+Source provenance of the 200-row benchmark, verified from the files:
+
+- The **150 `rss` rows** come from the ten sources registered in `industry/sources.json`; all ten source
+  names match entries in that pack.
+- The **50 `web` rows** — all 20 `procurement`, 15 `marketing-noise` and 15 `irrelevant-IT` — come from
+  **web sources that are not registered in `industry/sources.json`** (EU Public Procurement Portal,
+  SAM.gov, vendor newsrooms, AWS/Google/Apple blogs, and others). `industry/sources.json` **still holds
+  exactly 10 sources**: the seeded pack was **not** extended, so the benchmark covers strata the running
+  site still has no source for.
+- **Neither `candidates.jsonl` nor `tier-calibration.jsonl` carries a `url` field.** The 50 `web` rows
+  therefore cannot be traced to a URL from the repository alone, and the local sampler that produced
+  them is git-ignored and was not preserved. This is a provenance limitation, recorded rather than
+  glossed over — see `docs/evaluation/selection.md` §L.
+
+**Evaluation — earlier checkpoint state, since superseded.** At this checkpoint the evaluation had not been
+run: no labelled set existed, no model key was available and no cost authorization had been given, so
+`MODEL_CALLS_ENABLED` stayed `false` and the Selection baseline and holdout were both `NOT RUN`. That is no
+longer the state. The evaluation has since been executed in full under the project owner's cost
+authorization — development baseline, calibrated development, tier calibration and a single final holdout
+— with the results in `### Phase 1 evaluation — final` above.
 
 ### Phase 1 verified results (Windows, actual output)
 
@@ -285,8 +381,15 @@ node --test apps/web/tests/*.test.ts    → tests 16 / pass 16 / fail 0 / cancel
 
 ### Canonical Linux CI (pull request #3, draft)
 
-Both jobs pass on the final commit `d93f466`. `docker` failed on the first run and was fixed in that
-same commit (see below); its green re-run is what confirms the diagnosis.
+Both jobs pass on commit `d93f466`. `docker` failed on the first run and was fixed in that same commit
+(see below); its green re-run is what confirms the diagnosis.
+
+`d93f466` is **no longer the branch tip.** The three commits after it — `8ec9d8f eval: calibrate security
+selection thresholds`, `f413add docs: record tier calibration provenance`, `e1e840b docs: clean up
+calibrated threshold comments` — have **not been pushed**, so **no CI run has ever executed against the
+frozen thresholds `32/55/60`**. The green result above covers the verticalization at the pre-calibration
+thresholds. This is exactly why the `tests/analyze.test.ts` failures in
+`## Phase 1 Acceptance Prerequisites` §3 were not caught.
 
 | job | result | what it covers |
 |---|---|---|
@@ -418,14 +521,15 @@ exit code: 0
 duration: 15.9 s
 ```
 
-## Evaluation
+## Evaluation (Phase 0, historical — the Phase 1 evaluation is in `## Current Phase`)
 
-NOT RUN.
+At Phase 0 this was NOT RUN.
 
 - `scripts/eval-selection.ts` (Selection Eval / SelectBench): NOT_APPLICABLE / NOT_EXECUTED —
   external dependency / cost / authorization boundary. It calls the real scoring prompts through
-  `runAnalysis`, has no offline or fake mode, and the repository has no gold set (no `.data/`;
-  only `industry/gold.example.jsonl` with two made-up cases).
+  `runAnalysis`, has no offline or fake mode, and at that time the repository had no gold set (no
+  `.data/`; only `industry/gold.example.jsonl` with two made-up cases). It has since been executed in
+  Phase 1.
 - Event grouping benchmark: NOT RUN — no dataset in the repository. `events/relate.ts` only records a
   historical measurement ("measured 2026-09-28 on 370 labelled pairs"); those labels are not in the
   repo and cannot be reproduced.
@@ -514,9 +618,10 @@ project; the npm public registry is behind a TLS-intercepting middlebox; the com
 `npm install` over a partially populated `node_modules`. Typecheck, build and tests all ran against
 it, but this is not a byte-for-byte `npm ci` tree.
 
-**KI-6 — AI-only modules are still on.** `industry/features.ts` has `leaderboard: true` and
-`codexResetMonitor: true`, so the smoke check exercises `/codex-reset` and expects 503 on the
-leaderboard pages. Expected state; Phase 1 must turn both off.
+**KI-6 — AI-only modules: RESOLVED.** `industry/features.ts` now has `leaderboard: false` and
+`codexResetMonitor: false` (Phase 1), with both implementations left in place rather than deleted. The
+Phase 0 observation that the smoke check exercised `/codex-reset` and expected 503 on the leaderboard
+pages no longer applies.
 
 ## Design Deviations
 
@@ -548,36 +653,67 @@ sources, and the Docker path that Phase 1 will use for verification is fully gre
 
 ## Phase 1 Acceptance Prerequisites
 
-These do **not** block starting Phase 1 development, but each of them must be resolved before Phase 1
-can be accepted as complete.
+These do **not** block the Phase 1 implementation, but each of them must be resolved before Phase 1 can
+be accepted as complete.
 
-1. **The security gold dataset does not exist yet.** The Migration Spec's Phase 1 asks for at least
-   150–250 labelled cases with development/holdout splits. The repository currently has no gold
-   dataset at all (no `.data/`; only `industry/gold.example.jsonl` with two made-up cases). Building it
-   is Phase 1 work, but it is also a prerequisite for producing any acceptance metric.
-2. **SelectBench / holdout needs real model calls, which require explicit cost authorization from the
-   project owner.** `scripts/eval-selection.ts` runs the real scoring prompts through `runAnalysis` and
-   has no offline or fake mode, so a Phase 1 baseline or holdout evaluation incurs paid model calls. No
-   API key is available in the current environment and no budget has been authorized. Until the owner
-   authorizes it, no Phase 1 accuracy number can be produced, and none may be claimed.
-3. **KI-1 / KI-2 — RESOLVED and merged.** Both were fixed in the Post-Phase-0 Baseline Portability Fix
+1. **The human-labelled gold requirement was not met — an explicit deviation.** The Migration Spec's
+   Phase 1 asks for 150–250 **human-labelled** gold cases with development/holdout splits. Delivered
+   instead: a 200-case `MODEL_REVIEWED` benchmark plus a 24-case `MODEL_REVIEWED` tier calibration
+   supplement, annotated by a single model family in two passes, with no independent human adjudication.
+   The owner must either accept the deviation explicitly or commission a human labelling pass. Until
+   then, no metric in this repository may be described as human-labelled.
+2. **Cost authorization — resolved.** The project owner authorized the paid model calls and the full
+   evaluation has been executed: development baseline, calibrated development, tier calibration and one
+   final holdout. See `### Phase 1 evaluation — final`.
+3. **Deterministic test failure introduced by the threshold calibration — NOT resolved.** After the
+   frozen thresholds changed from `60/65/76` to `32/55/60`, `tests/analyze.test.ts` fails **4 of its 8
+   tests on any platform**, including on a fresh database in isolation (tests 8 / pass 4 / fail 4,
+   exit 1, 2.6 s — no timeouts, no other test file involved):
+   - `tests/analyze.test.ts:95` — `assert.equal(tierThreshold("T1"), 60)` still hardcodes the old
+     threshold; the code now returns `32` (`32 !== 60`).
+   - `tests/analyze.test.ts:117` — expects the 56+50 (average 53) material to be **not** selected; at
+     `T1 = 32` it now is.
+   - `tests/analyze.test.ts:140` — expects a bare-title item scoring 32 to be **not** selected; at
+     `T1 = 32` it now is.
+   - `tests/analyze.test.ts:169` — expects a short Chinese X post to remain its own copy; it now
+     receives an understanding title.
+
+   The calibration commits (`8ec9d8f`, `f413add`, `e1e840b`) touched only `industry/selection.ts`,
+   `datasets/selection/tier-calibration.jsonl` and `datasets/selection/tier-calibration-provenance.md` —
+   **no test file** — and are **still unpushed**, so CI has never seen the new thresholds. The last
+   CI-green run (`d93f466`) predates calibration. These assertions encode the pre-calibration contract;
+   updating them changes assertions, so it is an owner decision and was deliberately **not** done in this
+   finalization. **This blocks merge.**
+4. **KI-1 / KI-2 — RESOLVED and merged.** Both were fixed in the Post-Phase-0 Baseline Portability Fix
    and merged into `main` at `2938249` (see `## Post-Phase-0 Baseline Portability Fix`). With KI-1
    fixed the Windows web suite is 16 of 16, so the earlier caveat that "all tests pass cannot be
-   claimed on Windows" no longer applies to the web tests. It still applies to the 5 shutdown tests
-   blocked by the Windows POSIX `SIGTERM` limitation (KI-3), which is out of scope for that fix and is
-   covered by the canonical Linux run instead.
+   claimed on Windows" no longer applies to the web tests. It still applies to the shutdown tests
+   blocked by the Windows POSIX `SIGTERM` limitation (KI-3), which is covered by the canonical Linux run
+   instead.
+5. **Benchmark-to-production distribution.** The benchmark was sampled from the Phase 1 sources'
+   published items. Production mix, volume and prefilter input differ materially; see
+   `docs/evaluation/selection.md` §L.
 
 ## Next Action
 
 Phase 0 is accepted and frozen at tag `sentinelintel-phase0` (`1deb090`). The Post-Phase-0 Baseline
 Portability Fix is accepted and merged into `main` at `2938249`.
 
-Phase 1 — Security Verticalization is **IN_PROGRESS** on `phase/1-security-verticalization`, open as
-**draft pull request #3** with **both CI jobs PASS** (`check` 1m, `docker` 59s) on commit `d93f466`.
-It must not be merged.
+Phase 1 — Security Verticalization is **COMPLETED_WITH_LIMITATIONS — EVAL COMPLETE** on
+`phase/1-security-verticalization`, open as **draft pull request #3**. **It must not be merged**, and
+Phase 1 is **not** accepted. Two decisions are required first:
 
-The next action is human review of the Phase 1 implementation checkpoint, then the project owner's
-human gold-labelling pass, then the SelectBench baseline and holdout runs — which additionally require
-the owner's explicit cost authorization for real model calls. Phase 1 cannot be marked accepted until
-those exist. Two coverage gaps also need an owner decision before acceptance: there is no usable
-procurement source, and no physical-security vendor publishes a feed the current adapters can read.
+1. **The acceptance-criterion deviation.** Accept the `MODEL_REVIEWED` 200-case benchmark (+ 24-case tier
+   calibration supplement) as the Phase 1 substitute for 150–250 human-labelled gold cases, or commission
+   the human labelling pass. See `## Phase 1 acceptance-criterion deviation (explicit)`.
+2. **The 4 deterministic `tests/analyze.test.ts` failures** introduced by the frozen threshold change —
+   see `## Phase 1 Acceptance Prerequisites` §3. Either the test contract is updated to the calibrated
+   thresholds in a separately scoped commit, or the threshold decision is revisited. **This is what makes
+   the branch not merge-ready:** the failing assertions are platform-independent, and the commits
+   carrying the new thresholds are still unpushed, so CI has never seen them.
+
+Also still open for the owner, independent of the two decisions above: the seeded source pack has no
+procurement source and no physical-security vendor feed (see the earlier checkpoint notes), and the
+benchmark's 50 `web` rows are not URL-traceable (see the source-provenance note above).
+
+**Phase 2 has not started and must not start** until Phase 1 is accepted.

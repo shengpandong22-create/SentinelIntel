@@ -1,21 +1,23 @@
-# SentinelIntel 安防 Selection Gold Dataset — 标注协议与状态
+# SentinelIntel 安防 Selection Benchmark — 数据说明与标注协议
 
-> **状态：`LABELING_REQUIRED`。本目录目前没有任何人工标签，也没有可用于评测的样本。**
-> Phase 1 验收要求至少 150–250 条人工标注样本（含 development / holdout），这一部分必须由项目
-> owner 本人（或与其口味一致的人）完成。Coding Agent **不得**生成标签，也不得把模型输出当作 gold。
+> **状态：已交付 `MODEL_REVIEWED` 基准，不是人工标注 gold。**
+> Phase 1 原始验收措辞要求「150–250 条**人工标注** gold 样本（含 development / holdout）」。
+> 实际交付的是：**200 条 `MODEL_REVIEWED` 基准**（`candidates.jsonl`）+ **24 条 `MODEL_REVIEWED` 分层
+> 校准补充**（`tier-calibration.jsonl`），两轮标注由**同一模型家族**完成，**没有独立人工裁决**。
+> 这是一处**明确的验收标准偏差**，不是已满足的要求。任何指标都不得表述为「人工标注准确率」或
+> 「线上准确率」。完整评测记录见 `docs/evaluation/selection.md`。
 
 ---
 
-## 1. 为什么不能由 Agent 代做
+## 1. 标注 provenance（不得当成人工 gold）
 
-按 Migration Spec 与 `AGENTS.md`：
-
-- 不得伪造 Evaluation 增益、人工标签或测试结果。
-- 门槛与提示词的校准必须基于**使用者本人标注**的样本（`docs/selection.md`）。
-- 拿 LLM 打的标签冒充人工 gold，会让后续所有 Eval 结论失去意义。
-
-因此 Agent 只负责：确认 schema、给出标注协议、提供候选样本的取得方式与模板、校验标注格式。
-**标注本身停在需要 owner 的位置。**
+- 第一轮：模型提出（model-proposed）。
+- 第二轮：模型复核（model-reviewed）。
+- 两轮由**同一模型家族**完成，因此**不构成独立裁决**。
+- 文件内的 `"$label": "MODEL_REVIEWED"`、`"$labeller"`、`"$confidence"` 三个字段保留了这条 provenance。
+  任何情况下都不要把它们改写成人工标注。
+- 这些标签是**项目内部、可复现的模型复核基准标签**；用于横向比较同一个站点的不同配置是合适的，
+  用于对外声称准确率是不合适的。
 
 ## 2. 真实 evaluator 的输入契约（已核对源码）
 
@@ -27,30 +29,46 @@
   material: { title, originalTitle: string|null, publishedAt: string|null, sourceName,
               bodyZh: string|null, bodyOriginal: string|null },   // 有一个 body 即可
   sourceFacts: { sourceKind, sourceTier?, firstParty?, language? }, // tier 决定用哪个门槛
-  samplingContext?: { benchmarkSplit?: "development"|"holdout", samplingStratum?: string },
+  samplingContext?: { benchmarkSplit?: string, samplingStratum?: string },
   gold: { decision: "select" | "reject" | "either" }               // either 不计入准确率
 }
 ```
 
-用法（见 `docs/selection.md`）：
+用法：
 
 ```bash
-node --env-file=.env scripts/eval-selection.ts --gold .data/gold.jsonl --split development --label "phase1-security-v1"
+node --env-file=.env scripts/eval-selection.ts \
+  --gold datasets/selection/candidates.jsonl \
+  --split development --n 155 --seed 7 --label "reproduce"
 ```
 
-**注意路径差异**：`scripts/eval-selection.ts` 的默认输入是 `.data/gold.jsonl`（`.data/` 不进 Git），
-而 Migration Spec 建议把可审计的记录放在 `datasets/selection/`。Phase 1 的处理方式是：
+**路径差异**：`scripts/eval-selection.ts` 的默认输入是 `.data/gold.jsonl`（`.data/` 不进 Git），而
+Migration Spec 建议把可审计的记录放在 `datasets/selection/`。Phase 1 的处理方式是：
 
 - `datasets/selection/` 保存**可审计的**、不含第三方长正文的标注记录；
-- 本地跑 Eval 时用最小确定性转换，把 `datasets/` 的记录写进 `.data/gold.jsonl`；
+- 本地跑 Eval 时直接以 `--gold datasets/selection/...` 指向本目录的文件，或用最小确定性转换写进
+  `.data/gold.jsonl`；
 - 不修改 evaluator，不另建评测体系。
 
-## 3. 标注协议
+每次运行都会自动导入后台 SelectBench（`importSelectBenchRun`，actor `script:eval-selection`），并在
+控制台打印 `SelectBench run: sb-YYYYMMDD-<6 hex>`。
 
-### 3.1 样本来源
+## 3. 样本来源
 
-只从 Phase 1 已接入的信源取（`industry/sources.json`），即 CISA、CERT-EU、UK NCSC、JPCERT、
-Cisco PSIRT、Fortinet PSIRT、Microsoft MSRC、Zero Day Initiative、FreeBuf。
+### 3.1 来源构成（已核实）
+
+| 来源类型 | 行数 | 说明 |
+|---|---|---|
+| `sourceKind: "rss"` | 150 | 全部来自 `industry/sources.json` 里登记的 10 个信源（CISA ×2、CERT-EU、UK NCSC、JPCERT、Cisco PSIRT、Fortinet PSIRT、Microsoft MSRC、Zero Day Initiative、FreeBuf） |
+| `sourceKind: "web"` | 50 | 来自**未登记在 `industry/sources.json`** 的 web 信源：EU Public Procurement Portal、SAM.gov、厂商 newsroom（CrowdStrike / Check Point / Fortinet / SentinelOne / KDDI / VulnCheck）、GlobeNewswire、Google Cloud / AWS / Apple 博客 |
+
+两点必须知道：
+
+1. `industry/sources.json` **仍然只有 10 个源**，Phase 1 没有扩源。基准里的 `procurement`、
+   `marketing-noise`、`irrelevant-IT` 三个 stratum 能存在，是因为采样用了 pack 之外的 web 来源；
+   **线上按当前 pack 配置不会以同样比例遇到这些类型的资料。**
+2. **两个数据集文件都不含 `url` 字段。** 因此这 50 条 `web` 行**无法仅凭仓库追溯到 URL**，产生它们的
+   本地采样脚本是 gitignored 且未保留。后续要做人工复核时，只能依据 `sourceName` + `title` + 正文摘要。
 
 ### 3.2 必填 strata（Migration Spec Phase 1）
 
@@ -62,10 +80,9 @@ Cisco PSIRT、Fortinet PSIRT、Microsoft MSRC、Zero Day Initiative、FreeBuf。
 | `procurement` | 招标、中标与采购公告 |
 | `marketing-noise` | 营销稿、活动、课程、招聘、白皮书下载引导 |
 | `generic-cybersecurity` | 泛安全科普、安全意识、无具体事实的趋势稿 |
-| `irrelevant-it` | 与安防／安全无明确关联的通用 IT 新闻 |
+| `irrelevant-IT` | 与安防／安全无明确关联的通用 IT 新闻 |
 
-`procurement` 目前**没有可用信源**（见 `docs/IMPLEMENTATION_STATUS.md` 的信源验证结果），
-因此这一 stratum 的样本需要 owner 自行提供来源，否则该类别无法标注。
+七个 stratum 在基准中都已覆盖（分布见 §4）。
 
 ### 3.3 判定口径
 
@@ -94,67 +111,71 @@ Cisco PSIRT、Fortinet PSIRT、Microsoft MSRC、Zero Day Initiative、FreeBuf。
 或另加字段）、标题、**必要的短 excerpt**（足以判断即可）、`sourceFacts`、`samplingContext`、`gold`。
 
 已知取舍：`eval-selection.ts` 会把 `bodyZh`/`bodyOriginal` 交给模型，正文越短，评测与线上条件的
-差距越大。是否为了评测保真度而违反“不提交长正文”的原则，**需要 owner 决定**；默认按版权优先，
-只放短 excerpt，并在报告里注明这一偏差。
+差距越大。实际交付以版权优先，每条约 240 字摘要，并在 `docs/evaluation/selection.md` §L 里注明了
+这一偏差。**实际交付也未保存 URL**，见 §3.1。
 
-## 4. 候选样本已就绪：`candidates.jsonl`（150 条）
+## 4. 数据集现状
 
-Agent 已经完成它这一半——**候选抽取与结构化**。`candidates.jsonl` 用仓库真实的 RSS 读取器
-（`packages/backend/src/sources/rss.ts` 的 `fetchRss`）从 10 个已实测信源抓取，因此内容与线上真正
-会入库的一致，不是另写解析器的产物。
+### 4.1 主基准：`candidates.jsonl`
 
-采样规则（确定性，可复现）：
+| 项 | 值 |
+|---|---|
+| 行数 | 200 |
+| development / holdout | 155 / 45 |
+| select / reject / either | 110 / 80 / 10 |
+| 唯一 `caseId` | 200 |
+| `$label` | 全部 `MODEL_REVIEWED` |
 
-- 每个信源设上限，避免 MSRC（4616 条 CVE）淹没作业表；
-- 按 stratum 配额取样，并在列表上按步长均匀抽取，而不是只取开头几条；
-- split 按 `i % 4 === 3` 划分，因此 development / holdout 都覆盖到每个 stratum；
-- **`gold.decision` 一律写 `"either"`（不计入准确率），并带 `"$label": "TODO"` 标记**，
-  所以这份文件在任何情况下都不会被误当成已标注的 gold。
-
-实际分布：
+stratum × split：
 
 ```text
-vulnerability/development      42
-vulnerability/holdout          13
-vendor-advisory/development    42
-vendor-advisory/holdout        13
-policy/development             23
-policy/holdout                  7
-generic-cybersecurity/dev       8
-generic-cybersecurity/holdout   2
-total                         150
+vulnerability/development           42      vulnerability/holdout           13
+vendor-advisory/development         42      vendor-advisory/holdout         13
+policy/development                  23      policy/holdout                   7
+procurement/development             16      procurement/holdout              4
+marketing-noise/development         12      marketing-noise/holdout          3
+irrelevant-IT/development           12      irrelevant-IT/holdout            3
+generic-cybersecurity/development    8      generic-cybersecurity/holdout    2
+total                              155      total                           45
 ```
 
-### 采样暴露出的 stratum 缺口（重要）
+### 4.2 分层校准补充：`tier-calibration.jsonl`
 
-以下三个 spec 要求的 stratum **在当前 10 个信源里候选数为 0**：
-
-| stratum | 为 0 的原因 |
+| 项 | 值 |
 |---|---|
-| `procurement` | 没有任何招投标信源可用（ccgp 等只有 HTML，无 feed） |
-| `marketing-noise` | 现有信源全是一手政府／厂商／CERT feed，不产生营销稿 |
-| `irrelevant-it` | 同上，一手源不会出现无关的通用 IT 新闻 |
+| 行数 | 24（`benchmarkSplit` 全部为 `calibration`） |
+| 12 × `T1_5` | 全部 `gold.decision = reject`（`tier-gap-t1_5-negative`） |
+| 12 × `T2` | 全部 `gold.decision = select`（`tier-gap-t2-positive`） |
+| 与主基准的 `caseId` 重叠 | 0 |
+| `$label` | 全部 `MODEL_REVIEWED` |
 
-这不是采样参数问题，而是**信源覆盖面问题**：要覆盖这三个 stratum，必须先补信源（媒体/聚合源用于
-噪声类，招投标平台用于 procurement），也就是需要 owner 对 `web_list` 选择器方案拍板。
-在此之前，gold 数据集只能覆盖 4 个 stratum，这一点必须写进验收结论，不能假装完整。
+这份补充是**刻意构造的平衡集**，不是自然分布采样：它用来补足自然分布中样本过少的「T1_5 假阳性」
+与「T2 假阴性」两类证据。因此它**不是**最终留出集的一部分，其汇总 accuracy/F1 **不得**当作自然分布
+性能对外表述。来源逐条列在 `tier-calibration-provenance.md`（含 URL）。
 
-## 5. 待 owner 执行的动作（只剩判断本身）
+## 5. 历史：早期 checkpoint（已被取代）
 
-1. 打开 `datasets/selection/candidates.jsonl`，逐行看 `material.title` 与 `material.bodyOriginal`／`bodyZh`
-   （各约 240 字摘要）。
-2. 把 `"gold":{"decision":"either"}` 里的 `either` 改成 **`select`**（值得看）或 **`reject`**（噪声）。
-   拿不准就用 `either`（不计入准确率）。
-3. 填完后删掉每行的 `"$label":"TODO"`。
-4. 在取得成本授权后运行 SelectBench baseline 与 holdout（当前 `MODEL_CALLS_ENABLED=false`，
-   且未获授权，见 `docs/IMPLEMENTATION_STATUS.md`）。
-5. 把结果写回 `docs/IMPLEMENTATION_STATUS.md`；在此之前 Phase 1 不能标记为 accepted。
+Phase 1 早期 checkpoint 交付的是 `candidates.jsonl` 的**前身**：**150 条完全未标注**的候选
+（`gold.decision` 一律 `"either"`、`"$label": "TODO"`），只覆盖 4 个 stratum，且 `procurement`、
+`marketing-noise`、`irrelevant-it` 在当时 10 个一手 rss 信源里候选数为 **0**。当时的采样脚本
+（`.data/fetch-candidates.mjs`，gitignored）就是按那份 150 条的口径写的，它硬编码
+`sourceKind: "rss"`，**因此它无法解释现在的 200 条基准**——后 50 条 `web` 行来自另一套未保留的采样。
 
-数量取舍：spec 建议 150–250 条。当前 150 条已可作为第一批 baseline；是否先跑 150 条、
-再按错例补到 250 条，由 owner 决定。`split` 与 `stratum` 已填好，不需要你维护。
+这条历史记录保留在此，是因为它解释了 §3.1 里那个来源构成的由来，而不是当前状态。
 
-## 5. Agent 不做什么
+## 6. 待 owner 执行的动作
 
-- 不生成任何 `gold.decision`。
-- 不把模型判断写入 `gold`。
-- 不为了让 Phase 1 “看起来完成”而缩小样本量或简化 strata。
+1. **决定验收标准偏差如何处置**：要么明确接受这 200 + 24 条 `MODEL_REVIEWED` 基准作为 Phase 1 的
+   替代交付，要么另行安排人工标注。
+2. **如果决定补人工标注**：优先抽检 §4.2 之外的 `$confidence` 为 `low` 的行，以及均匀随机的约 20%
+   （建议 40 条左右）。同意就把 `$label` 改成 `"HUMAN_CONFIRMED"`；不同意就直接改 `gold.decision`。
+   同时算一下人工与模型标签的一致率——这个数字本身比标签更重要：一致率高说明口径清晰，一致率低说明
+   判定口径本身有歧义，应当先改口径再标。
+3. 不要重新跑留出集，不要用留出集错例继续调门槛或提示词（见 `docs/evaluation/selection.md` §I、§K）。
+
+## 7. Agent 不做什么
+
+- 不改写 `gold.decision` 的既有取值。
+- 不把模型判断标注成人工 gold。
+- 不做人工复核、也不声称做过。
+- 不为了让 Phase 1 “看起来完成”而缩小样本量、简化 strata，或调整留出集。
