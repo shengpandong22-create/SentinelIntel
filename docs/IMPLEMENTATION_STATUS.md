@@ -138,10 +138,11 @@ Status: **ACCEPTED_WITH_LIMITATIONS**
 claim that the original `150–250 human-labelled gold` requirement was satisfied.
 
 - **Final accepted branch tip before merge:** `fac261816d608df55091033f9bd669dd95db6f6b`
-- **Acceptance record commit:** the commit whose subject is `docs: accept Phase 1 with documented
-  limitations`, i.e. the one that introduces this status. Find it with
-  `git log --oneline --grep="accept Phase 1 with documented limitations"`. It supersedes `fac2618` only as
-  the branch tip: the accepted evaluation, thresholds, benchmark and code are unchanged from `fac2618`.
+- **Acceptance record commit:** `89355647fbc3803e3063bd5224041f41c7e02f8e`
+  (`docs: accept Phase 1 with documented limitations`). It supersedes `fac2618` only as the branch tip: the
+  accepted evaluation, thresholds, benchmark and code are unchanged from `fac2618`.
+- **Canonical Linux CI on the acceptance commit:** GitHub Actions run `37189550495` — `Check / check`
+  **PASS**, `Check / docker` **PASS**.
 - **Owner explicitly accepts the `MODEL_REVIEWED` benchmark as the Phase 1 substitute delivery** — the
   200-case benchmark plus the 24-case tier calibration supplement — at this stage of the project.
 - **This does NOT mean the original human-labelled gold requirement was satisfied.** It remains an
@@ -218,6 +219,8 @@ acceptance cannot be widened later by re-reading it:
 | Independent human adjudication | **none** — both annotation passes by the same model family |
 | Status recorded | `ACCEPTED_WITH_LIMITATIONS` |
 | Final accepted branch tip before merge | `fac261816d608df55091033f9bd669dd95db6f6b` |
+| Acceptance record commit | `89355647fbc3803e3063bd5224041f41c7e02f8e` |
+| Canonical Linux CI on the acceptance commit | run `37189550495` — `check` PASS, `docker` PASS |
 
 What the acceptance does **not** do:
 
