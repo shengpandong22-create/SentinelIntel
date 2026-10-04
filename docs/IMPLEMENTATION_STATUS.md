@@ -139,11 +139,13 @@ it, and name the security hard cases the current system fails on. **Measure firs
 permits a grouping prompt or recall change only after that report shows a problem
 (*只有此报告证明有问题，才允许改 grouping prompt/recall*).
 
-Design and audit for owner review: `docs/evaluation/event-grouping-plan.md`.
+Design and audit for owner review: `docs/evaluation/event-grouping-plan.md`. The design was **revised
+after an independent Phase 2 design audit** — see `### Phase 2 design revision` below.
 
-This round changed **documentation only**: no benchmark data was generated, no harness was written, and
-no production grouping code (`packages/backend/src/events/*`), no threshold and no `group-*.md` prompt was
-touched. Phase 1's frozen artifacts are unchanged.
+**Every round so far changed documentation only**: no benchmark data was generated, no harness was
+written, no evaluation seam was added, and no production grouping code
+(`packages/backend/src/events/*`), no threshold and no `group-*.md` prompt was touched. Phase 1's frozen
+artifacts are unchanged.
 
 ### Phase 2 baseline audit — verdicts
 
@@ -152,7 +154,7 @@ touched. Phase 1's frozen artifacts are unchanged.
 | Is the "370 labelled pairs" measurement reproducible? | **NOT_REPRODUCIBLE** — `git log --all -S "370"` / `-S "labelled pairs"` / `-S "170 real root pairs"` return only the upstream AIHOT import `877d6d5` and the Phase 0 audit that quotes the comment; `git log --all -- packages/backend/src/events/relate.ts` returns only `877d6d5`. No dataset in the repo, nothing in `.data/`, no schema/provenance doc. **Not usable as a Phase 2 baseline, and not to be rebuilt by guesswork.** |
 | Does an event/grouping eval harness already exist? | **No** — classification (c): nothing anywhere. `scripts/eval-selection.ts` is binary select/reject and unrelated; `scripts/regroup-events.ts` is an operational tool that writes real membership and calls paid models even with `--dry-run`; `tests/events.test.ts` hardcodes every relation answer. |
 | Which recall constants does production use? | All **module-private** in `group.ts`: `RECALL_DAYS 14`, `RECALL_MIN_COSINE 0.6`, `RECALL_TOP_FACTS 10`, `CONFIRM_BELOW_COSINE 0.85`, `SIGNAL_MIN_COSINE 0.72`, `SIGNAL_AUTO_COSINE 0.92`, `SIGNAL_TOP_FACTS 4`, `RELATED_MIN_REPORTS 2`, `REMATCH_HOURS 6`, `WAIT_HOURS 48`, lexical floor `0.25`. |
-| Which recall path runs here? | **Lexical fallback** — `embeddingsAvailable()` needs `MODEL_CALLS_ENABLED` **and** an embedding key, and this `.env` has no `EMBEDDING_*` or `DASHSCOPE_API_KEY`. Production runs the embedding path. A recall number measured here is not a production recall number. |
+| Which recall branch runs here? | **Lexical fallback** — `embeddingsAvailable()` needs `MODEL_CALLS_ENABLED` **and** an embedding key, and this `.env` has no `EMBEDDING_*` and no `DASHSCOPE_API_KEY`. **The repository does not prove which branch any deployment runs**; the earlier statement here that "production runs the embedding path" was an inference from this local observation and is withdrawn. A recall number measured here is a lexical-branch number and must be reported as one. |
 
 ### Phase 2 baseline evidence (Windows, actual output)
 
@@ -168,6 +170,31 @@ suites stand local HTTP stubs in for every provider (`tests/setup.ts`), so they 
 network request. They prove the grouping **invariants** (manual override races, revision keeps
 membership, regroup, story root, two-model merge, related-story links) — and they say **nothing** about
 relation accuracy, because every relation answer in them is hardcoded by the stub.
+
+### Phase 2 design revision
+
+An independent Phase 2 **design** audit raised ten findings. All ten are addressed in
+`docs/evaluation/event-grouping-plan.md`; none of them required code:
+
+| # | finding | resolution |
+|---|---|---|
+| 1 | The primary classifier was wrongly the pair path | The primary is now the production **batch** judge (`BATCH_SYSTEM`, `modelFor("group")`, `BatchSchema`) — the call that actually decides in production. `PAIR_SYSTEM` / the review model is a **confirmation/review diagnostic**, reported in a separate table and never averaged into the primary matrix |
+| 2 | The schema lacked stable report identity, conflated the anti-leakage key with the event identity, and left the end-to-end direction/order/time fields implicit | Every report has a dataset-unique `reportId`; `splitGroupId` (anti-leakage only) is separated from `identity.eventKey`/`identity.storyKey`; each case states its query and candidate roles; `publishedAt` and `ingestedAt` are both recorded, with the query asserted to be the later arrival inside `RECALL_DAYS` |
+| 3 | The quotas could not all hold at once | The band/rate quotas are withdrawn with the arithmetic shown, and replaced by a fixed, mechanically checkable allocation (240 = 180 + 60 over 15 strata and 4 classes), which the harness must re-derive and fail on if it drifts |
+| 4 | `multiple-cves-in-one-advisory` was labelled `SAME_OCCURRENCE` | **Corrected to `UNRELATED`**, aligned with `group-definitions.md`: several products *inside one advisory* are one happening (line 1), but two different **CVE identifiers** are two things (line 14) |
+| 5 | The same-CVE cross-source case and the literal same-URL shortcut were conflated | Split into stratum 9 (`same-cve-cross-source-different-url`, judge decides) and stratum 15 (`literal-same-url-duplicate`, the deterministic `same-url` shortcut; `group.ts:663–666`) |
+| 6 | `AMBIGUOUS` was proposed as a fifth `gold.relation` | Removed. The vocabulary is exactly the four production relations; unsettled cases use `annotation.status` (`decisive` / `disputed` / `insufficient`) and are excluded from decisive metrics with their counts printed |
+| 7 | SelectBench was described as unable to store multiple classes | Corrected: the text columns **could** store another label, but the importer's summary contract and the admin's hardcoded `fp/fn/tp/tn` outcome semantics are binary selection-specific — so reuse would need new columns *and* new semantics |
+| 8 | The production embedding path was asserted as a repo fact | Downgraded to `LOCAL_OBSERVED`; the document now states that the repository does not prove which branch a deployment runs, and requires the recall stage to report the branch it used |
+| 9 | The recorded HEAD could be confused with the documentation commit | §1 now records the **audit starting HEAD** (`225e0f6`) as the audited tree and lists the documentation commits separately |
+| 10 | Phase 1's text still said "Phase 2 has not started" | Rewritten in the historical tense — it had not started **when Phase 1 closed**; it has since begun |
+
+Owner decisions that were open in the first revision are now **settled** and recorded as constraints in
+the plan's §12.1: 240/180/60; signals out of the primary benchmark; a minimal **non-runtime** evaluation
+seam allowed, targeting the production batch judge; **no paid evaluation authorized yet**; all 60 holdout
+cases human-adjudicated; development may be model-proposed/reviewed but disputed or low-confidence
+`SAME_OCCURRENCE` vs `SAME_STORY` cases must be human-adjudicated; and non-human development labels must
+never be called human gold.
 
 ## Phase 1 — accepted and frozen
 
@@ -205,8 +232,9 @@ claim that the original `150–250 human-labelled gold` requirement was satisfie
 The phase is implementation-complete, development-calibration-complete, tier-calibration-complete, and
 the final holdout has been executed.
 
-It does not implement any Agent, runtime, retrieval or event-grouping change: Phase 2 (security event
-grouping benchmark) and Phase 3 (Python Agent Runtime) have not started.
+It implemented no Agent, runtime, retrieval or event-grouping change, and **at the time Phase 1 closed**
+Phase 2 (the security event grouping benchmark) and Phase 3 (the Python Agent Runtime) **had not
+started**. Phase 2 has since begun — see `## Current Phase`.
 
 This Phase verticalizes the industry pack (`industry/`) from the AI demo domain to the security domain,
 and produced the security selection benchmark and its evaluation. Full evaluation record:
@@ -923,23 +951,30 @@ the Phase 1 branch tip `c483efb` — `git rev-parse '225e0f6^{tree}'` equals `c4
 this document's Phase 1 acceptance record, which was the merge condition recorded here before the merge.
 
 **Phase 2 — Security Event Grouping Benchmark has begun** on `phase/2-security-event-grouping`, status
-`BASELINE_AUDIT_AND_BENCHMARK_DESIGN`. The immediate next action is **owner review of
-`docs/evaluation/event-grouping-plan.md`**, which lists the decisions that must be made before any
-implementation:
+`BASELINE_AUDIT_AND_BENCHMARK_DESIGN`. The design was revised after an independent design audit
+(`### Phase 2 design revision` above) and is awaiting a **design re-audit**.
 
-1. **Label provenance for the Phase 2 relation gold** — human, model-proposed or model-reviewed, and who
-   reviews the `SAME_OCCURRENCE` vs `SAME_STORY` boundary. This is the decision most likely to repeat
-   Phase 1's accepted deviation, so it should be settled before any pair is written.
-2. **Cost authorization** for the paid relation and end-to-end stages, and which embedding path stands for
-   production in the recall stage.
-3. **Harness plumbing** — approve a non-runtime export of the existing private pair judge, or accept a thin
-   harness-local wrapper that duplicates its call parameters.
-4. **Signal relations** — confirm they stay out of the Phase 2 primary benchmark.
-5. **Size and split** — 240 pairs / 180 development / 60 holdout, `eventFamilyId`-grouped, with a
-   per-relation holdout floor.
+The decisions the first revision left open are **settled by the owner** and are now constraints recorded
+in `docs/evaluation/event-grouping-plan.md` §12.1: 240 / 180 / 60; signals out of the primary benchmark;
+a minimal non-runtime evaluation seam allowed, targeting the **production batch judge**; **no paid
+evaluation authorized yet**; all 60 holdout cases human-adjudicated; development may be
+model-proposed/model-reviewed but disputed or low-confidence `SAME_OCCURRENCE` vs `SAME_STORY` cases must
+be human-adjudicated; and non-human development labels must never be called human gold.
 
-**No benchmark data has been generated, no harness has been written, and no production grouping code,
-threshold or prompt has been touched.** Phase 3 has not started.
+What still blocks implementation is **not engineering**, and only the owner can settle it:
+
+1. **Who adjudicates the holdout, and when.** The 60 holdout cases must be human-adjudicated before the
+   benchmark can be labelled at all. No adjudicator is assigned yet, so the benchmark cannot be run
+   regardless of harness work.
+2. **Paid evaluation authorization.** The relation and end-to-end stages call paid models. Until that is
+   authorized, no benchmark run is possible; only the free recall stage could be.
+
+Two further items are implementation-time choices the design constrains but deliberately does not
+pre-empt: which recall branch the recall stage targets (this environment can only measure the lexical
+one), and the concrete distractor count and seed per case.
+
+**No benchmark data has been generated, no harness has been written, no evaluation seam has been added,
+and no production grouping code, threshold or prompt has been touched.** Phase 3 has not started.
 
 Still open as **deferred work, not blockers**: the seeded source pack has no procurement source and no
 physical-security vendor feed, and the Phase 1 benchmark's 50 `web` rows are not URL-traceable.
