@@ -122,8 +122,9 @@ Interpretation:
    that the holdout was independently adjudicated or blind to the model family that produced it: the
    development and holdout splits of the 200-case benchmark were both labelled by the same model family
    (first pass model-proposed, second pass model-reviewed), so the holdout is a **split-level holdout
-   only**. No independent human adjudication stands behind it, and the same family that labelled it also
-   ran the evaluation.
+   only**. No independent human adjudication stands behind it. Both benchmark annotation passes were
+   performed by the same model family; the retained evaluation artifacts do not establish that the
+   evaluator itself was the same model family.
 
    What the retained artifacts support is narrower still: one final holdout report and one corresponding
    SelectBench holdout run still exist (see §M). The history of earlier runs that may have been deleted is
