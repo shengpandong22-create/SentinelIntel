@@ -379,27 +379,41 @@ npm run build -w @aihot/web             → pass, exit 0
 node --test apps/web/tests/*.test.ts    → tests 16 / pass 16 / fail 0 / cancelled 0
 ```
 
-### Canonical Linux CI (pull request #3, draft)
+### Canonical Linux CI
 
-Both jobs pass on commit `d93f466`. `docker` failed on the first run and was fixed in that same commit
-(see below); its green re-run is what confirms the diagnosis.
+Two CI observations exist for this branch. Both are recorded: the second is what found the regression the
+remediation fixes.
 
-`d93f466` is **no longer the branch tip.** The three commits after it — `8ec9d8f eval: calibrate security
-selection thresholds`, `f413add docs: record tier calibration provenance`, `e1e840b docs: clean up
-calibrated threshold comments` — have **not been pushed**, so **no CI run has ever executed against the
-frozen thresholds `32/55/60`**. The green result above covers the verticalization at the pre-calibration
-thresholds. This is exactly why the `tests/analyze.test.ts` failures in
-`## Phase 1 Acceptance Prerequisites` §3 were not caught.
+**1. Commit `d93f466` (pre-calibration thresholds).** Both jobs passed. `docker` failed on the first run
+and was fixed in that same commit (see below); its green re-run is what confirms the diagnosis.
 
 | job | result | what it covers |
 |---|---|---|
 | `Check / check` | **PASS**, 1m | install, typecheck, web build, 16 web tests, 35 migrations, seed, smoke of the built site, `npm test` (all 139 backend tests) |
 | `Check / docker` | **PASS**, 59s (FAIL 53s before the fix) | docker compose build + up + smoke + seeded source count |
 
-`check` passing settles three earlier questions in favour of the verticalization: the 5 shutdown tests
-that cannot pass on Windows (KI-3) pass on Linux, the 3 `translate.test.ts` failures were the
+`check` passing there settles three earlier questions in favour of the verticalization: the 5 shutdown
+tests that cannot pass on Windows (KI-3) pass on Linux, the 3 `translate.test.ts` failures were the
 Windows cascade described above, and the 3 `publication.test.ts` failures are Windows-specific rather
 than a regression.
+
+**2. Commit `02d2049` (frozen thresholds `32/55/60`, pushed).** GitHub Actions ran on this commit. This is
+the run that exposed the `tests/analyze.test.ts` contract regression:
+
+| job | result |
+|---|---|
+| `Check / docker` | **PASS** |
+| `Check / check` | **FAIL** |
+
+Steps inside the failing `check` job: Typecheck PASS, Build web PASS, Web tests PASS, Migrate and seed
+PASS, Smoke PASS, **Backend tests FAIL** — `tests/analyze.test.ts`, 4 failures at `:95`, `:117`, `:140`
+and `:169`. Those four assertions encoded the pre-calibration threshold contract, so the failure was
+deterministic and platform-independent, not a Windows artefact.
+
+This corrected an earlier statement in this document, which had assumed the calibration commits were
+unpushed and therefore unseen by CI. They had in fact been pushed, CI had run, and CI had already found
+the regression on Linux. The remediation that followed is in `## Phase 1 audit remediation`.
+
 
 The `docker` failure was **not** caused by the industry pack failing to build or seed. Reproduced
 locally, step by step: `docker compose up -d --build` exited 0 (64.3 s), `setup` exited 0 after migrate +
@@ -643,6 +657,63 @@ Full detail in `docs/00-sentinelintel/03-Phase0-Baseline-Audit.md` §12. Summary
 6. `structure` really does run concurrently with `scores` (`editorial/analyze.ts:349-352`), as the
    Migration Spec claims.
 
+## Phase 1 audit remediation
+
+Branch: `phase/1-security-verticalization`. Scope: the findings of the independent Phase 1 audit —
+documentation corrections and the four deterministic `tests/analyze.test.ts` failures. No threshold, no
+prompt, no benchmark label and no evaluation result was changed, and no evaluation was re-run. Frozen
+artifacts verified unchanged: `industry/selection.ts`, `industry/prompts/selection-score.md`,
+`industry/prompts/prefilter.md`, `datasets/selection/candidates.jsonl` (blob identical to `02d2049`),
+`datasets/selection/tier-calibration.jsonl`.
+
+### Code — `packages/backend/src/editorial/analyze.ts`
+
+The threshold calibration exposed two writing-routing regressions that the old, higher threshold had been
+masking. `runUnderstand` now declines the two cases where a score must not decide the copy, falling
+through to the existing `runSummarize` (which already returns `none` and `verbatim`):
+
+```ts
+const t = translateInputOf(a);
+if (missingEvidence(a) || (isShortTweetInput(t) && !needsShortTweetTranslation(collapseWhitespace(t.mainText || t.title)))) return null;
+```
+
+- **A title alone must not become publishable.** `BARE` (no body, no excerpt, no fetchable page) scores
+  30+34, so its mean of 32 lands exactly on the new T1 threshold. Under the old 60 it was not selected;
+  under 32 it was, and the understanding wrote it up into a publishable copy with no evidence behind it.
+  It now stays `relevance = unknown`, `selected = false`, `writer = none`, with an empty title and summary.
+- **A short post already in Chinese keeps its own text.** The post scored 40+40 ≥ 2 × 32, so it was routed
+  to the understanding and rewritten, even though its own text is already the reader-facing copy. It now
+  stays `writer = verbatim` while the score still selects it: the score decides 精选, it does not decide
+  whether a readable post needs rewriting.
+
+`missingEvidence`, `isShortTweetInput`, `needsShortTweetTranslation` and `runSummarize`'s `verbatim` branch
+are the repository's existing predicates — no second material-quality or language judgement was added. The
+guard sits in `runUnderstand`, which only `runAnalysis`'s full path calls, so the `stages: "selection"`
+path used by `scripts/eval-selection.ts` is untouched and the frozen evaluation results cannot move.
+
+### Tests — `tests/analyze.test.ts`
+
+Fixtures were updated; no assertion was weakened and none was deleted:
+
+- `tierThreshold("T1") === 60` → `32`, with new assertions pinning `T1_5 = 55` and `T2 = 60`, and the
+  arithmetic message `78 + 72 = 150 ≥ 2 × 32`.
+- `RESCUE` and `LOW` moved to a new **test-only** T1_5 source. Mean 53 sits between `understandFloor` (50)
+  and the T1_5 threshold (55), so the original "near-selected but not selected" band is expressible again
+  at the frozen thresholds; `LOW` (mean 42) stays below the floor. Both now also assert the `writer` they
+  produce (`understand` / `summarize`).
+- `BARE` now also asserts that no understanding call happens, that `writer` is `none`, and that no
+  publishable title or summary is written.
+- The short Chinese post now also asserts that it is still selected, that `writer` is `verbatim`, and that
+  no understanding call rewrites it.
+
+### Documentation
+
+`docs/IMPLEMENTATION_STATUS.md` (this file) and `docs/evaluation/selection.md` were corrected for the
+audit findings: the stale "unpushed / CI has never seen it" Git statements, the over-general benchmark
+provenance sentence, the overstated holdout blindness, and two missing limitations (holdout tier-cell
+coverage; the T2 calibration-versus-production source mismatch). The frozen Phase 0 record
+`docs/00-sentinelintel/03-Phase0-Baseline-Audit.md` was not touched.
+
 ## Phase 1 Start Blockers
 
 NO.
@@ -665,34 +736,37 @@ be accepted as complete.
 2. **Cost authorization — resolved.** The project owner authorized the paid model calls and the full
    evaluation has been executed: development baseline, calibrated development, tier calibration and one
    final holdout. See `### Phase 1 evaluation — final`.
-3. **Deterministic test failure introduced by the threshold calibration — NOT resolved.** After the
-   frozen thresholds changed from `60/65/76` to `32/55/60`, `tests/analyze.test.ts` fails **4 of its 8
-   tests on any platform**, including on a fresh database in isolation (tests 8 / pass 4 / fail 4,
-   exit 1, 2.6 s — no timeouts, no other test file involved):
-   - `tests/analyze.test.ts:95` — `assert.equal(tierThreshold("T1"), 60)` still hardcodes the old
-     threshold; the code now returns `32` (`32 !== 60`).
-   - `tests/analyze.test.ts:117` — expects the 56+50 (average 53) material to be **not** selected; at
-     `T1 = 32` it now is.
-   - `tests/analyze.test.ts:140` — expects a bare-title item scoring 32 to be **not** selected; at
-     `T1 = 32` it now is.
-   - `tests/analyze.test.ts:169` — expects a short Chinese X post to remain its own copy; it now
-     receives an understanding title.
+3. **Deterministic test failure introduced by the threshold calibration — RESOLVED.** After the frozen
+   thresholds changed from `60/65/76` to `32/55/60`, `tests/analyze.test.ts` failed **4 of its 8 tests on
+   any platform**, including on a fresh database in isolation (tests 8 / pass 4 / fail 4, exit 1, 2.6 s —
+   no timeouts, no other test file involved). The four were confirmed independently by the Linux CI run on
+   `02d2049` (see `### Canonical Linux CI`) and reproduced locally:
+   - `tests/analyze.test.ts:95` — `assert.equal(tierThreshold("T1"), 60)` hardcoded the old threshold; the
+     code returned `32` (`32 !== 60`).
+   - `tests/analyze.test.ts:117` — expected the 56+50 (average 53) material to be **not** selected; at
+     `T1 = 32` it was.
+   - `tests/analyze.test.ts:140` — expected a bare-title item scoring 32 to be **not** selected; at
+     `T1 = 32` it was.
+   - `tests/analyze.test.ts:169` — expected a short Chinese X post to remain its own copy; it received an
+     understanding title.
 
-   The calibration commits (`8ec9d8f`, `f413add`, `e1e840b`) touched only `industry/selection.ts`,
-   `datasets/selection/tier-calibration.jsonl` and `datasets/selection/tier-calibration-provenance.md` —
-   **no test file** — and are **still unpushed**, so CI has never seen the new thresholds. The last
-   CI-green run (`d93f466`) predates calibration. These assertions encode the pre-calibration contract;
-   updating them changes assertions, so it is an owner decision and was deliberately **not** done in this
-   finalization. **This blocks merge.**
+   Two of the four were stale fixtures; the other two were real writing-routing regressions the old
+   threshold had been masking. Both were fixed in `## Phase 1 audit remediation` without changing any
+   threshold, prompt, label or evaluation result. `tests/analyze.test.ts` is now 8 of 8, and the full
+   Windows suite is back to its Phase 0 shape (139 tests / 131 pass / 2 fail / 6 cancelled, where the 8
+   non-passing are the KI-3 POSIX `SIGTERM` cascade).
 4. **KI-1 / KI-2 — RESOLVED and merged.** Both were fixed in the Post-Phase-0 Baseline Portability Fix
    and merged into `main` at `2938249` (see `## Post-Phase-0 Baseline Portability Fix`). With KI-1
    fixed the Windows web suite is 16 of 16, so the earlier caveat that "all tests pass cannot be
    claimed on Windows" no longer applies to the web tests. It still applies to the shutdown tests
    blocked by the Windows POSIX `SIGTERM` limitation (KI-3), which is covered by the canonical Linux run
    instead.
-5. **Benchmark-to-production distribution.** The benchmark was sampled from the Phase 1 sources'
-   published items. Production mix, volume and prefilter input differ materially; see
-   `docs/evaluation/selection.md` §L.
+5. **Benchmark provenance and distribution.** 150 of the 200 benchmark cases came from the configured
+   Phase 1 RSS source pack (`industry/sources.json`, 10 sources). The remaining 50 came from external web
+   sources, added deliberately to cover the `procurement`, `marketing-noise` and `irrelevant-IT` strata
+   that the production pack does not provide; those rows carry no URL and are not traceable from the
+   repository. Production mix, volume and prefilter input differ materially, and the pack still has no
+   procurement source; see `docs/evaluation/selection.md` §L.
 
 ## Next Action
 
@@ -701,19 +775,17 @@ Portability Fix is accepted and merged into `main` at `2938249`.
 
 Phase 1 — Security Verticalization is **COMPLETED_WITH_LIMITATIONS — EVAL COMPLETE** on
 `phase/1-security-verticalization`, open as **draft pull request #3**. **It must not be merged**, and
-Phase 1 is **not** accepted. Two decisions are required first:
+Phase 1 is **not** accepted. One decision remains, and it is the project owner's:
 
 1. **The acceptance-criterion deviation.** Accept the `MODEL_REVIEWED` 200-case benchmark (+ 24-case tier
    calibration supplement) as the Phase 1 substitute for 150–250 human-labelled gold cases, or commission
    the human labelling pass. See `## Phase 1 acceptance-criterion deviation (explicit)`.
-2. **The 4 deterministic `tests/analyze.test.ts` failures** introduced by the frozen threshold change —
-   see `## Phase 1 Acceptance Prerequisites` §3. Either the test contract is updated to the calibrated
-   thresholds in a separately scoped commit, or the threshold decision is revisited. **This is what makes
-   the branch not merge-ready:** the failing assertions are platform-independent, and the commits
-   carrying the new thresholds are still unpushed, so CI has never seen them.
 
-Also still open for the owner, independent of the two decisions above: the seeded source pack has no
-procurement source and no physical-security vendor feed (see the earlier checkpoint notes), and the
-benchmark's 50 `web` rows are not URL-traceable (see the source-provenance note above).
+The 4 deterministic `tests/analyze.test.ts` failures were fixed in `## Phase 1 audit remediation`; they
+are no longer an open decision.
+
+Also still open for the owner, independent of that decision: the seeded source pack has no procurement
+source and no physical-security vendor feed (see the earlier checkpoint notes), and the benchmark's 50
+`web` rows are not URL-traceable (see the source-provenance note above).
 
 **Phase 2 has not started and must not start** until Phase 1 is accepted.

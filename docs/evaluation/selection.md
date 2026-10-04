@@ -113,9 +113,21 @@ Interpretation:
 
 ## F. Calibration method
 
-1. **The holdout was not touched.** All threshold investigation used the development split and the
-   calibration supplement only. No holdout label was read, and no holdout metric was computed, before
-   the thresholds were frozen.
+1. **The holdout labels were frozen before threshold calibration, and no holdout evidence was used to
+   choose the thresholds.** All threshold investigation used the development split and the calibration
+   supplement only; no holdout evaluation metric and no holdout error analysis was computed or consulted
+   before the thresholds were frozen.
+
+   This is a statement about the *sequence of work*, not about blinding. It must not be read as a claim
+   that the holdout was independently adjudicated or blind to the model family that produced it: the
+   development and holdout splits of the 200-case benchmark were both labelled by the same model family
+   (first pass model-proposed, second pass model-reviewed), so the holdout is a **split-level holdout
+   only**. No independent human adjudication stands behind it, and the same family that labelled it also
+   ran the evaluation.
+
+   What the retained artifacts support is narrower still: one final holdout report and one corresponding
+   SelectBench holdout run still exist (see §M). The history of earlier runs that may have been deleted is
+   not recoverable from those artifacts.
 2. **Development was used for the threshold investigation.** `scripts/eval-selection.ts` reports a
    threshold sweep (40 → 90 in steps of 2), which shows what each candidate threshold would have done
    on the same fixed decisions. This is a deterministic re-scoring of already-computed scores — it
@@ -170,12 +182,16 @@ Reminder: this set is targeted and balanced. 0.917 here is **not** natural-distr
 - The final thresholds `32 / 55 / 60` were **frozen before the holdout was executed**.
 - The holdout was **not used for threshold or prompt tuning** at any point before the final run. It
   contributed no label, metric or error case to the calibration in §F.
-- The final holdout was executed **once**, for final evaluation.
+- One final holdout evaluation was executed after that freeze. The retained artifacts show **one** holdout
+  report and **one** corresponding SelectBench holdout run (§M). They cannot show whether some earlier
+  holdout run happened and was deleted, so "executed exactly once" is not a claim this repository can
+  support; what is supported is that only one holdout result is retained.
 - **After the final holdout, no further threshold or prompt tuning was performed.** No calibration
   data was added afterwards and no new benchmark split was created.
 - The five holdout false negatives (§K) are **frozen evidence**. They are explicitly **not** a
-  permission or an input to tune the threshold further. Re-tuning against them would destroy the only
-  independent estimate in this document.
+  permission or an input to tune the threshold further. Re-tuning against them would consume the one split
+  that was held back from the calibration; it would not be an independent estimate in the human-adjudicated
+  sense, because no such adjudication exists here (§L item 1).
 
 ## J. Final holdout results
 
@@ -249,10 +265,12 @@ which is the direct complement of the statement above.
 5. **The tier calibration supplement is targeted, not natural-distribution.** Its 0.917 accuracy/F1
    describes a deliberately balanced set of hard tier cases and must not be quoted as general
    performance.
-6. **Benchmark-to-production distribution shift.** The benchmark was sampled from the Phase 1 sources'
-   published items. The production stream has a different mix, a different item volume, and includes
-   items the benchmark never sampled. The prefilter on production also sees material the benchmark did
-   not.
+6. **Benchmark-to-production distribution shift.** 150 of the 200 benchmark cases came from the configured
+   Phase 1 RSS source pack (`industry/sources.json`); the remaining 50 were deliberately added from
+   external web sources to cover the `procurement`, `marketing-noise` and `irrelevant-IT` strata the pack
+   does not provide (see items 10 and 11). The production stream has a different mix, a different item
+   volume, and includes items the benchmark never sampled. The prefilter on production also sees material
+   the benchmark did not.
 7. **Short material.** Each case carries roughly 240 characters of material
    (`material.bodyOriginal` or `material.bodyZh`), not the full article. This was a deliberate
    copyright constraint (see `datasets/selection/README.md` §3.5). Evaluation conditions are therefore
@@ -275,6 +293,29 @@ which is the direct complement of the statement above.
    sources outside the seeded pack. The production source pack still has no procurement source and no
    noise/informational source, so benchmark coverage of those strata does not imply the site will
    encounter them at the same rate — in fact, as configured, it will encounter them less.
+12. **The holdout's tier cells are badly unbalanced, so the aggregate holdout mostly measures T1.** The
+   45-case final holdout distributes as:
+
+   | tier | n | `select` | `reject` | `either` |
+   |---|---|---|---|---|
+   | `T1` | 41 | 24 | 15 | 2 |
+   | `T1_5` | 2 | 2 | 0 | 0 |
+   | `T2` | 2 | 0 | 2 | 0 |
+
+   So the aggregate holdout figures in §J are real, but they validate the frozen overall policy
+   **primarily on T1 cases**. The final holdout does **not** independently cover the `T1_5`-negative side
+   (no `T1_5` rejects at all) or the `T2`-positive side (no `T2` selects at all). Evidence for those two
+   directions comes from the targeted calibration supplement in §H, which is a deliberately balanced set —
+   not from the final holdout. A single aggregate holdout F1 must not be read as covering all three tier
+   behaviours.
+13. **`T2 = 60` is calibrated against security media, but the production T2 source is a different
+   publisher.** The production pack's only `T2` source is `FreeBuf 安全资讯`. The 12 `T2`-positive cases in
+   the calibration supplement come from `SecurityWeek`, `The Record`, `Dark Reading` and
+   `BleepingComputer` — the intersection of the two `sourceName` sets is **empty**. The supplement
+   therefore shows that `T2 = 60` behaves sensibly on a set of independent security-media hard positives;
+   it does **not** show that `T2 = 60` has been calibrated or validated on the `FreeBuf` positive
+   distribution the running site will actually see. `FreeBuf` items appear in the benchmark only as
+   `generic-cybersecurity` material.
 
 ## M. Reproducibility
 
