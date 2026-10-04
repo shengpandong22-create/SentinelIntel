@@ -259,8 +259,20 @@ async function runStructure(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
   return { model: res.model, category: res.data.category, tags: normalizeTags(res.data.tags), subjects, fact: res.data.fact, receiptId: res.receiptId, reused: res.reused };
 }
 
-/** The content understanding; null when the model's content filter declines the material. */
+/**
+ * The content understanding; null when the model's content filter declines the material.
+ *
+ * It also declines the two cases where the score must not decide the copy:
+ *  - an item with no material to understand (a title alone): the score may still be computed and
+ *    shown, but lacking evidence it cannot become a written-up publishable item;
+ *  - a short post already in Chinese, whose own text is the reader-facing copy.
+ * Both fall through to runSummarize, which returns `none` and `verbatim` respectively. The score keeps
+ * deciding 精选; it just cannot turn a title, or a post the reader can already read, into a model-written
+ * copy. Called from runAnalysis only, so the `stages: "selection"` path (SelectBench) is unaffected.
+ */
 async function runUnderstand(a: AnalyzeInputArticle, opts: StepOpts): Promise<AnalysisRun["writing"]> {
+  const t = translateInputOf(a);
+  if (missingEvidence(a) || (isShortTweetInput(t) && !needsShortTweetTranslation(collapseWhitespace(t.mainText || t.title)))) return null;
   const model = await modelFor("understand");
   const text = understandUser(a);
   const call = (image: ContentPart | null) => {

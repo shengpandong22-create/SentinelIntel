@@ -19,6 +19,9 @@ import { SITE } from "@aihot/industry/site";
 const T = tag();
 const SOURCE = `test-analyze-${T}`;
 const X_SOURCE = `test-analyze-x-${T}`;
+// A T1_5 source: mean scores between understandFloor (50) and the T1_5 threshold (55) stay
+// "near-selected", which the T1 threshold (32) can no longer express.
+const MEDIA_SOURCE = `test-analyze-media-${T}`;
 
 type Step = "prefilter" | "score" | "understand" | "summarize" | "structure";
 interface Req { step: Step; marker: string; system: string; user: string; body: Record<string, any> }
@@ -58,6 +61,7 @@ Object.assign(process.env, { PREFILTER_MODEL: "qwen3.7-flash", SCORE_MODEL: "glm
 before(async () => {
   await sql`INSERT INTO sources (id, name, kind, tier, participation_mode, next_fetch_at) VALUES
     (${SOURCE}, 'Test analyze source', 'rss', 'T1', 'editorial', '2100-01-01'),
+    (${MEDIA_SOURCE}, 'Test analyze media source', 'rss', 'T1_5', 'editorial', '2100-01-01'),
     (${X_SOURCE}, 'Test X account', 'x_search', 'T1', 'editorial', '2100-01-01')`;
 });
 after(async () => {
@@ -92,10 +96,13 @@ test("every prompt in the pack renders, and the site's name replaces AIHOT's", (
 });
 
 test("a selected item: prefilter, two scores, the content understanding and the structure", async () => {
-  assert.equal(tierThreshold("T1"), 60);
+  // The frozen Phase 1 thresholds (industry/selection.ts): T1 32 / T1_5 55 / T2 60.
+  assert.equal(tierThreshold("T1"), 32);
+  assert.equal(tierThreshold("T1_5"), 55);
+  assert.equal(tierThreshold("T2"), 60);
   const id = await article("CLEAR");
   const res = await analyzeArticle(id);
-  assert.deepEqual([res!.output!.selected, res!.output!.score], [true, 75], "78 + 72 = 150 >= 120");
+  assert.deepEqual([res!.output!.selected, res!.output!.score], [true, 75], "78 + 72 = 150 >= 2 × 32");
   assert.deepEqual(calls("CLEAR").sort(), ["prefilter", "score", "score", "structure", "understand"]);
   const r = await row(id);
   assert.deepEqual([r.title_zh, r.reason_zh, r.category, r.receipt_ids.length], ["理解标题 CLEAR", "理由 CLEAR", "vulnerability", 5]);
@@ -113,12 +120,18 @@ test("a selected item: prefilter, two scores, the content understanding and the 
 });
 
 test("a near-selected item is written like a selected one; below the floor it is translated", async () => {
-  const near = await analyzeArticle(await article("RESCUE"));
-  assert.deepEqual([near!.output!.selected, near!.output!.reasonZh], [false, "理由 RESCUE"], "56 + 50 = 106 > 100");
-  const lowId = await article("LOW");
+  // Both items sit on a T1_5 source: the original contract is about the band between understandFloor
+  // and the tier threshold, which the T1 threshold (32) is too low to express.
+  const nearId = await article("RESCUE", { sourceId: MEDIA_SOURCE });
+  const near = await analyzeArticle(nearId);
+  assert.equal(near!.output!.threshold, 55);
+  assert.deepEqual([near!.output!.selected, near!.output!.reasonZh], [false, "理由 RESCUE"], "56 + 50 = 106 < 2 × 55 (T1_5) but > 2 × 50 (understandFloor)");
+  assert.equal((await row(nearId)).output.writer, "understand", "near-selected is written like a selected one");
+  const lowId = await article("LOW", { sourceId: MEDIA_SOURCE });
   const low = await analyzeArticle(lowId);
   assert.deepEqual([low!.output!.selected, low!.output!.titleZh, low!.output!.reasonZh], [false, "翻译标题 LOW", null]);
   assert.deepEqual(calls("LOW").sort(), ["prefilter", "score", "score", "structure", "summarize"]);
+  assert.equal((await row(lowId)).output.writer, "summarize", "below the floor: the cheaper prompts write it");
   const summarize = requests.find((q) => q.marker === "LOW" && q.step === "summarize")!;
   assert.equal(summarize.body.messages.length, 1, "the title/summary prompt is one user message");
   assert.equal(summarize.body.response_format, undefined, "answered in its own text format");
@@ -129,16 +142,23 @@ test("the prefilter's BLOCK stops everything; UNKNOWN goes on like PASS", async 
   const off = await analyzeArticle(await article("OFFTOPIC"));
   assert.deepEqual([off!.output!.relevance, off!.output!.selected], ["block", false]);
   assert.deepEqual(calls("OFFTOPIC"), ["prefilter"]);
-  // An UNKNOWN with material is judged and written like a PASS, up to 精选 (60 + 62 ≥ 2 × 60).
+  // An UNKNOWN with material is judged and written like a PASS, up to 精选 (60 + 62 ≥ 2 × 32).
   const vagueId = await article("VAGUE");
   const vague = await analyzeArticle(vagueId);
   assert.deepEqual([vague!.output!.relevance, vague!.output!.selected, vague!.output!.titleZh], ["pass", true, "理解标题 VAGUE"]);
   assert.equal((await row(vagueId)).output.prefilter.label, "UNKNOWN", "the prefilter's own answer stays on record");
   // Nothing but a title and no page to fetch: the BLOCK counts as UNKNOWN and is scored, but the
   // translation writes nothing from a bare title, so it waits for material instead of being published.
-  const bare = await analyzeArticle(await article("BARE", { bodyText: null, excerpt: null, bodyStatus: "none" }));
+  const bareId = await article("BARE", { bodyText: null, excerpt: null, bodyStatus: "none" });
+  const bare = await analyzeArticle(bareId);
   assert.deepEqual([bare!.output!.relevance, bare!.output!.selected, bare!.output!.score], ["unknown", false, 32]);
   assert.deepEqual(calls("BARE").sort(), ["prefilter", "score", "score", "structure"]);
+  // The score (32) lands exactly on the T1 threshold (32) and the item is still not selected: a title
+  // on its own is not material. No understanding call, and nothing publishable is written from it.
+  assert.equal(bare!.output!.threshold, 32);
+  assert.ok(!calls("BARE").includes("understand"), "a title alone is not written up by the understanding");
+  assert.equal((await row(bareId)).output.writer, "none", "nothing is written from a title alone");
+  assert.deepEqual([bare!.output!.titleZh, bare!.output!.summaryZh], ["", ""], "no publishable copy without material");
 });
 
 test("a feed summary alone: the article page is fetched first, then the whole article is judged", async () => {
@@ -168,6 +188,11 @@ test("a short post in Chinese is its own copy; a content-filter refusal is trans
   const post = await analyzeArticle(articleId);
   assert.deepEqual([post!.output!.titleZh, post!.output!.summaryZh], [text, text]);
   assert.ok(!calls("推文").includes("summarize"), "no translation call");
+  // The score still decides 精选 (40 + 40 ≥ 2 × 32) and may select it, but the reader-facing copy stays
+  // the post's own text: the understanding must not rewrite a short post the reader can already read.
+  assert.equal(post!.output!.selected, true, "the score still decides 精选");
+  assert.equal((await row(articleId)).output.writer, "verbatim");
+  assert.ok(!calls("推文").includes("understand"), "a short Chinese post is not rewritten by the understanding");
   const sensitive = await analyzeArticle(await article("SENSITIVE"));
   assert.deepEqual([sensitive!.output!.selected, sensitive!.output!.titleZh], [true, "翻译标题 SENSITIVE"]);
   assert.deepEqual(calls("SENSITIVE").filter((s) => s === "understand" || s === "summarize"), ["understand", "summarize"]);
