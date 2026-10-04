@@ -220,6 +220,18 @@ node --test tests/translate.test.ts (fresh DB, isolated)
 
 See `## Phase 1 Acceptance Prerequisites` §3 for the four failing assertions.
 
+**3. Commit `1cbc429` (frozen thresholds `32/55/60`, after the remediation).** GitHub Actions run
+`37187760717`: **both jobs PASS.**
+
+| job | result | steps |
+|---|---|---|
+| `Check / check` | **PASS** | 16 steps, all success — Set up job, Initialize containers, checkout, setup-node, Install, Typecheck, Build web, Web tests, Migrate and seed topics, Smoke check of the built site, **Backend tests** |
+| `Check / docker` | **PASS** | Configure a throwaway site, Build and start with docker compose, Smoke check |
+
+`Backend tests` is the step that failed on `02d2049`. It passing here is the canonical Linux confirmation
+that the four `tests/analyze.test.ts` contract failures are gone, and that the Windows-only non-passing
+tests (KI-3, POSIX `SIGTERM`) pass on Linux as before. See `## Phase 1 audit remediation`.
+
 ### Phase 1 implementation — earlier checkpoint (`PHASE 1 IMPLEMENTATION CHECKPOINT REACHED`, historical)
 
 **Branding (`industry/site.ts`).** `name: SentinelIntel`, `subject: 安防`, `mcpPrefix: sentinelintel`,
@@ -714,6 +726,36 @@ provenance sentence, the overstated holdout blindness, and two missing limitatio
 coverage; the T2 calibration-versus-production source mismatch). The frozen Phase 0 record
 `docs/00-sentinelintel/03-Phase0-Baseline-Audit.md` was not touched.
 
+### Verification
+
+Local (Windows, fresh throwaway PostgreSQL 17, safety valves as noted):
+
+```text
+git diff --check                        → clean, exit 0
+npm run typecheck                       → pass, exit 0
+node --test tests/analyze.test.ts       → tests 8 / pass 8 / fail 0, exit 0
+npm run build -w @aihot/web             → pass, exit 0
+node --test apps/web/tests/*.test.ts    → tests 16 / pass 16 / fail 0, exit 0
+npm test                                → tests 139 / pass 131 / fail 2 / cancelled 6,
+                                          exit 1, 773.9 s
+```
+
+`tests/analyze.test.ts` has no failures left. The 8 non-passing in `npm test` are exactly the KI-3
+cascade (5 shutdown tests at their 120 s Windows `SIGTERM` timeout, 1 `translate.test.ts` timeout and the
+2 `translate.test.ts` assertions that follow from it) — all inside the files this remediation does not
+touch, and all passing on Linux.
+
+Canonical Linux CI (run `37187760717` on `1cbc429`): `Check / check` **PASS** (16 steps, incl.
+Backend tests), `Check / docker` **PASS**.
+
+A note for future runs of these suites: `MODEL_CALLS_ENABLED=false` must **not** be set when running
+`tests/*.test.ts`. It is enforced in `packages/backend/src/providers/llm.ts` (`chatJson`) and throws
+before the tests' own local HTTP stubs are reached, which inflates the failure count (observed:
+`tests/analyze.test.ts` 6 failures instead of 4, `tests/translate.test.ts` 3 instead of 0). The tests
+already point every provider at a local stub and forbid real credentials via
+`AIHOT_CREDENTIALS_DIR=/nonexistent-test-credentials`, so no paid call is possible either way.
+`COLLECT_ENABLED=false` is harmless.
+
 ## Phase 1 Start Blockers
 
 NO.
@@ -752,9 +794,11 @@ be accepted as complete.
 
    Two of the four were stale fixtures; the other two were real writing-routing regressions the old
    threshold had been masking. Both were fixed in `## Phase 1 audit remediation` without changing any
-   threshold, prompt, label or evaluation result. `tests/analyze.test.ts` is now 8 of 8, and the full
-   Windows suite is back to its Phase 0 shape (139 tests / 131 pass / 2 fail / 6 cancelled, where the 8
-   non-passing are the KI-3 POSIX `SIGTERM` cascade).
+   threshold, prompt, label or evaluation result. `tests/analyze.test.ts` is now 8 of 8 on Windows, the
+   full Windows suite is back to its Phase 0 shape (139 tests / 131 pass / 2 fail / 6 cancelled, where
+   the 8 non-passing are the KI-3 POSIX `SIGTERM` cascade), and the canonical Linux CI run
+   `37187760717` on `1cbc429` passes both jobs including `Backend tests` — see
+   `### Canonical Linux CI` item 3.
 4. **KI-1 / KI-2 — RESOLVED and merged.** Both were fixed in the Post-Phase-0 Baseline Portability Fix
    and merged into `main` at `2938249` (see `## Post-Phase-0 Baseline Portability Fix`). With KI-1
    fixed the Windows web suite is 16 of 16, so the earlier caveat that "all tests pass cannot be
