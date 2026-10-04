@@ -132,11 +132,32 @@ Branch: `phase/1-security-verticalization`
 
 Base: `main` = `2938249`
 
-Status: **COMPLETED_WITH_LIMITATIONS — EVAL COMPLETE**
+Status: **ACCEPTED_WITH_LIMITATIONS**
+
+**Accepted by the project owner.** This is an owner acceptance of a documented deviation; it is **not** a
+claim that the original `150–250 human-labelled gold` requirement was satisfied.
+
+- **Final accepted branch tip before merge:** `fac261816d608df55091033f9bd669dd95db6f6b`
+- **Acceptance record commit:** the commit whose subject is `docs: accept Phase 1 with documented
+  limitations`, i.e. the one that introduces this status. Find it with
+  `git log --oneline --grep="accept Phase 1 with documented limitations"`. It supersedes `fac2618` only as
+  the branch tip: the accepted evaluation, thresholds, benchmark and code are unchanged from `fac2618`.
+- **Owner explicitly accepts the `MODEL_REVIEWED` benchmark as the Phase 1 substitute delivery** — the
+  200-case benchmark plus the 24-case tier calibration supplement — at this stage of the project.
+- **This does NOT mean the original human-labelled gold requirement was satisfied.** It remains an
+  **accepted deviation**, and the benchmark hardening behind it is a **deferred item**, not a completed
+  requirement.
+- **The documented limitations are neither deleted nor softened by this acceptance:**
+  `MODEL_REVIEWED` instead of human gold, same-family annotation, a small and non-blind holdout, the
+  holdout tier imbalance, the `T2` calibration-versus-`FreeBuf` source mismatch, and the production source
+  coverage gaps. See `## Phase 1 acceptance-criterion deviation (explicit)` and
+  `docs/evaluation/selection.md` §L.
+- **No further Phase 1 selection tuning is authorized.** The thresholds, `industry/prompts/selection-score.md`
+  and `industry/prompts/prefilter.md` stay frozen exactly as they are.
+- **The final holdout remains frozen evidence and must not become a development set.**
 
 The phase is implementation-complete, development-calibration-complete, tier-calibration-complete, and
-the final holdout has been executed. It is **not** `ACCEPTED`: final acceptance and the merge decision
-are made by the project owner after review.
+the final holdout has been executed.
 
 It does not implement any Agent, runtime, retrieval or event-grouping change: Phase 2 (security event
 grouping benchmark) and Phase 3 (Python Agent Runtime) have not started.
@@ -183,6 +204,36 @@ This is an **explicit acceptance-criterion deviation, not a satisfied requiremen
 are valid as **project-internal, reproducible, model-reviewed benchmark metrics**. They must **not** be
 represented as human-labelled accuracy or as production accuracy. The original requirement is not
 rewritten here and is not claimed to have been met; the substitute delivery is named for what it is.
+
+### Owner decision (final)
+
+The project owner has **accepted this deviation** for Phase 1. Recorded as follows, so the scope of the
+acceptance cannot be widened later by re-reading it:
+
+| | |
+|---|---|
+| Decision | accept the `MODEL_REVIEWED` benchmark as the Phase 1 substitute delivery |
+| Original requirement | `150–250 human-labelled gold cases` — **not satisfied** |
+| Accepted substitute | 200-case `MODEL_REVIEWED` benchmark + 24-case `MODEL_REVIEWED` tier calibration supplement |
+| Independent human adjudication | **none** — both annotation passes by the same model family |
+| Status recorded | `ACCEPTED_WITH_LIMITATIONS` |
+| Final accepted branch tip before merge | `fac261816d608df55091033f9bd669dd95db6f6b` |
+
+What the acceptance does **not** do:
+
+- It does **not** convert the `MODEL_REVIEWED` labels into human gold, and it does **not** make any metric
+  here a human-labelled or production accuracy figure.
+- It does **not** remove, downgrade or reinterpret any limitation listed in
+  `docs/evaluation/selection.md` §L. Those remain the accurate description of the benchmark.
+- It does **not** authorize further selection tuning: the frozen thresholds
+  (`32 / 55 / 60`), `selection-score.md` and `prefilter.md` stay as they are.
+- It does **not** unfreeze the holdout. The final holdout stays a one-shot evaluation set and must not be
+  reused as a development set.
+
+**Deferred item (no longer a Phase 1 merge blocker).** Future benchmark hardening: independent human
+adjudication of a representative sample, or of the full benchmark, by a human whose judgement matches the
+site's readership. Doing that would convert the accepted deviation into a satisfied requirement; nothing
+in this repository claims it has been done.
 
 ### Phase 1 final verification (Windows, actual output)
 
@@ -817,19 +868,20 @@ be accepted as complete.
 Phase 0 is accepted and frozen at tag `sentinelintel-phase0` (`1deb090`). The Post-Phase-0 Baseline
 Portability Fix is accepted and merged into `main` at `2938249`.
 
-Phase 1 — Security Verticalization is **COMPLETED_WITH_LIMITATIONS — EVAL COMPLETE** on
-`phase/1-security-verticalization`, open as **draft pull request #3**. **It must not be merged**, and
-Phase 1 is **not** accepted. One decision remains, and it is the project owner's:
+**Phase 1 — Security Verticalization is accepted with limitations** (`ACCEPTED_WITH_LIMITATIONS`) on
+`phase/1-security-verticalization`. The owner decision that was outstanding is now recorded in
+`## Phase 1 acceptance-criterion deviation (explicit)` → `### Owner decision (final)`.
 
-1. **The acceptance-criterion deviation.** Accept the `MODEL_REVIEWED` 200-case benchmark (+ 24-case tier
-   calibration supplement) as the Phase 1 substitute for 150–250 human-labelled gold cases, or commission
-   the human labelling pass. See `## Phase 1 acceptance-criterion deviation (explicit)`.
+- **Pull request #3 is ready for the owner to merge**, once this acceptance-status commit passes the
+  canonical Linux CI.
+- **Phase 2 may begin only after Phase 1 is merged into `main` and the merged state is recorded here** —
+  that is, the merge commit, plus confirmation that `main`'s tree now carries this acceptance record. The
+  acceptance travels with this file, so the merge must keep it.
+- Nothing in this document authorizes further Phase 1 selection tuning or a holdout re-run.
 
-The 4 deterministic `tests/analyze.test.ts` failures were fixed in `## Phase 1 audit remediation`; they
-are no longer an open decision.
+Still open as **deferred work, not Phase 1 merge blockers**: the seeded source pack has no procurement
+source and no physical-security vendor feed, and the benchmark's 50 `web` rows are not URL-traceable.
+**Future benchmark hardening — independent human adjudication of a representative sample or of the full
+benchmark — remains the item that would turn the accepted deviation into a satisfied requirement.**
 
-Also still open for the owner, independent of that decision: the seeded source pack has no procurement
-source and no physical-security vendor feed (see the earlier checkpoint notes), and the benchmark's 50
-`web` rows are not URL-traceable (see the source-provenance note above).
-
-**Phase 2 has not started and must not start** until Phase 1 is accepted.
+**Phase 2 implementation has not started.**

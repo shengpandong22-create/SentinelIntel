@@ -1,8 +1,10 @@
 # SentinelIntel Phase 1 — Security Selection Evaluation Record
 
-Status: **COMPLETED_WITH_LIMITATIONS — EVAL COMPLETE**
+Status: **ACCEPTED_WITH_LIMITATIONS** — accepted by the project owner as a documented deviation (see
+`docs/IMPLEMENTATION_STATUS.md` → `### Owner decision (final)`). This is **not** a claim that
+human-labelled gold was delivered.
 Frozen thresholds: `T1 = 32 / T1_5 = 55 / T2 = 60` (`industry/selection.ts`)
-Owner: not yet accepted. Final acceptance and merge decision are made by the project owner.
+Owner: accepted, with every limitation in §L explicitly retained — none waived or softened.
 
 This document is the durable record of the Phase 1 selection evaluation. The runtime reports it
 summarises stay local (`.data/` is git-ignored, see §M).
