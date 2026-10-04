@@ -180,9 +180,9 @@ An independent Phase 2 **design** audit raised ten findings. All ten are address
 |---|---|---|
 | 1 | The primary classifier was wrongly the pair path | The primary is now the production **batch** judge (`BATCH_SYSTEM`, `modelFor("group")`, `BatchSchema`) — the call that actually decides in production. `PAIR_SYSTEM` / the review model is a **confirmation/review diagnostic**, reported in a separate table and never averaged into the primary matrix |
 | 2 | The schema lacked stable report identity, conflated the anti-leakage key with the event identity, and left the end-to-end direction/order/time fields implicit | Every report has a dataset-unique `reportId`; `splitGroupId` (anti-leakage only) is separated from `identity.eventKey`/`identity.storyKey`; each case states its query and candidate roles; `publishedAt` and `ingestedAt` are both recorded, with the query asserted to be the later arrival inside `RECALL_DAYS` |
-| 3 | The quotas could not all hold at once | The band/rate quotas are withdrawn with the arithmetic shown, and replaced by a fixed, mechanically checkable allocation (240 = 180 + 60 over 15 strata and 4 classes), which the harness must re-derive and fail on if it drifts |
+| 3 | The quotas could not all hold at once | The band/rate quotas are withdrawn with the arithmetic shown, and replaced by a fixed, mechanically checkable allocation (240 = 180 + 60 over 16 strata and 4 classes — see the contract table below), which the validator must re-derive and fail on if it drifts |
 | 4 | `multiple-cves-in-one-advisory` was labelled `SAME_OCCURRENCE` | **Corrected to `UNRELATED`**, aligned with `group-definitions.md`: several products *inside one advisory* are one happening (line 1), but two different **CVE identifiers** are two things (line 14) |
-| 5 | The same-CVE cross-source case and the literal same-URL shortcut were conflated | Split into stratum 9 (`same-cve-cross-source-different-url`, judge decides) and stratum 15 (`literal-same-url-duplicate`, the deterministic `same-url` shortcut; `group.ts:663–666`) |
+| 5 | The same-CVE cross-source case and the literal same-URL shortcut were conflated | Split: the cross-source case became stratum 9 (`same-cve-cross-source-different-url`, the judge decides), and the same-URL shortcut became a separate track. That track was then **demoted out of the primary set entirely** in the contract round below — it is now a deterministic diagnostic test, not a stratum |
 | 6 | `AMBIGUOUS` was proposed as a fifth `gold.relation` | Removed. The vocabulary is exactly the four production relations; unsettled cases use `annotation.status` (`decisive` / `disputed` / `insufficient`) and are excluded from decisive metrics with their counts printed |
 | 7 | SelectBench was described as unable to store multiple classes | Corrected: the text columns **could** store another label, but the importer's summary contract and the admin's hardcoded `fp/fn/tp/tn` outcome semantics are binary selection-specific — so reuse would need new columns *and* new semantics |
 | 8 | The production embedding path was asserted as a repo fact | Downgraded to `LOCAL_OBSERVED`; the document now states that the repository does not prove which branch a deployment runs, and requires the recall stage to report the branch it used |
@@ -195,6 +195,26 @@ seam allowed, targeting the production batch judge; **no paid evaluation authori
 cases human-adjudicated; development may be model-proposed/reviewed but disputed or low-confidence
 `SAME_OCCURRENCE` vs `SAME_STORY` cases must be human-adjudicated; and non-human development labels must
 never be called human gold.
+
+### Phase 2 benchmark contract correction
+
+A follow-up review raised eight **contract** issues (as opposed to design issues). All eight are addressed
+in `docs/evaluation/event-grouping-plan.md`; none required code:
+
+| # | issue | resolution |
+|---|---|---|
+| 1 | Annotation provenance was case-level, while the gold relation is per candidate | `gold.relation` and the whole `annotation` block moved **onto each candidate** (`status`, `labelSource`, `labeller`, `confidence`, `humanAdjudicated`, `adjudicator`, `sourceUrls`, `note`). A case-level `humanAdjudicated` flag no longer exists, so it cannot cover labels that were never separately adjudicated. Case level keeps only optional `construction` metadata. The holdout constraint is now stated **per candidate**: every candidate-level label entering the holdout's decisive relation metrics must be human-adjudicated |
+| 2 | Event/story identity was case-level, and Stage C had no mapping to it | `identity.eventKey` / `identity.storyKey` moved **onto each report** (query and every candidate). Stage C now reads: `SAME_OCCURRENCE` = same event + same story; `SAME_STORY` = **different** event + same story; `UNRELATED` = different story; `ROUNDUP` = **unconstrained**, explicitly not auto-treated as one story. A new §7.3.1 makes relation↔identity consistency a validator assertion |
+| 3 | The per-stratum greedy split algorithm could not always satisfy the fixed table | Withdrawn: a `splitGroupId` may span strata, so taking groups whole stratum-by-stratum can miss the quota. The split is now assigned **globally at `splitGroupId` level, once, during construction**, recorded explicitly in the frozen file, and never re-decided by the harness — which only validates (no `splitGroupId` or `reportId` crossing the split, every case's reports on one side, every `caseId` once, the frozen totals and the frozen class/stratum counts). If the global allocation cannot reach the table, case selection is adjusted **before freeze**; a `splitGroupId` is never split to meet a quota |
+| 4 | No time-rebasing contract, so the benchmark would expire | Added §7.8. The dataset keeps real `publishedAt`/`ingestedAt`; the **fixture** shifts both by one common `discoveryTimeShift` onto an `evaluationTimeAnchor` chosen relative to run time, preserving ingestion order and every real interval, and reports both in `meta`. Fixture rows use `backfill = false`, and the fixture asserts `discovered_at - published_at` equals the dataset's — without which `isHistorical()` (`materials.ts:91–93`, `STALE_ON_DISCOVERY_MS = 48 h`) would return `verdict: "historical"` (`group.ts:625–629`) for every case and silently empty Stage C. Stage A/C may not read wall-clock time directly |
+| 5 | `literal-same-url-duplicate` did not deserve 16 of 240 primary cases | **Removed from the primary set.** The repo folds an identical normalised URL into one article before grouping: `identityKeyFor(m)` → `identityKeyForUrl(m.url)` (`materials.ts:114–120`, `lib/url.ts:48–55`), `articles.identity_key text NOT NULL UNIQUE` (`database/migrations/0001_core.sql:63`), and `upsertMaterial` inserts `ON CONFLICT (identity_key) DO NOTHING` (`materials.ts:141–149`). It becomes a **deterministic diagnostic / integration test** in the harness track. Its 16 cases went to two new security-relevant strata — `procurement-correction-or-cancellation` and `policy-amendment-or-implementation-date` (`group-definitions.md:9` and `:10`) — keeping 240/180/60. "Advisory scope/status revision" was not added because stratum 11 already is that case (`group-definitions.md:8`); "same procurement project different lot" was declined because the definitions do not settle it |
+| 6 | Non-decisive labels were still allowed inside the formal cases | The frozen files are now **decisive-only**: `dev.jsonl` / `holdout.jsonl` may contain only candidates with `annotation.status === "decisive"`. A `disputed` or `insufficient` candidate may not sit in a case even uncounted, because `judgeBatch` answers the whole candidate list in one prompt, so an unsettled entry can change the answers for its neighbours. Unsettled material goes to a separate review pool / annotation queue. Removes the run-time exclusion step entirely |
+| 7 | Blocker wording overstated what the open owner items block | Corrected in the plan's §12.2 and in `## Next Action` below: the unassigned **human adjudicator** blocks **holdout finalization/freeze**, and the missing **paid authorization** blocks **paid baseline execution**. Neither blocks schema implementation, the validator, the evaluation seam, the offline harness, fixture tests, or **development** candidate construction — so implementation may begin after design review without paid authorization |
+| 8 | Do not regress the already-corrected design | Verified in place: primary classifier = production `judgeBatch`/`BATCH_SYSTEM`/`modelFor("group")`; `PAIR_SYSTEM`/`groupReview` diagnostic only; exactly four production relation labels; signals out of the primary benchmark; SelectBench described by its actual binary summary/outcome semantics; `REPO_VERIFIED` kept distinct from `LOCAL_OBSERVED`; no prompt/threshold/algorithm change; no paid eval; no Phase 3 |
+
+The current primary allocation is 16 strata: per class `SAME_STORY` 96 (dev 69 / holdout 27),
+`SAME_OCCURRENCE` 46 (34 / 12), `UNRELATED` 64 (52 / 12), `ROUNDUP` 34 (25 / 9) — **240 (180 / 60)**.
+The per-stratum table is in the plan's §7.5.
 
 ## Phase 1 — accepted and frozen
 
@@ -952,7 +972,9 @@ this document's Phase 1 acceptance record, which was the merge condition recorde
 
 **Phase 2 — Security Event Grouping Benchmark has begun** on `phase/2-security-event-grouping`, status
 `BASELINE_AUDIT_AND_BENCHMARK_DESIGN`. The design was revised after an independent design audit
-(`### Phase 2 design revision` above) and is awaiting a **design re-audit**.
+(`### Phase 2 design revision` above) and then corrected for contract consistency
+(`### Phase 2 benchmark contract correction` above). The plan now reports
+`READY_FOR_PHASE2_BENCHMARK_IMPLEMENTATION_REVIEW`.
 
 The decisions the first revision left open are **settled by the owner** and are now constraints recorded
 in `docs/evaluation/event-grouping-plan.md` §12.1: 240 / 180 / 60; signals out of the primary benchmark;
@@ -961,20 +983,25 @@ evaluation authorized yet**; all 60 holdout cases human-adjudicated; development
 model-proposed/model-reviewed but disputed or low-confidence `SAME_OCCURRENCE` vs `SAME_STORY` cases must
 be human-adjudicated; and non-human development labels must never be called human gold.
 
-What still blocks implementation is **not engineering**, and only the owner can settle it:
+**Neither open item blocks implementation** — the earlier wording here that they did has been corrected.
+Each blocks one *execution* step, and only the owner can settle it:
 
-1. **Who adjudicates the holdout, and when.** The 60 holdout cases must be human-adjudicated before the
-   benchmark can be labelled at all. No adjudicator is assigned yet, so the benchmark cannot be run
-   regardless of harness work.
-2. **Paid evaluation authorization.** The relation and end-to-end stages call paid models. Until that is
-   authorized, no benchmark run is possible; only the free recall stage could be.
+| open item | blocks | does **not** block |
+|---|---|---|
+| **Human adjudicator for the holdout** — not assigned yet | **holdout finalization / freeze**: the 60 holdout cases cannot be frozen until every decisive holdout **candidate-level** label is human-adjudicated | schema implementation · validator · evaluation seam · offline harness · fixture tests · **development** candidate construction and annotation |
+| **Paid evaluation authorization** — not granted | **paid baseline execution**: the relation and end-to-end stages call paid models | everything above, plus the **free recall stage** (zero model calls) |
+
+So benchmark implementation can begin as soon as the design review passes, **without** paid
+authorization. Scoring is gated later, in order: holdout freeze once an adjudicator exists, then the paid
+run once authorization exists.
 
 Two further items are implementation-time choices the design constrains but deliberately does not
 pre-empt: which recall branch the recall stage targets (this environment can only measure the lexical
 one), and the concrete distractor count and seed per case.
 
 **No benchmark data has been generated, no harness has been written, no evaluation seam has been added,
-and no production grouping code, threshold or prompt has been touched.** Phase 3 has not started.
+no paid evaluation has been run, and no production grouping code, threshold or prompt has been touched.**
+Phase 3 has not started.
 
 Still open as **deferred work, not blockers**: the seeded source pack has no procurement source and no
 physical-security vendor feed, and the Phase 1 benchmark's 50 `web` rows are not URL-traceable.

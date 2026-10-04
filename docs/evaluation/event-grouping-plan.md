@@ -46,11 +46,12 @@ tag                 : sentinelintel-phase1 → 225e0f6473de8ac2b827c1ce34d4888a2
 Documentation commits are **not** part of the audit target. For the record, in order:
 
 ```text
-17b69af  docs: audit the grouping baseline and design the Phase 2 event-relation benchmark   (first version of this plan)
-<this commit>  docs: revise the Phase 2 benchmark design after the independent design audit   (this revision)
+17b69af  docs: audit the grouping baseline and design the Phase 2 event-relation benchmark
+7a8485f  docs: revise the Phase 2 benchmark design after the independent design audit
+<this commit>  docs: finalize the Phase 2 benchmark contract
 ```
 
-**LOCAL_OBSERVED at revision time**: `git status --short` is empty, and `HEAD` is the second of those two
+**LOCAL_OBSERVED at revision time**: `git status --short` is empty, and `HEAD` is the last of those
 commits. A reader who wants the audited tree should check out `225e0f6`, not the documentation tip.
 
 `sentinelintel-phase1` is an **annotated** tag: `git rev-parse sentinelintel-phase1` prints the tag object
@@ -456,11 +457,15 @@ expressed as `samplingContext.samplingStratum`, never by changing the ontology.
 **PROPOSED** — one JSON object per line. Each line is a **case**, and the case matches the *input shape
 of the production batch judge*: one query report plus an ordered candidate set.
 
+**Annotation is candidate-level, not case-level.** The gold relation is a property of one
+(query, candidate) pair, so it — and everything that justifies it — lives on the candidate. A case-level
+`humanAdjudicated` flag may **not** stand in for several candidate labels that were never separately
+adjudicated.
+
 ```jsonc
 {
   "caseId": "EVREL-VULN-0007",                  // stable: the query + this exact candidate set
-  "splitGroupId": "sg-cve-2026-76504",          // ANTI-LEAKAGE UNIT ONLY. not an event identity (see below)
-  "split": "development",                       // development | holdout
+  "split": "development",                       // development | holdout — RECORDED, never re-derived (§7.6)
   "samplingStratum": "disclosure-vs-vendor-confirmation",
 
   "query": {                                    // matches batchUser(query, cands) — the report being decided
@@ -469,9 +474,15 @@ of the production batch judge*: one query report plus an ordered candidate set.
     "summary": "…",                             // an excerpt; the harness slices it like production
     "sourceName": "…",
     "firstParty": false,
-    "publishedAt": "2026-09-30T12:00:00Z",      // what the prompt prints (describeReport → when())
-    "ingestedAt":  "2026-09-30T14:05:00Z",      // what the recall window keys on (articles.discovered_at)
-    "frame": { "subject": "…", "action": "…", "object": "…", "occurredAt": "2026-09-30" }
+    "publishedAt": "2026-09-30T12:00:00Z",      // real provenance; the prompt prints this (describeReport)
+    "ingestedAt":  "2026-09-30T14:05:00Z",      // real provenance; the recall window keys on this
+    "frame": { "subject": "…", "action": "…", "object": "…", "occurredAt": "2026-09-30" },
+
+    "splitGroupId": "sg-cve-2026-76504",        // PER REPORT. anti-leakage unit ONLY, not an identity
+    "identity": {                               // PER REPORT. real identity, audit + Stage C only
+      "eventKey": "cve-2026-76504",             //   the one happening this report is about
+      "storyKey": "story-2026-09-30-cve-2026-76504"  //   the story thread it belongs to
+    }
   },
 
   "candidates": [                               // order IS the C1..Cn order of the batch prompt
@@ -483,83 +494,118 @@ of the production batch judge*: one query report plus an ordered candidate set.
       "frame": { "subject": "…", "action": "…", "object": "…", "occurredAt": "2026-09-29" },
       "factTitle": "…",                         // production sends the candidate fact's title
       "members": 3,                             // production sends the fact's member count
-      "gold": { "relation": "SAME_STORY" },      // one of the four production relations
-      "expectedInRecall": true                  // stage A: should production recall have offered this?
+
+      "splitGroupId": "sg-cve-2026-76504",      // PER REPORT
+      "identity": {                             // PER REPORT
+        "eventKey": "cve-2026-76504",           //   same occurrence as the query ⇒ same eventKey
+        "storyKey": "story-2026-09-30-cve-2026-76504"
+      },
+
+      "gold": { "relation": "SAME_OCCURRENCE" },// one of the four production relations
+      "expectedInRecall": true,                 // stage A: should production recall have offered this?
+
+      "annotation": {                           // PER CANDIDATE — the label's own provenance
+        "status": "decisive",                   // decisive | disputed | insufficient
+        "labelSource": "model-reviewed",        // human | model-proposed | model-reviewed
+        "humanAdjudicated": false,              // must be true for every decisive holdout label (§7.7)
+        "labeller": "…",
+        "confidence": "medium",                 // high | medium | low
+        "adjudicator": null,                    // required whenever humanAdjudicated is true
+        "sourceUrls": ["https://…", "https://…"],
+        "note": "one line: why this particular pair got this relation"
+      }
     },
     {
       "reportId": "RPT-0007-X",                 // a frozen distractor
       "isDistractor": true,
       "factTitle": "…", "members": 1,
+      "title": "…", "summary": "…", "sourceName": "…", "firstParty": false,
+      "publishedAt": "2026-09-30T06:00:00Z", "ingestedAt": "2026-09-30T07:00:00Z",
+      "splitGroupId": "sg-cve-2026-76504",
+      "identity": { "eventKey": "cve-2026-71204", "storyKey": "story-2026-08-…" },
       "gold": { "relation": "UNRELATED" },
       "expectedInRecall": false,
-      "title": "…", "summary": "…", "sourceName": "…", "firstParty": false,
-      "publishedAt": "2026-09-30T06:00:00Z", "ingestedAt": "2026-09-30T07:00:00Z"
+      "annotation": { "status": "decisive", "labelSource": "model-reviewed",
+                      "humanAdjudicated": false, "labeller": "…", "confidence": "high",
+                      "adjudicator": null, "sourceUrls": ["https://…"], "note": "…" }
     }
   ],
 
-  "identity": {                                 // FOR AUDIT / METRICS ONLY — never rendered into a prompt
-    "eventKey": "cve-2026-76504",               // the real-world happening this case is about
-    "storyKey": "story-2026-09-30-cve-2026-76504"  // the real story thread, where one exists
-  },
-
-  "annotation": {
-    "status": "decisive",                       // decisive | disputed | insufficient
-    "labelSource": "model-reviewed",            // human | model-proposed | model-reviewed
-    "humanAdjudicated": false,                  // must be true for every holdout case (owner decision, §12)
-    "labeller": "…",
-    "confidence": "medium",                     // high | medium | low
-    "adjudicator": null,                        // required whenever humanAdjudicated is true
-    "sourceUrls": ["https://…", "https://…"],   // both sides, so a reviewer can re-read the material
-    "note": "one line: why this label"
+  "construction": {                             // OPTIONAL, case-level, NOT a label. audit metadata only
+    "assembledAt": "2026-10-04",
+    "assembledBy": "…",
+    "distractorSeed": 42,
+    "note": "how this candidate set was drawn"
   }
 }
 ```
 
-Deliberate choices, and the audit findings they answer:
+Note the shape change from the previous revision: `splitGroupId` and `identity` moved from the case to
+**each report**, and `annotation` moved from the case to **each candidate**. Reasons, and the findings
+they answer:
 
-- **Stable report identity.** Every report carries a dataset-wide-unique `reportId`. Without it a report
+- **Annotation must be candidate-level (contract correction).** One case holds several candidate labels,
+  and they can legitimately differ in provenance, confidence and adjudication — a case can hold one
+  adjudicated label and one model-only one. A single case-level `humanAdjudicated` would then be a claim
+  about labels nobody adjudicated. It is therefore removed: the flag exists only per candidate.
+- **Identity must be report-level (contract correction).** `identity.eventKey` / `identity.storyKey`
+  describe *one report's* real-world identity, and Stage C compares two reports. A case-level identity
+  could not express "same story, different event" — it would have to be a single value for both sides,
+  which is exactly the distinction Stage C is built on (§8.3).
+- **`splitGroupId` is per report, because a case may touch several leakage groups.** Its only job is
+  leakage control: a case may assemble reports from two different groups as long as **both groups landed
+  in the same split**, which is a constraint the validator checks rather than something the case can
+  declare (§7.6).
+- **`splitGroupId` is separate from `identity`.** Three reasons: (a) the anti-leakage unit may
+  legitimately be *broader* than one event — a vendor's monthly advisory campaign or a whole policy
+  lifecycle must not straddle splits even though it spans several events; (b) if the leakage key were the
+  event key the two would be forced to coincide, and a change to either would silently change the other;
+  (c) `splitGroupId` is opaque, so it carries no label hint if it reaches a debug log, while `identity` is
+  never sent anywhere.
+- **Stable report identity.** Every report carries a dataset-wide-unique `reportId`. Without it, a report
   that appears in several cases (normal: the same advisory is the query in one case and a candidate in
-  another) cannot be tracked, and the anti-leakage assertion "no report straddles the split" cannot be
-  written.
-- **`splitGroupId` is separate from `identity.eventKey` / `identity.storyKey`.** Three reasons: (a) the
-  anti-leakage unit may legitimately be *broader* than one event — one vendor's monthly advisory
-  campaign, or a whole policy lifecycle, must not straddle splits even though it holds several events;
-  (b) if the leakage key were the event key, the two would be forced to coincide and a future change to
-  either would silently change the other; (c) `splitGroupId` is opaque, so it cannot be read as a label
-  hint if it ever reaches a debug log, while `identity` is never sent anywhere.
+  another) cannot be tracked, and "no report straddles the split" cannot be asserted.
 - **Explicit query/candidate direction.** `batchUser(query, cands)` is directional: the prompt says
-  "新报道" for one side and "候选 C1…" for the others (`relate.ts:95–100`). The gold therefore records
-  which report is the query, and the harness must never transpose them.
+  "新报道" for one side and "候选 C1…" for the others (`relate.ts:95–100`). The harness must never
+  transpose them.
 - **Ingestion order is a validation rule, not a convention.** The query is the later arrival (production
-  decisions are made on the report being ingested), so the harness asserts
-  `query.ingestedAt >= candidate.ingestedAt` for every candidate, and that the gap is inside
-  `RECALL_DAYS = 14` — **REPO_VERIFIED**: `recallPool` filters on `articles.discovered_at`
-  (`group.ts:109`), and the file comment notes the window is "keyed on discovery, so an old page found
-  today still meets its peers" (`group.ts:34`).
+  decides on the report being ingested), so the validator asserts `query.ingestedAt >= candidate.ingestedAt`
+  for every candidate, inside `RECALL_DAYS = 14` — **REPO_VERIFIED**: `recallPool` filters on
+  `articles.discovered_at` (`group.ts:109`), and the file comment notes the window is "keyed on discovery,
+  so an old page found today still meets its peers" (`group.ts:34`).
 - **Two time fields per report, because production uses two.** `publishedAt` is what the prompt prints;
-  `ingestedAt` is what the recall window uses. They differ for a backfilled old page, and collapsing them
-  would make the recall stage measure something production does not do.
-- **`factTitle` and `members` are recorded** because `batchUser` sends them (`relate.ts:97`). The
-  oracle-candidate stage must synthesize them, so they are gold fields rather than harness guesses.
-- **`annotation.status`, not a fifth relation.** The gold relation vocabulary stays exactly the four
-  production relations. A case nobody can settle is marked `disputed` (or `insufficient`) and **excluded
-  from the decisive metrics**, the way Phase 1 used `either` — see §8.
-- **`humanAdjudicated` is per case and mandatory for the holdout.** The owner's decision (§12) is that
-  all 60 holdout cases are human-adjudicated; development may be model-proposed or model-reviewed, but a
-  development case whose `SAME_OCCURRENCE` vs `SAME_STORY` boundary is disputed or low-confidence must
-  also be human-adjudicated. The harness reports the count of cases by `labelSource` in `meta`, so a
-  non-human holdout cannot pass unnoticed.
-- **Both source URLs are kept.** Phase 1's benchmark lost URL traceability in 50 rows (§L item 10 of
-  `docs/evaluation/selection.md`); this schema makes every case re-verifiable from the repository.
-- **`summary` is an excerpt, not a verbatim archive.** The harness slices it to the lengths production
-  uses (`reportText` → 300 chars, `describeReport` → 360 chars), so a short excerpt is enough.
-- **No similarity field in the gold.** Cosine is a property of a run, not of the gold; the harness records
-  it in the report.
+  `ingestedAt` is what the recall window uses. Both hold **real provenance** — the time-rebasing needed to
+  keep the benchmark alive happens in the fixture, not in the dataset (§7.8).
+- **`factTitle` and `members` are recorded** because `batchUser` sends them (`relate.ts:97`); the
+  oracle-candidate stage must supply them.
+- **`annotation.status`, not a fifth relation.** The vocabulary stays exactly the four production
+  relations. But a non-decisive label may **not** sit in the frozen benchmark at all (§7.7) — the
+  benchmark files are decisive-only.
+- **Both source URLs are kept** per candidate. Phase 1's benchmark lost URL traceability in 50 rows
+  (§L item 10 of `docs/evaluation/selection.md`); this schema keeps every pair re-verifiable.
+- **`summary` is an excerpt, not a verbatim archive.** The harness slices it to production's lengths
+  (`reportText` → 300 chars, `describeReport` → 360 chars).
+- **No similarity field in the gold.** Cosine is a property of a run, not of the gold.
+
+### 7.3.1 Relation ↔ identity consistency (mechanically validated)
+
+Because identity is now per report, `gold.relation` and the two identity pairs must agree. The validator
+asserts, for every candidate:
+
+| `gold.relation` | required `eventKey` | required `storyKey` |
+|---|---|---|
+| `SAME_OCCURRENCE` | **equal** to the query's | **equal** to the query's |
+| `SAME_STORY` | **different** from the query's | **equal** to the query's |
+| `UNRELATED` | (unconstrained) | **different** from the query's |
+| `ROUNDUP` | (unconstrained) | (unconstrained — see §8.3) |
+
+This is the same mapping Stage C uses to build gold-connected components (§8.3), so a violation here
+would make the relation metric and the story metric describe different ground truths.
 
 ### 7.4 Hard-case strata
 
-**PROPOSED** — the eight the Migration Spec §11 names, plus seven additions, each tied to a specific
-mechanism in the code. **15 strata.**
+**PROPOSED** — the eight the Migration Spec §11 names, plus eight additions, each tied to a specific
+mechanism in the code. **16 strata.**
 
 Required by Migration Spec §11:
 
@@ -578,13 +624,14 @@ Additions, each justified by a specific mechanism in the code:
 
 | # | stratum | intended gold | justification |
 |---|---|---|---|
-| 9 | `same-cve-cross-source-different-url` | `SAME_OCCURRENCE` | two outlets covering one advisory, **at different URLs**, so the deterministic `same-url` shortcut does **not** fire (`group.ts:396–401`) and the batch judge has to decide. This is the "repeat coverage" rule of `group-definitions.md:1` |
+| 9 | `same-cve-cross-source-different-url` | `SAME_OCCURRENCE` | two outlets covering one advisory, **at different URLs**, so the deterministic `same-url` shortcut does **not** fire and the batch judge has to decide. This is the "repeat coverage" rule of `group-definitions.md:1`, and after this revision it is the **only** `SAME_OCCURRENCE`-by-repeat stratum in the primary set |
 | 10 | `advisory-republished-by-cert` | `SAME_OCCURRENCE` | a CERT republishing a vendor advisory is a *repeat* of one happening, but the source and the wording change (low cosine) |
-| 11 | `advisory-revision-vs-republication` | `SAME_STORY` | the exact boundary the prompt draws between "重复报道" and "同一份公告的修订" (`group-definitions.md:1, 8`); the two are near-identical in text |
+| 11 | `advisory-revision-vs-republication` | `SAME_STORY` | the exact boundary the prompt draws between "重复报道" and "同一份公告的修订" (`group-definitions.md:1, 8`); the two are near-identical in text. This stratum **is** the "advisory scope/status revision" case — line 8 names "范围更正、状态更新" explicitly — so no separate stratum was added for it |
 | 12 | `roundup-containing-one-event` | `ROUNDUP` | `looksLikeRoundup` requires **every** candidate to be ROUNDUP (`relate.ts:131`), so a digest plus one strong candidate is the false-split trap |
 | 13 | `multiple-cves-in-one-advisory` | **`UNRELATED`** | **corrected from the first revision**, which had this as `SAME_OCCURRENCE` — see the note below |
 | 14 | `same-product-family-different-cve` | `UNRELATED` | a sibling-model CVE is the highest-cosine `UNRELATED` case |
-| 15 | `literal-same-url-duplicate` | `SAME_OCCURRENCE` | the same URL collected twice. **Separated from stratum 9** because production resolves it deterministically before any model call: `relatedPosts` finds the live fact holding the same `url` and `decide()` short-circuits to `same-url` with `relation: "SAME_OCCURRENCE", confidence: 1` written straight into the decision (`group.ts:663–666, 714`). It measures the shortcut, not the judge |
+| 15 | `procurement-correction-or-cancellation` | `SAME_STORY` | **new in this revision**, taking part of the 16 cases freed by the same-URL stratum. `group-definitions.md:9` puts the whole procurement chain in one story — "同一次采购从招标、开标、澄清到中标、成交、终止" — so a correction notice ("澄清") or a cancellation ("终止") against the original notice is a later stage of the same project, not a new happening |
+| 16 | `policy-amendment-or-implementation-date` | `SAME_STORY` | **new in this revision**, taking the rest. `group-definitions.md:10` names the policy/standard chain directly — "征求意见稿 → 正式发布 → 修订 → 明确的实施日期" — so an amendment or an announced implementation date is a later stage of the same document. Distinct from stratum 8 (`policy-draft-vs-final`), which covers the *consultation→issue* step of that chain |
 
 **Correction — stratum 13 (audit finding).** The first revision labelled
 `multi-cve-in-one-vendor-advisory` as `SAME_OCCURRENCE`, with the reasoning that one advisory is one
@@ -604,11 +651,39 @@ the highest-cosine false-merge trap, and the reason the stratum is worth keeping
 products in one advisory" case is *not* a separate stratum: it is the same happening described twice,
 already covered by strata 9 and 10.
 
-**INFERENCE:** 15 strata is the point where every named risk is covered once and the two mechanisms the
-first revision had conflated (`same-url` shortcut vs judge decision; advisory *scope* vs advisory
-*revision*) are separated. The brief's remaining optional extras (tender correction, same project's
-different lot, CVE update vs separate vulnerability) stay out, to keep the set finite; they can be
-recorded as `annotation.note` variants inside strata 7 and 11 without changing the ontology.
+**Demoted out of the primary set — `literal-same-url-duplicate` (contract correction).** The previous
+revision spent 16 of the 240 primary cases on "the same URL collected twice". The repository says that
+case is largely **unreachable through normal ingestion**:
+
+- **REPO_VERIFIED** — `identityKeyFor(m)` falls back to `identityKeyForUrl(m.url)`, which returns
+  `url:${normalizeUrl(url)}` (`packages/backend/src/content/materials.ts:114–120`,
+  `packages/backend/src/lib/url.ts:48–55`).
+- **REPO_VERIFIED** — `articles.identity_key` is `text NOT NULL UNIQUE`
+  (`database/migrations/0001_core.sql:63`), and `upsertMaterial` inserts with
+  `ON CONFLICT (identity_key) DO NOTHING RETURNING id` (`materials.ts:141–149`).
+
+So the same normalised URL is folded into **one** article on the way in. The `same-url` guard inside
+`decide()` (`group.ts:663–666`) still exists and still matters for the paths that bypass that constraint,
+but nothing in the repository shows it carries 6.7% of the security relation workload.
+
+**Therefore:** `literal-same-url-duplicate` leaves the primary 240-case benchmark and becomes a
+**deterministic diagnostic / integration-test track** — a fast fixture that asserts the shortcut fires,
+kept in the fixture tests of §9 rather than in the relation-class allocation. Its 16 cases went to
+strata 15 and 16 (§7.5).
+
+**Two further suggestions were declined, on purpose.** "Advisory scope/status revision" is **already**
+stratum 11 (`group-definitions.md:8` names "范围更正、状态更新" directly), so adding it would duplicate a
+stratum. "Same procurement project, different lot" was declined because `group-definitions.md` does
+**not** settle it: line 9 puts the whole procurement chain in one story, while line 13's `UNRELATED`
+list is about "不同的项目" and never mentions lots. Labelling it would mean guessing, and §7.7 now forbids
+non-decisive labels in the frozen benchmark — so inventing a stratum whose gold is arguable would
+manufacture exactly the excluded cases the contract forbids.
+
+**INFERENCE:** 16 strata is the point where every named risk is covered once, the mechanisms the earlier
+revisions conflated are separated (advisory *scope* vs advisory *revision*; the `same-url` shortcut vs
+the judge's own decision), and no stratum is added whose gold the definitions do not decide. The brief's
+remaining optional extras (a separate CVE-update stratum, same-project different lot) stay out for that
+same reason.
 
 ### 7.5 Size and split
 
@@ -629,7 +704,8 @@ So the three quotas are mutually under-determined: at least one has to give, and
 never stated. The replacement is a **fixed table** instead — no band, no rate — so nothing is left to
 interpretation.
 
-**PROPOSED allocation.** The only invariants kept are the ones a harness can check mechanically:
+**PROPOSED allocation — 16 primary strata.** The only invariants kept are the ones a validator can check
+mechanically:
 
 | invariant | value |
 |---|---|
@@ -637,70 +713,94 @@ interpretation.
 | development / holdout | **180 / 60** |
 | minimum cases per stratum in the holdout | **≥ 3** (the smallest cell in the table below is exactly 3) |
 | minimum cases per relation class in the holdout | **≥ 9** (`ROUNDUP`), replacing the withdrawn ≥12 |
-| split unit | **`splitGroupId`**, never a case and never a report (§7.6) |
+| split unit | **`splitGroupId`**, assigned **globally** during construction and then frozen (§7.6) |
 
-Per class: `SAME_STORY` 88 (dev 67 / holdout 21) · `SAME_OCCURRENCE` 56 (41 / 15) ·
-`UNRELATED` 66 (51 / 15) · `ROUNDUP` 30 (21 / 9) — **240 (180 / 60)**.
+Per class: `SAME_STORY` 96 (dev 69 / holdout 27) · `SAME_OCCURRENCE` 46 (34 / 12) ·
+`UNRELATED` 64 (52 / 12) · `ROUNDUP` 34 (25 / 9) — **240 (180 / 60)**.
 
 | # | stratum | class | total | dev | holdout |
 |---|---|---|---|---|---|
-| 1 | `disclosure-vs-vendor-confirmation` | SAME_STORY | 18 | 15 | 3 |
-| 2 | `disclosure-vs-patch` | SAME_STORY | 16 | 13 | 3 |
-| 3 | `poc-vs-disclosure` | SAME_STORY | 12 | 9 | 3 |
-| 4 | `same-cve-multi-vendor-product` | SAME_STORY | 16 | 13 | 3 |
-| 5 | `same-vendor-different-cve` | UNRELATED | 22 | 17 | 5 |
+| 1 | `disclosure-vs-vendor-confirmation` | SAME_STORY | 16 | 13 | 3 |
+| 2 | `disclosure-vs-patch` | SAME_STORY | 14 | 11 | 3 |
+| 3 | `poc-vs-disclosure` | SAME_STORY | 10 | 7 | 3 |
+| 4 | `same-cve-multi-vendor-product` | SAME_STORY | 14 | 11 | 3 |
+| 5 | `same-vendor-different-cve` | UNRELATED | 22 | 19 | 3 |
 | 6 | `same-model-different-vulnerability` | UNRELATED | 14 | 11 | 3 |
 | 7 | `procurement-notice-vs-award` | SAME_STORY | 10 | 7 | 3 |
-| 8 | `policy-draft-vs-final` | SAME_STORY | 10 | 7 | 3 |
-| 9 | `same-cve-cross-source-different-url` | SAME_OCCURRENCE | 24 | 18 | 6 |
-| 10 | `advisory-republished-by-cert` | SAME_OCCURRENCE | 16 | 12 | 4 |
+| 8 | `policy-draft-vs-final` | SAME_STORY | 8 | 5 | 3 |
+| 9 | `same-cve-cross-source-different-url` | SAME_OCCURRENCE | 30 | 21 | 9 |
+| 10 | `advisory-republished-by-cert` | SAME_OCCURRENCE | 16 | 13 | 3 |
 | 11 | `advisory-revision-vs-republication` | SAME_STORY | 6 | 3 | 3 |
-| 12 | `roundup-containing-one-event` | ROUNDUP | 30 | 21 | 9 |
-| 13 | `multiple-cves-in-one-advisory` | UNRELATED | 16 | 12 | 4 |
+| 12 | `roundup-containing-one-event` | ROUNDUP | 34 | 25 | 9 |
+| 13 | `multiple-cves-in-one-advisory` | UNRELATED | 14 | 11 | 3 |
 | 14 | `same-product-family-different-cve` | UNRELATED | 14 | 11 | 3 |
-| 15 | `literal-same-url-duplicate` | SAME_OCCURRENCE | 16 | 11 | 5 |
+| 15 | `procurement-correction-or-cancellation` | SAME_STORY | 8 | 5 | 3 |
+| 16 | `policy-amendment-or-implementation-date` | SAME_STORY | 10 | 7 | 3 |
 | | **total** | | **240** | **180** | **60** |
 
-Column sums: totals `18+16+12+16+22+14+10+10+24+16+6+30+16+14+16 = 240`; development
-`15+13+9+13+17+11+7+7+18+12+3+21+12+11+11 = 180`; holdout
-`3+3+3+3+5+3+3+3+6+4+3+9+4+3+5 = 60`.
+Column sums: totals
+`16+14+10+14+22+14+10+8+30+16+6+34+14+14+8+10 = 240`; development
+`13+11+7+11+19+11+7+5+21+13+3+25+11+11+5+7 = 180`; holdout
+`(14 × 3) + 9 + 9 = 60`.
 
-**PROPOSED — the harness checks this table, it does not trust it.** Before evaluating, the harness
-must re-derive the class totals, the stratum totals and the split totals from the file and **fail
-loudly** if any of them differs from the tables above. A dataset that drifts silently is how a benchmark
-stops measuring what its document says it measures.
+**What changed from the previous revision, and why.** `literal-same-url-duplicate` left the primary set
+(§7.4) and its 16 cases were redistributed to two security-relevant strata. The table above is the whole
+allocation; there is no leftover.
 
-**INFERENCE — what 60 holdout cases can and cannot support.** With class sizes 21 / 15 / 15 / 9, the
-holdout supports **class-level** conclusions, and even those are wide: a 15-case class has an accuracy
-standard error around ±0.12, and `ROUNDUP`'s 9 cases around ±0.16. Per-stratum conclusions stay on
-development (180 cases). 240 keeps the paid cost at ~240 batch calls per relation-stage run — the same
-order as Phase 1's 200-case benchmark.
+**PROPOSED — the validator checks this table, it does not trust it.** Before evaluating, it re-derives
+the class totals, the stratum totals and the split totals from the frozen file and **fails loudly** if
+any differs from the table. A dataset that drifts silently is how a benchmark stops measuring what its
+document says it measures.
 
-### 7.6 Anti-leakage
+**INFERENCE — a stated consequence of the per-stratum floor.** With 16 strata and ≥3 holdout cases each,
+45 of the 60 holdout cases are spoken for by that floor alone, and the nine `SAME_STORY` strata take 27
+of them. The holdout is therefore **class-unbalanced by construction** (27 / 12 / 12 / 9). That is a
+deliberate trade — per-stratum coverage in the holdout, class-level conclusions in the report — and it is
+written down here rather than discovered later. Even so, the class-level numbers are wide: a 12-case
+class has an accuracy standard error around ±0.13 and `ROUNDUP`'s 9 cases around ±0.16, so per-stratum
+conclusions stay on development (180 cases). 240 keeps the paid cost at ~240 batch calls per
+relation-stage run — the same order as Phase 1's 200-case benchmark.
 
-**PROPOSED.** The anti-leakage unit is **`splitGroupId`**, and it is deliberately *not* the same field as
-`identity.eventKey` / `identity.storyKey` (§7.3 explains why the two are kept apart).
+### 7.6 Anti-leakage and the split assignment
 
-1. **Assignment is group-level and deterministic.** Each stratum has a fixed holdout count (§7.5). Within
-   a stratum, `splitGroupId` groups are sorted by id and taken whole into the holdout until that
-   stratum's holdout count is met; the rest of the group goes to development with it. A group therefore
-   never straddles the split.
-2. **A `splitGroupId` may span several cases and several strata.** One vendor's monthly advisory campaign
-   is one leakage unit even though its reports appear in strata 2, 5 and 13 — leakage follows the
-   *source event*, not the stratum. Taking groups whole is what guarantees that.
-3. **Three assertions the harness must run before evaluating, and fail loudly on:**
-   - **no `reportId` appears in both splits** — a report legitimately appears in several *cases* (the same
-     advisory is the query in one case and a candidate in another), so a case-random split would leak it.
-     This is only checkable because the schema carries a stable `reportId` (§7.3);
-   - **no `splitGroupId` appears in both splits**;
-   - **every `caseId` appears exactly once**, and the per-stratum / per-class / per-split counts match
-     §7.5's table.
-4. **Per-group internal consistency, also asserted:** for every case, the query's `ingestedAt` is `>=`
-   every candidate's `ingestedAt` and within `RECALL_DAYS = 14` of it; every report id in a case is in
-   that case's split; a `gold.relation` is one of the four production relations (never a fifth value,
-   §7.3); and every holdout case has `annotation.humanAdjudicated = true`.
+**PROPOSED.** The anti-leakage unit is **`splitGroupId`**, per report, and it is deliberately *not* the
+same field as `identity.eventKey` / `identity.storyKey` (§7.3 explains why the two are kept apart).
+
+**The assignment is GLOBAL and happens once, during dataset construction — not in the harness.** The
+previous revision described taking whole `splitGroupId` groups stratum by stratum, greedily, until each
+stratum's holdout quota was met. That algorithm is **withdrawn**: a `splitGroupId` may span several strata
+(one vendor's monthly advisory campaign puts reports into strata 2, 5 and 13), so taking it whole into one
+stratum's holdout immediately changes another stratum's count, and the greedy pass can end up unable to
+hit the fixed table at all.
+
+The rule is now:
+
+1. **Assign splits globally at `splitGroupId` level**, once, over the whole dataset — a single constrained
+   allocation, not a per-stratum sweep. Group boundaries are hard; the per-stratum and per-class counts of
+   §7.5 are the targets the allocation must hit.
+2. **If the group-level allocation cannot reach the §7.5 table, adjust the case selection before freeze**
+   — swap a case, choose a different report from the same stratum, or drop a group. **Never split a
+   `splitGroupId` to make a quota**, and never move a single report of a group to the other side.
+3. **The frozen dataset records the split explicitly.** Every case carries `split`
+   (`development` | `holdout`); it is data, not something the harness computes.
+4. **The validator does not re-decide the split.** It only checks the frozen file:
+
+   | check | why it is the check |
+   |---|---|
+   | no `splitGroupId` crosses the split | the leakage rule itself |
+   | no `reportId` crosses the split | a report appears in several *cases* (the same advisory is the query in one and a candidate in another), so a case-random split would leak it — only checkable because `reportId` is stable (§7.3) |
+   | every case's reports all share one split | a case may touch several `splitGroupId`s; they must have landed on the same side |
+   | every `caseId` appears exactly once | no duplicate rows |
+   | total / development / holdout counts = **240 / 180 / 60** | the frozen totals |
+   | per-class and per-stratum counts match §7.5's table | the frozen allocation, re-derived not trusted |
+   | query `ingestedAt >=` every candidate's, within `RECALL_DAYS = 14` | ingestion order (§7.3) |
+   | `gold.relation` is one of the four production relations | no fifth label (§7.3) |
+   | relation ↔ identity consistency | §7.3.1 |
+   | every `annotation.status` is `decisive` | the frozen benchmark is decisive-only (§7.7) |
+   | every decisive holdout candidate has `annotation.humanAdjudicated = true` | the owner's decision (§12.1), now checked per **candidate**, not per case |
+
 5. **What must never be split across development and holdout:** the same CVE, the same vendor advisory
-   (including later revisions), the same procurement project, and the same policy lifecycle. That is
+   (including its later revisions), the same procurement project, and the same policy lifecycle. That is
    exactly what `splitGroupId` encodes — and it is *broader* than a single event, which is why it cannot
    be the `eventKey`.
 
@@ -734,41 +834,117 @@ CVE-Y disclosed by the same vendor, same day ── UNRELATED
 hardening guide for the affected product     ─── UNRELATED (unless it targets CVE-X specifically)
 ```
 
-**PROPOSED process — how a case that nobody can settle is handled (audit finding).**
+**PROPOSED process — how a pair that nobody can settle is handled (audit finding).**
 
 `gold.relation` takes **exactly one of the four production relations**. There is **no fifth
 `AMBIGUOUS` relation**, and none may be invented: adding one would change the label vocabulary the
 benchmark is supposed to measure the system against, and would make the confusion matrix no longer a
 confusion over the production taxonomy.
 
-Unsettled cases are expressed as **annotation state, not as a label**:
+Unsettled pairs are expressed as **annotation state on the candidate, not as a label**:
 
-| `annotation.status` | meaning | counted in the decisive metrics? |
+| `annotation.status` | meaning | where the row may live |
 |---|---|---|
-| `decisive` | the annotator and (where required) the adjudicator agree on one relation | **yes** |
-| `disputed` | two reasonable labels exist and no adjudication has settled them | **no** — excluded, and reported as a count |
-| `insufficient` | the material does not carry enough information to decide either way | **no** — excluded, and reported as a count |
+| `decisive` | the annotator, and where required the adjudicator, agree on one relation | **the frozen benchmark** |
+| `disputed` | two reasonable labels exist and no adjudication has settled them | the review pool only |
+| `insufficient` | the material does not carry enough information to decide either way | the review pool only |
 
-`disputed` and `insufficient` cases are still kept in the file (they are useful evidence about the
-annotation protocol itself) and the report prints their counts next to the matrix, so an excluded case is
-never invisible. This mirrors how Phase 1 handled `either`: excluded from the decisive metrics rather
-than forced into a label.
+**The frozen benchmark is decisive-only (contract correction).** `datasets/event-relations/dev.jsonl` and
+`datasets/event-relations/holdout.jsonl` may contain **only** candidates whose
+`annotation.status === "decisive"`. A `disputed` or `insufficient` candidate may **not** stay in a formal
+case — and it may not be present-but-uncounted either. `judgeBatch` answers the *whole* candidate list in
+one prompt (§7.1), so an unsettled candidate sitting in the list can still change the answers for the
+**other** candidates. Keeping it in and excluding only its own metric would corrupt the neighbouring
+cells.
+
+Unsettled material goes to a separate **review pool / annotation queue**. It is genuinely useful — it is
+the evidence that the annotation protocol has a hard boundary — but it is not part of the 240, and it is
+not shipped in the benchmark files.
 
 **PROPOSED process — the steps, and who does what (owner decisions in §12):**
 
-1. **Development (180 cases)** may be labelled by a model (`labelSource: model-proposed`) and then
-   reviewed by a model (`model-reviewed`). **Any development case whose `SAME_OCCURRENCE` vs `SAME_STORY`
-   boundary is disputed or low-confidence must additionally be human-adjudicated** —
-   `annotation.humanAdjudicated = true` and an `adjudicator` recorded.
-2. **Holdout (60 cases) must be human-adjudicated.** Every holdout case carries
-   `annotation.humanAdjudicated = true`; the harness asserts it (§7.6 rule 4) and the report states the
-   count. A holdout that is not human-adjudicated cannot be run as a holdout.
-3. **Neither set may be called human gold unless it actually is.** The report must print the
-   `labelSource` breakdown for the split it ran. A development set that is mostly `model-reviewed` is
+1. **Development may be labelled by a model** (`labelSource: model-proposed`) and reviewed by a model
+   (`model-reviewed`). Any development candidate whose `SAME_OCCURRENCE` vs `SAME_STORY` boundary is
+   disputed or low-confidence must be human-adjudicated — `annotation.humanAdjudicated = true` **on that
+   candidate**, with an `adjudicator` recorded.
+2. **Every candidate-level gold label that enters the holdout's decisive relation metrics must be
+   human-adjudicated.** This is the holdout constraint (contract correction), and it is **per candidate**:
+   a holdout case holds several candidates and each carries its own `humanAdjudicated` and `adjudicator`.
+   The validator asserts it per candidate (§7.6), never per case. A holdout with even one non-adjudicated
+   decisive label cannot be frozen.
+3. **Neither set may be called human gold unless it actually is.** The report prints the `labelSource`
+   breakdown **per candidate** for the split it ran. A development set that is mostly `model-reviewed` is
    **not** human-labelled gold, and the document, the report and the run label must say so. (Phase 1's
-   accepted deviation was exactly this point, recorded in `docs/evaluation/selection.md` §B.)
-4. Record per case: `labelSource`, `labeller`, `confidence`, `humanAdjudicated`, `adjudicator`,
-   `sourceUrls`, and a one-line `note`.
+   accepted deviation was exactly this point — `docs/evaluation/selection.md` §B.)
+4. **Provenance is recorded per candidate**: `labelSource`, `labeller`, `confidence`, `humanAdjudicated`,
+   `adjudicator`, `sourceUrls`, `note`. Case-level `construction` metadata is optional and is never a
+   label (§7.3).
+
+### 7.8 Benchmark time rebasing (contract)
+
+**REPO_VERIFIED — why this is needed.** Production recall is bounded by wall-clock time: `recallPool`
+selects candidates with `articles.discovered_at > now() - RECALL_DAYS` (`group.ts:109`,
+`RECALL_DAYS = 14`). If the fixture wrote the dataset's real historical `ingestedAt` values straight into
+the scratch database, **the benchmark would expire about 14 days after the material was collected**: a
+rerun a month later would recall an empty candidate set and measure nothing.
+
+**The dataset keeps real provenance.** `publishedAt` and `ingestedAt` in `datasets/event-relations/*.jsonl`
+are the real values, unchanged, so every label stays auditable against its sources.
+
+**The fixture rebases time.** When loading a case into the scratch database the harness maps the real
+timestamps onto an evaluation anchor:
+
+```text
+discoveryTimeShift    = evaluationTimeAnchor   - datasetReferenceTime
+fixture.discovered_at = dataset.ingestedAt     + discoveryTimeShift
+fixture.published_at  = dataset.publishedAt    + discoveryTimeShift
+```
+
+- **Both** timestamps shift by the **same** delta, so every real interval survives: ingestion order, the
+  query-vs-candidate gap, each report's `discovered_at - published_at` distance, and the ordinal sequence
+  inside a `splitGroupId`.
+- **`evaluationTimeAnchor` is chosen relative to run time, not as a fixed calendar date** — e.g.
+  `runStart - a small epsilon` — so the fixture is always inside the `RECALL_DAYS` window and a rerun in a
+  later month reproduces the same numbers. A fixed date would re-introduce the expiry.
+- The report's `meta` records **both** `evaluationTimeAnchor` and `discoveryTimeShift`, so any result can
+  be re-derived and any accidental dependence on the real calendar is visible.
+- The anchor must also keep `published_at` from landing in the future: source times more than
+  `FUTURE_TOLERANCE_MS = 3600 * 1000` ahead are not trusted (`materials.ts:64`), which
+  `anchor = runStart - ε` satisfies since `published_at <= ingested_at <= anchor`.
+
+**How the fixture avoids being short-circuited by `isHistorical()`.** **REPO_VERIFIED:**
+
+```js
+// packages/backend/src/content/materials.ts:91-93
+export function isHistorical(a) {
+  return a.backfill && (!a.published_at || a.discovered_at.getTime() - a.published_at.getTime() > STALE_ON_DISCOVERY_MS);
+}
+```
+
+with `STALE_ON_DISCOVERY_MS = 48 * 3600 * 1000` (`materials.ts:62`, commented "must not be wider than the
+72 h the v1 contract states"). A historical report founds no event: `groupArticle` returns
+`verdict: "historical"` before it ever recalls or judges (`group.ts:625–629`), and `content.ts:119` only
+enqueues grouping when `!row.historical`. So a fixture that pulled `discovered_at` into the present while
+leaving `published_at` in the real past would make `discovered_at - published_at` enormous and, for any
+`backfill = true` row, turn **every case** into `historical` — silently emptying Stage C.
+
+The fixture therefore does **two** things, and both are required:
+
+1. **shift `published_at` by the same delta as `discovered_at`** (above), so
+   `discovered_at - published_at` is exactly what the dataset says; and
+2. **insert fixture rows with `backfill = false`**, because a benchmark report is news, not a new source's
+   first backfill import.
+
+Either alone leaves a hole — `backfill = false` with an unshifted `published_at` would still contradict
+the anchor — so the validator asserts the invariant directly: for every report, the fixture's
+`discovered_at - published_at` equals the dataset's value.
+
+**Stage A and Stage C must not read wall-clock time directly.** They may see time only through the anchor
+and the shift, so the same frozen dataset produces the same numbers in any month.
+
+**PROPOSED, recorded per run:** `evaluationTimeAnchor` = the run's start time minus a small epsilon, so
+the newest report sits just before "now" and every other report is earlier; `datasetReferenceTime` is the
+dataset's own reference instant (its newest `ingestedAt`), fixed once at freeze.
 
 ---
 
@@ -813,9 +989,12 @@ three bottlenecks.
   `UNRELATED`, a confidence to `0.5`, or `decisions` to `[]` (`relate.ts:53–59`).
 - **token and latency per case**, and the `RELATE_PROMPT_VERSION` of the run.
 
-**Non-decisive cases are excluded from that matrix, and the exclusion is printed.** A case with
-`annotation.status` of `disputed` or `insufficient` (§7.3, §7.7) is counted and reported as its own
-number. There is no fifth relation label doing this job.
+**Nothing is excluded at run time, because the frozen benchmark is decisive-only.** Every candidate in
+`dev.jsonl` / `holdout.jsonl` has `annotation.status === "decisive"` (§7.7); `disputed` and `insufficient`
+material lives in the review pool and never reaches the matrix, because an unsettled candidate in a batch
+prompt can move the answers for its neighbours. There is no fifth relation label and no run-time exclusion
+step to get wrong. The report instead prints the **`labelSource` breakdown per candidate** — how many
+labels were human-adjudicated versus model-reviewed — so provenance stays visible.
 
 **Diagnostic table — the pair judge, reported separately and never merged into the primary matrix.**
 `PAIR_SYSTEM` / `modelFor("groupReview")` is measured on the subset where **production would actually
@@ -828,15 +1007,30 @@ the two steps is losing the merges.
 
 ### 8.3 Stage C — end-to-end story metrics
 
-- **pairwise merge precision / recall** over gold-connected components. Both sides of "same story" are
-  defined explicitly, because this stage runs the **real pipeline** (recall → batch judge → confirm →
-  `same-url` shortcut → consolidation) on a scratch database seeded in ingestion order:
-  - *gold same* — the two reports carry the same `identity.storyKey` (for cases where no story thread
-    exists yet, the same `identity.eventKey`).
-  - *predicted same* — the two reports end up under the same live `stories.id` after the run, following
-    `merged_into`.
+- **pairwise merge precision / recall** over gold-connected components. Both sides are defined
+  explicitly, because this stage runs the **real pipeline** (recall → batch judge → confirm → `same-url`
+  shortcut → consolidation) on a scratch database seeded in ingestion order. The gold side is defined by
+  the **per-report identity** (§7.3), not by `gold.relation`:
+  - *gold same story* — the two reports carry the **same `identity.storyKey`**.
+  - *predicted same story* — the two reports end up under the same live `stories.id` after the run,
+    following `merged_into`.
   - precision = (# pairs both sides call one story AND gold says one story) / (# pairs both sides call one
     story); recall = the same numerator over (# gold-one-story pairs).
+
+  The relation vocabulary maps onto identity exactly as §7.3.1 asserts — that mapping is what keeps the
+  relation metric and the story metric describing **one** ground truth:
+
+  | `gold.relation` | `eventKey` | `storyKey` |
+  |---|---|---|
+  | `SAME_OCCURRENCE` | same | same |
+  | `SAME_STORY` | **different** | same |
+  | `UNRELATED` | (any) | **different** |
+  | `ROUNDUP` | (any) | (any) |
+
+  `ROUNDUP` is deliberately **unconstrained**, and a `ROUNDUP` pair must **not** be auto-treated as one
+  story: a digest that lists another event as one entry among many is its own report in its own story —
+  the relation only records that one side is a digest. Making `ROUNDUP` imply membership would silently
+  merge every roundup into every event it mentions.
 - **false-merge list** = predicted same, gold not — the Migration Spec's *false merge examples*, each with
   the two `reportId`s and the verdict that attached them.
 - **false split list** = gold same, predicted not — the Migration Spec's *false split examples*, each with
@@ -870,7 +1064,10 @@ separate later addition rather than building two cluster metrics now.
 | default | `--stage relation`; **refuses to spend money unless paid calls are explicitly enabled** |
 | model calls | **relation and end-to-end stages need real calls** (`group` / `groupReview`); the recall stage needs none. Paid calls must require both `MODEL_CALLS_ENABLED` and an explicit opt-in flag, so a run cannot be paid by accident |
 | DB writes | **none to production membership.** Relation stage: no writes at all. Recall / end-to-end stages: a scratch database whose name ends `_test` or `_ci` (enforced by `tests/setup.ts`'s invariant), seeded per case, discarded |
-| report | `.data/eval/event-grouping-<split>-<n>-<ts>.json`: meta (split, n, seed, `RELATE_PROMPT_VERSION`, `GROUP_PROMPT_VERSION`, recall path, model ids), per-case rows (caseId, stratum, family, gold, predicted, confidence, recall score, whether the review model was called, fallbacks), the confusion matrix, per-class and macro metrics, stage-A recall, stage-C merge P/R with the false-merge/false-split lists, token and latency totals |
+| fixture time rebasing | required by the recall and end-to-end stages. `discovered_at` and `published_at` shift by one common `discoveryTimeShift` so the fixture lands inside the `RECALL_DAYS = 14` window, `backfill = false` on every fixture row, and each report's `discovered_at - published_at` is asserted equal to the dataset's (§7.8). Without this the benchmark expires ~14 days after collection, and a `backfill` row would be short-circuited by `isHistorical()` into `verdict: "historical"` before recall or judging ever runs |
+| deterministic diagnostic track | the `same-url` shortcut is **not** a primary stratum (§7.4). It gets a small deterministic fixture test that ingests the same normalised URL twice and asserts the shortcut fires — kept beside the grouping fixture tests, not inside the 240 |
+| pre-flight validation | before any stage runs, the validator described in §7.6 and §7.3.1 is executed over the frozen file and **must pass** (totals, split isolation, decisive-only, per-candidate holdout adjudication, relation↔identity consistency). A dataset that fails validation does not run |
+| report | `.data/eval/event-grouping-<split>-<n>-<ts>.json`: meta (split, n, seed, `RELATE_PROMPT_VERSION`, `GROUP_PROMPT_VERSION`, recall branch, model ids, **`evaluationTimeAnchor`**, **`discoveryTimeShift`**, and the `labelSource` counts per candidate), per-case rows (caseId, stratum, gold, predicted, confidence, recall score, whether the review model was called, fallbacks), the confusion matrix (with and without distractors), per-class and macro metrics, stage-A recall, stage-C merge P/R with the false-merge/false-split lists, token and latency totals |
 | SelectBench | **not used for the primary result — corrected.** The first revision said SelectBench "cannot hold a 4-class relation matrix without new columns". That overstates it: `gold` and `decision` are plain text (`CaseIn` in `packages/backend/src/admin/selectbench.ts:12–13`), so the columns could physically store `SAME_STORY`. What is binary selection-specific is everything around them — `importSelectBenchRun` requires each model's `summary` and copies it verbatim into `selectbench_runs.summary`, deriving `sample_size` from `meta.n` (`selectbench.ts:32–41`); the admin outcome filter hardcodes `'fp' THEN decision='select' AND gold='reject'`, `'fn' … 'select'`/`'reject'`, `'tp'`, `'tn'`, `'either' THEN gold='either'`, `'error' THEN decision IS NULL` (`selectbench.ts:87–96`); `score` is the selection 0–100 score; `relevance` is pass/block; and the run browser is a "same cases, outcome filter, disagreement count" selection comparison. Reusing it would therefore mean new columns **and** new summary/outcome semantics. Phase 2 writes its own JSON report in `.data/eval/`; a grouping view in the admin UI is a **deferred UI enhancement**, not a Phase 2 blocker |
 
 ### 9.1 The evaluation seam — settled by the owner, not yet implemented
@@ -946,6 +1143,11 @@ them, and Tech Design §16 requires a holdout-measured, explainable gain before 
   gate is one-directional: the report may lead to a later, separately-scoped prompt or recall change; the
   benchmark may not be tuned to make a change look good.
 
+The list above constrains changes to **grouping behaviour**. It does not forbid building the benchmark:
+once this design passes review, the schema, the validator, the §9.1 evaluation seam, the offline harness,
+the fixture tests and the **development** candidate construction may all proceed — none of them changes
+what production does, and none of them needs paid authorization (§12.2).
+
 Migration Spec §11 states the gate directly: *只有此报告证明有问题，才允许改 grouping prompt/recall。*
 
 ---
@@ -964,36 +1166,49 @@ Migration Spec §11 states the gate directly: *只有此报告证明有问题，
 | **Development may be model-proposed / model-reviewed, but disputed or low-confidence `SAME_OCCURRENCE` vs `SAME_STORY` cases must be human-adjudicated** | §7.7 steps 1–2 |
 | **Non-human development labels must never be called human gold** | §7.7 step 3; the report prints the `labelSource` breakdown for the split it ran |
 
-### 12.2 Still open
+### 12.2 Still open — and exactly what each item blocks
 
-1. **Who adjudicates, and when.** The holdout's human adjudication is now a hard prerequisite and has no
-   named adjudicator or schedule. Until that is assigned, the holdout cannot be labelled, and therefore
-   the benchmark cannot be run — no amount of harness work changes that.
-2. **Which recall branch the recall stage should target.** With no paid authorization, this environment
-   can only measure the **lexical** branch. Measuring the **embedding** branch needs either an authorized
-   paid embedding pass or a replay of real vectors. The document deliberately does not decide this; it
-   requires the stage to *report which branch ran* (§8.1) so a lexical-only number is never presented as
-   the production recall figure.
-3. **Whether a local embedding endpoint may be used as a test double for the embedding branch.** A local
-   `bge`-style endpoint is running in this environment, but it is **not** the production embedding model,
-   its API compatibility has **not** been verified, and a result obtained through it would be a test
-   double rather than a measurement. If it is ever used, the report must say so in `meta`.
-4. **The concrete distractor settings** — how many distractors per case and which seed — since the batch
-   answer depends on the set (§7.1). The document requires them to be frozen and recorded in `meta`; the
-   values themselves are an implementation choice to be made with the implementation.
+**Neither open item blocks benchmark implementation.** Each blocks one specific *execution* step. The
+earlier revisions of this document said these "block implementation", which was wrong and is corrected
+here:
+
+| open item | blocks | does **not** block |
+|---|---|---|
+| **Who adjudicates the holdout, and when** — no adjudicator is assigned yet | **holdout finalization / freeze**: the 60 holdout cases cannot be frozen until every decisive holdout candidate label is human-adjudicated (§7.7 step 2) | schema implementation · the validator · the evaluation seam · the offline harness · fixture tests · **development candidate construction** · development annotation |
+| **Paid model authorization** — none granted | **paid baseline execution**: the relation (`judgeBatch`) and end-to-end stages call paid models, so no scored run can happen | all of the above, plus the **free recall stage** (zero model calls) and the rest of §9's plumbing |
+
+So the order is: design review → **implementation can start immediately** (schema, validator, seam,
+offline harness, fixture tests, development construction) → holdout freeze once an adjudicator exists →
+paid scoring once authorization exists. The two blockers gate *when the benchmark can be scored*, not
+whether it can be **built**.
+
+Two further items are implementation-time choices the design constrains but deliberately does not
+pre-empt:
+
+1. **Which recall branch the recall stage targets.** With no paid authorization this environment can only
+   measure the **lexical** branch; the **embedding** branch needs an authorized paid embedding pass or a
+   replay of real vectors. §8.1 requires the stage to *report which branch ran*, so a lexical-only number
+   is never presented as the production recall figure.
+2. **Whether a local embedding endpoint may be used as a test double.** A local `bge`-style endpoint runs
+   in this environment, but it is **not** the production embedding model, its API compatibility is
+   **unverified**, and a result through it would be a test double rather than a measurement. If it is ever
+   used, `meta` must say so.
+3. **The concrete distractor settings** — how many distractors per case and which seed — since the batch
+   answer depends on the set (§7.1). They must be frozen and recorded in `meta`; the values are chosen
+   with the implementation.
 
 ---
 
 ## 13. Verification
 
-**REPO_VERIFIED** — both the audit round and this revision changed documentation only.
+**REPO_VERIFIED** — the audit round and both correction rounds changed documentation only.
 
 ```text
 git diff --check   → clean, exit 0
 npm run typecheck  → pass, exit 0
 ```
 
-No TypeScript was modified in either round, so the two grouping suites were run in the **audit** round as
+No TypeScript was modified in any round, so the two grouping suites were run in the **audit** round as
 baseline evidence — they are the only current evidence that the grouping pipeline behaves as documented.
 They are **not** re-run by this revision, which touched no code:
 
@@ -1020,22 +1235,30 @@ exactly what the Phase 2 benchmark exists to fill.
 ## 14. Recommendation
 
 ```text
-READY_FOR_PHASE2_BENCHMARK_DESIGN_REAUDIT
+READY_FOR_PHASE2_BENCHMARK_IMPLEMENTATION_REVIEW
 ```
 
-This revision makes the design consistent with the actual production decision engine and with the owner's
-settled decisions: the primary classifier is now the production **batch** judge, the gold is shaped as
-frozen candidate sets with a stable report identity and an explicit query/candidate direction, the
-anti-leakage key is separated from the event/story identity, the allocation is a mechanically checkable
-table instead of an over-constrained quota, the two mechanisms the first revision had conflated are
-split, no fifth relation label exists, SelectBench is described accurately, and the embedding claim is
-downgraded from a repo fact to a local observation.
+This correction round fixes the **contract** details an implementation would otherwise get wrong:
 
-**What still blocks implementation is not engineering.** It is the two items in §12.2 that only the owner
-can settle: assigning the **human adjudicator** for the 60-case holdout (the benchmark cannot be labelled
-without one), and **authorizing the paid relation run** (nothing may be run until then). The remaining two
-items — which recall branch to target, and the distractor settings — are implementation-time choices that
-this document constrains but does not pre-empt.
+- annotation provenance is **candidate-level**, so a case-level flag can no longer cover labels that were
+  never separately adjudicated, and the holdout rule is per candidate;
+- identity (`eventKey` / `storyKey`) and the anti-leakage `splitGroupId` are **per report**, so Stage C
+  can express "different event, same story" and the validator can check relation↔identity consistency;
+- the split is assigned **globally at `splitGroupId` level during construction and frozen**; the harness
+  only validates, and a quota is never met by splitting a leakage group;
+- the benchmark is **time-rebased in the fixture** (`evaluationTimeAnchor` + `discoveryTimeShift`,
+  `backfill = false`, interval-preserving) so it does not expire after 14 days and is not short-circuited
+  by `isHistorical()`;
+- `literal-same-url-duplicate` left the primary set — the repo folds identical URLs into one article
+  before grouping ever runs — and its 16 cases went to two procurement/policy strata;
+- the frozen benchmark is **decisive-only**, because an unsettled candidate in a batch prompt can change
+  the answers for its neighbours;
+- the two open owner items block **holdout freeze** and **paid execution**, **not** implementation.
+
+The primary classifier remains the production **batch** judge (`BATCH_SYSTEM`, `modelFor("group")`), with
+`PAIR_SYSTEM`/`groupReview` as a diagnostic only; the vocabulary remains exactly the four production
+relations; signals remain out of the primary benchmark; SelectBench keeps its accurate description; and
+`REPO_VERIFIED` stays distinct from `LOCAL_OBSERVED`.
 
 No benchmark data was generated, no harness was written, no evaluation seam was added, no production
-grouping code, threshold or prompt was touched, and Phase 3 has not started.
+grouping code, threshold or prompt was touched, no paid evaluation was run, and Phase 3 has not started.
