@@ -126,7 +126,52 @@ Deliberately not modified: `tests/analyze-shutdown.test.ts` and `tests/translate
 
 ## Current Phase
 
-Phase: **Phase 1 — Security Verticalization**
+Phase: **Phase 2 — Security Event Grouping Benchmark**
+
+Branch: `phase/2-security-event-grouping`
+
+Base: `main` = `225e0f6473de8ac2b827c1ce34d4888a2111ac54` (tag `sentinelintel-phase1`)
+
+Status: **BASELINE_AUDIT_AND_BENCHMARK_DESIGN**
+
+Scope: establish a security event-relation benchmark, measure the current AIHOT grouping baseline with
+it, and name the security hard cases the current system fails on. **Measure first** — Migration Spec §11
+permits a grouping prompt or recall change only after that report shows a problem
+(*只有此报告证明有问题，才允许改 grouping prompt/recall*).
+
+Design and audit for owner review: `docs/evaluation/event-grouping-plan.md`.
+
+This round changed **documentation only**: no benchmark data was generated, no harness was written, and
+no production grouping code (`packages/backend/src/events/*`), no threshold and no `group-*.md` prompt was
+touched. Phase 1's frozen artifacts are unchanged.
+
+### Phase 2 baseline audit — verdicts
+
+| question | verdict |
+|---|---|
+| Is the "370 labelled pairs" measurement reproducible? | **NOT_REPRODUCIBLE** — `git log --all -S "370"` / `-S "labelled pairs"` / `-S "170 real root pairs"` return only the upstream AIHOT import `877d6d5` and the Phase 0 audit that quotes the comment; `git log --all -- packages/backend/src/events/relate.ts` returns only `877d6d5`. No dataset in the repo, nothing in `.data/`, no schema/provenance doc. **Not usable as a Phase 2 baseline, and not to be rebuilt by guesswork.** |
+| Does an event/grouping eval harness already exist? | **No** — classification (c): nothing anywhere. `scripts/eval-selection.ts` is binary select/reject and unrelated; `scripts/regroup-events.ts` is an operational tool that writes real membership and calls paid models even with `--dry-run`; `tests/events.test.ts` hardcodes every relation answer. |
+| Which recall constants does production use? | All **module-private** in `group.ts`: `RECALL_DAYS 14`, `RECALL_MIN_COSINE 0.6`, `RECALL_TOP_FACTS 10`, `CONFIRM_BELOW_COSINE 0.85`, `SIGNAL_MIN_COSINE 0.72`, `SIGNAL_AUTO_COSINE 0.92`, `SIGNAL_TOP_FACTS 4`, `RELATED_MIN_REPORTS 2`, `REMATCH_HOURS 6`, `WAIT_HOURS 48`, lexical floor `0.25`. |
+| Which recall path runs here? | **Lexical fallback** — `embeddingsAvailable()` needs `MODEL_CALLS_ENABLED` **and** an embedding key, and this `.env` has no `EMBEDDING_*` or `DASHSCOPE_API_KEY`. Production runs the embedding path. A recall number measured here is not a production recall number. |
+
+### Phase 2 baseline evidence (Windows, actual output)
+
+```text
+git diff --check                    → clean, exit 0
+npm run typecheck                   → pass, exit 0
+node --test tests/events.test.ts    → tests 10 / pass 10 / fail 0 / cancelled 0, exit 0, 4.5 s
+node --test tests/signals.test.ts   → tests 3 / pass 3 / fail 0 / cancelled 0, exit 0, 1.9 s
+```
+
+Fresh throwaway database `p2_grouping_ci` (35 migrations) in the `sentinelintel-p1-pg` container. Both
+suites stand local HTTP stubs in for every provider (`tests/setup.ts`), so they make no paid call and no
+network request. They prove the grouping **invariants** (manual override races, revision keeps
+membership, regroup, story root, two-model merge, related-story links) — and they say **nothing** about
+relation accuracy, because every relation answer in them is hardcoded by the stub.
+
+## Phase 1 — accepted and frozen
+
+Phase: Phase 1 — Security Verticalization
 
 Branch: `phase/1-security-verticalization`
 
@@ -871,20 +916,33 @@ be accepted as complete.
 Phase 0 is accepted and frozen at tag `sentinelintel-phase0` (`1deb090`). The Post-Phase-0 Baseline
 Portability Fix is accepted and merged into `main` at `2938249`.
 
-**Phase 1 — Security Verticalization is accepted with limitations** (`ACCEPTED_WITH_LIMITATIONS`) on
-`phase/1-security-verticalization`. The owner decision that was outstanding is now recorded in
-`## Phase 1 acceptance-criterion deviation (explicit)` → `### Owner decision (final)`.
+**Phase 1 was merged.** `main` = `225e0f6473de8ac2b827c1ce34d4888a2111ac54`, tagged
+`sentinelintel-phase1`. The merge is a **squash** (one parent, `2938249`) and its tree is **identical** to
+the Phase 1 branch tip `c483efb` — `git rev-parse '225e0f6^{tree}'` equals `c483efb^{tree}`
+(`8cc023ed957ff367d8d79dc5ddd9d91178105c7a`) — so no Phase 1 content was lost, and `main`'s tree carries
+this document's Phase 1 acceptance record, which was the merge condition recorded here before the merge.
 
-- **Pull request #3 is ready for the owner to merge**, once this acceptance-status commit passes the
-  canonical Linux CI.
-- **Phase 2 may begin only after Phase 1 is merged into `main` and the merged state is recorded here** —
-  that is, the merge commit, plus confirmation that `main`'s tree now carries this acceptance record. The
-  acceptance travels with this file, so the merge must keep it.
-- Nothing in this document authorizes further Phase 1 selection tuning or a holdout re-run.
+**Phase 2 — Security Event Grouping Benchmark has begun** on `phase/2-security-event-grouping`, status
+`BASELINE_AUDIT_AND_BENCHMARK_DESIGN`. The immediate next action is **owner review of
+`docs/evaluation/event-grouping-plan.md`**, which lists the decisions that must be made before any
+implementation:
 
-Still open as **deferred work, not Phase 1 merge blockers**: the seeded source pack has no procurement
-source and no physical-security vendor feed, and the benchmark's 50 `web` rows are not URL-traceable.
-**Future benchmark hardening — independent human adjudication of a representative sample or of the full
-benchmark — remains the item that would turn the accepted deviation into a satisfied requirement.**
+1. **Label provenance for the Phase 2 relation gold** — human, model-proposed or model-reviewed, and who
+   reviews the `SAME_OCCURRENCE` vs `SAME_STORY` boundary. This is the decision most likely to repeat
+   Phase 1's accepted deviation, so it should be settled before any pair is written.
+2. **Cost authorization** for the paid relation and end-to-end stages, and which embedding path stands for
+   production in the recall stage.
+3. **Harness plumbing** — approve a non-runtime export of the existing private pair judge, or accept a thin
+   harness-local wrapper that duplicates its call parameters.
+4. **Signal relations** — confirm they stay out of the Phase 2 primary benchmark.
+5. **Size and split** — 240 pairs / 180 development / 60 holdout, `eventFamilyId`-grouped, with a
+   per-relation holdout floor.
 
-**Phase 2 implementation has not started.**
+**No benchmark data has been generated, no harness has been written, and no production grouping code,
+threshold or prompt has been touched.** Phase 3 has not started.
+
+Still open as **deferred work, not blockers**: the seeded source pack has no procurement source and no
+physical-security vendor feed, and the Phase 1 benchmark's 50 `web` rows are not URL-traceable.
+**Future Phase 1 benchmark hardening — independent human adjudication of a representative sample or of the
+full benchmark — remains the item that would turn Phase 1's accepted deviation into a satisfied
+requirement.**
