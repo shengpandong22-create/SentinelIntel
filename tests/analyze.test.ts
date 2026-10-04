@@ -19,6 +19,9 @@ import { SITE } from "@aihot/industry/site";
 const T = tag();
 const SOURCE = `test-analyze-${T}`;
 const X_SOURCE = `test-analyze-x-${T}`;
+// A T1_5 source: mean scores between understandFloor (50) and the T1_5 threshold (55) stay
+// "near-selected", which the T1 threshold (32) can no longer express.
+const MEDIA_SOURCE = `test-analyze-media-${T}`;
 
 type Step = "prefilter" | "score" | "understand" | "summarize" | "structure";
 interface Req { step: Step; marker: string; system: string; user: string; body: Record<string, any> }
@@ -27,7 +30,7 @@ const MARKERS = ["CLEAR", "RESCUE", "LOW", "OFFTOPIC", "BARE", "VAGUE", "THIN", 
 const scoreAnswers: Record<string, number[]> = { CLEAR: [78, 72], RESCUE: [56, 50], LOW: [45, 40], THIN: [70, 70], SENSITIVE: [80, 80], 推文: [40, 40], BARE: [30, 34], VAGUE: [60, 62] };
 
 const stepOf = (system: string, user: string): Step =>
-  system.includes("宽召回的AI相关性预筛") ? "prefilter" : system.includes("事件注意力评分器") ? "score"
+  system.includes("宽召回的安防／安全相关性预筛") ? "prefilter" : system.includes("事件注意力评分器") ? "score"
   : system.includes("内容理解编辑") ? "understand" : system.includes("资料结构化助手") ? "structure"
   : user.includes("title_zh") ? "summarize" : (() => { throw new Error("unknown request"); })();
 
@@ -45,9 +48,9 @@ const provider = await stub((_hit, req) => {
   if (step === "score") return answer({ attentionScore: scoreAnswers[marker]!.shift() });
   if (step === "understand") {
     if (marker === "SENSITIVE") return new Reply(400, { contentFilter: [{ level: 1, role: "user" }], error: { code: "1301", message: "系统检测到输入或生成内容可能包含不安全或敏感内容" } });
-    return answer({ itemType: "model_release", authorRole: "principal", tags: ["模型发布", "开源", "Agent", "不存在的标签"], editorialJudgment: `理由 ${marker}`, titleZh: `理解标题 ${marker}`, summaryZh: `理解摘要 ${marker}。第二句补充一个关键数字。` });
+    return answer({ itemType: "vulnerability_disclosure", authorRole: "principal", tags: ["漏洞披露", "固件更新", "CVE", "不存在的标签"], editorialJudgment: `理由 ${marker}`, titleZh: `理解标题 ${marker}`, summaryZh: `理解摘要 ${marker}。第二句补充一个关键数字。` });
   }
-  if (step === "structure") return answer({ category: "ai-models", tags: ["模型发布", "推理"], subjects: ["anthropic", "unknown-co"], fact: { title: `事实 ${marker}`, subject: "某公司", action: "发布", object: "模型", occurredAt: null } });
+  if (step === "structure") return answer({ category: "vulnerability", tags: ["漏洞披露", "漏洞利用"], subjects: ["cisco", "unknown-co"], fact: { title: `事实 ${marker}`, subject: "Cisco", action: "修复", object: "固件漏洞", occurredAt: null } });
   return answer(`title_zh: 翻译标题 ${marker}\nsummary_zh: 翻译摘要 ${marker}。第二句补充影响。`);
 });
 for (const env of ["DASHSCOPE_BASE_URL", "ZHIPU_BASE_URL", "DEEPSEEK_BASE_URL"]) process.env[env] = `${provider.url}/v1`;
@@ -58,6 +61,7 @@ Object.assign(process.env, { PREFILTER_MODEL: "qwen3.7-flash", SCORE_MODEL: "glm
 before(async () => {
   await sql`INSERT INTO sources (id, name, kind, tier, participation_mode, next_fetch_at) VALUES
     (${SOURCE}, 'Test analyze source', 'rss', 'T1', 'editorial', '2100-01-01'),
+    (${MEDIA_SOURCE}, 'Test analyze media source', 'rss', 'T1_5', 'editorial', '2100-01-01'),
     (${X_SOURCE}, 'Test X account', 'x_search', 'T1', 'editorial', '2100-01-01')`;
 });
 after(async () => {
@@ -88,20 +92,23 @@ test("every prompt in the pack renders, and the site's name replaces AIHOT's", (
     const text = promptText(file.slice(0, -3), values);
     assert.ok(text.length > 20 && !/\{\{/.test(text), file);
   }
-  assert.ok(PREFILTER_SYSTEM.startsWith(`为${SITE.name}做宽召回的AI相关性预筛`));
+  assert.ok(PREFILTER_SYSTEM.startsWith(`为${SITE.name}做宽召回的安防／安全相关性预筛`));
 });
 
 test("a selected item: prefilter, two scores, the content understanding and the structure", async () => {
-  assert.equal(tierThreshold("T1"), 60);
+  // The frozen Phase 1 thresholds (industry/selection.ts): T1 32 / T1_5 55 / T2 60.
+  assert.equal(tierThreshold("T1"), 32);
+  assert.equal(tierThreshold("T1_5"), 55);
+  assert.equal(tierThreshold("T2"), 60);
   const id = await article("CLEAR");
   const res = await analyzeArticle(id);
-  assert.deepEqual([res!.output!.selected, res!.output!.score], [true, 75], "78 + 72 = 150 >= 120");
+  assert.deepEqual([res!.output!.selected, res!.output!.score], [true, 75], "78 + 72 = 150 >= 2 × 32");
   assert.deepEqual(calls("CLEAR").sort(), ["prefilter", "score", "score", "structure", "understand"]);
   const r = await row(id);
-  assert.deepEqual([r.title_zh, r.reason_zh, r.category, r.receipt_ids.length], ["理解标题 CLEAR", "理由 CLEAR", "ai-models", 5]);
-  assert.deepEqual(r.tags, ["模型发布", "开源/仓库", "Agent", "Anthropic"], "vocabulary tags (synonyms mapped, unknown dropped) and the subject's tag");
-  assert.deepEqual(r.subjects, ["anthropic"]);
-  assert.deepEqual([r.output.writer, r.output.itemType, r.output.prefilter.label, r.output.fact.title], ["understand", "model_release", "PASS", "事实 CLEAR"]);
+  assert.deepEqual([r.title_zh, r.reason_zh, r.category, r.receipt_ids.length], ["理解标题 CLEAR", "理由 CLEAR", "vulnerability", 5]);
+  assert.deepEqual(r.tags, ["漏洞披露", "固件更新", "Cisco"], "vocabulary tags (synonyms mapped, unknown dropped) and the subject's tag");
+  assert.deepEqual(r.subjects, ["cisco"]);
+  assert.deepEqual([r.output.writer, r.output.itemType, r.output.prefilter.label, r.output.fact.title], ["understand", "vulnerability_disclosure", "PASS", "事实 CLEAR"]);
   const score = requests.find((q) => q.marker === "CLEAR" && q.step === "score")!;
   assert.match(score.user, /【标题】\nCLEAR model release/, "the score reads the original title, before any writing");
   assert.deepEqual([score.body.temperature, score.body.reasoning_effort, score.body.max_tokens], [1, "high", 65536]);
@@ -113,32 +120,45 @@ test("a selected item: prefilter, two scores, the content understanding and the 
 });
 
 test("a near-selected item is written like a selected one; below the floor it is translated", async () => {
-  const near = await analyzeArticle(await article("RESCUE"));
-  assert.deepEqual([near!.output!.selected, near!.output!.reasonZh], [false, "理由 RESCUE"], "56 + 50 = 106 > 100");
-  const lowId = await article("LOW");
+  // Both items sit on a T1_5 source: the original contract is about the band between understandFloor
+  // and the tier threshold, which the T1 threshold (32) is too low to express.
+  const nearId = await article("RESCUE", { sourceId: MEDIA_SOURCE });
+  const near = await analyzeArticle(nearId);
+  assert.equal(near!.output!.threshold, 55);
+  assert.deepEqual([near!.output!.selected, near!.output!.reasonZh], [false, "理由 RESCUE"], "56 + 50 = 106 < 2 × 55 (T1_5) but > 2 × 50 (understandFloor)");
+  assert.equal((await row(nearId)).output.writer, "understand", "near-selected is written like a selected one");
+  const lowId = await article("LOW", { sourceId: MEDIA_SOURCE });
   const low = await analyzeArticle(lowId);
   assert.deepEqual([low!.output!.selected, low!.output!.titleZh, low!.output!.reasonZh], [false, "翻译标题 LOW", null]);
   assert.deepEqual(calls("LOW").sort(), ["prefilter", "score", "score", "structure", "summarize"]);
+  assert.equal((await row(lowId)).output.writer, "summarize", "below the floor: the cheaper prompts write it");
   const summarize = requests.find((q) => q.marker === "LOW" && q.step === "summarize")!;
   assert.equal(summarize.body.messages.length, 1, "the title/summary prompt is one user message");
   assert.equal(summarize.body.response_format, undefined, "answered in its own text format");
-  assert.deepEqual((await row(lowId)).tags, ["模型发布", "推理", "Anthropic"], "structure tags");
+  assert.deepEqual((await row(lowId)).tags, ["漏洞披露", "漏洞利用", "Cisco"], "structure tags");
 });
 
 test("the prefilter's BLOCK stops everything; UNKNOWN goes on like PASS", async () => {
   const off = await analyzeArticle(await article("OFFTOPIC"));
   assert.deepEqual([off!.output!.relevance, off!.output!.selected], ["block", false]);
   assert.deepEqual(calls("OFFTOPIC"), ["prefilter"]);
-  // An UNKNOWN with material is judged and written like a PASS, up to 精选 (60 + 62 ≥ 2 × 60).
+  // An UNKNOWN with material is judged and written like a PASS, up to 精选 (60 + 62 ≥ 2 × 32).
   const vagueId = await article("VAGUE");
   const vague = await analyzeArticle(vagueId);
   assert.deepEqual([vague!.output!.relevance, vague!.output!.selected, vague!.output!.titleZh], ["pass", true, "理解标题 VAGUE"]);
   assert.equal((await row(vagueId)).output.prefilter.label, "UNKNOWN", "the prefilter's own answer stays on record");
   // Nothing but a title and no page to fetch: the BLOCK counts as UNKNOWN and is scored, but the
   // translation writes nothing from a bare title, so it waits for material instead of being published.
-  const bare = await analyzeArticle(await article("BARE", { bodyText: null, excerpt: null, bodyStatus: "none" }));
+  const bareId = await article("BARE", { bodyText: null, excerpt: null, bodyStatus: "none" });
+  const bare = await analyzeArticle(bareId);
   assert.deepEqual([bare!.output!.relevance, bare!.output!.selected, bare!.output!.score], ["unknown", false, 32]);
   assert.deepEqual(calls("BARE").sort(), ["prefilter", "score", "score", "structure"]);
+  // The score (32) lands exactly on the T1 threshold (32) and the item is still not selected: a title
+  // on its own is not material. No understanding call, and nothing publishable is written from it.
+  assert.equal(bare!.output!.threshold, 32);
+  assert.ok(!calls("BARE").includes("understand"), "a title alone is not written up by the understanding");
+  assert.equal((await row(bareId)).output.writer, "none", "nothing is written from a title alone");
+  assert.deepEqual([bare!.output!.titleZh, bare!.output!.summaryZh], ["", ""], "no publishable copy without material");
 });
 
 test("a feed summary alone: the article page is fetched first, then the whole article is judged", async () => {
@@ -168,18 +188,23 @@ test("a short post in Chinese is its own copy; a content-filter refusal is trans
   const post = await analyzeArticle(articleId);
   assert.deepEqual([post!.output!.titleZh, post!.output!.summaryZh], [text, text]);
   assert.ok(!calls("推文").includes("summarize"), "no translation call");
+  // The score still decides 精选 (40 + 40 ≥ 2 × 32) and may select it, but the reader-facing copy stays
+  // the post's own text: the understanding must not rewrite a short post the reader can already read.
+  assert.equal(post!.output!.selected, true, "the score still decides 精选");
+  assert.equal((await row(articleId)).output.writer, "verbatim");
+  assert.ok(!calls("推文").includes("understand"), "a short Chinese post is not rewritten by the understanding");
   const sensitive = await analyzeArticle(await article("SENSITIVE"));
   assert.deepEqual([sensitive!.output!.selected, sensitive!.output!.titleZh], [true, "翻译标题 SENSITIVE"]);
   assert.deepEqual(calls("SENSITIVE").filter((s) => s === "understand" || s === "summarize"), ["understand", "summarize"]);
 });
 
-test("guards: a company the input does not name is not written in; long summaries are cut at sentences", () => {
-  const input = { title: "某实验室发布新模型", text: "某实验室发布了一个新模型，参数规模和价格都有说明。", sourceKind: "rss" };
-  const guarded = enforceIdentity(input, { titleZh: "OpenAI 发布新模型", summaryZh: "某实验室发布新模型。" });
-  assert.deepEqual([guarded.titleZh, guarded.summaryZh, guarded.identityGuard.outcome], ["某实验室发布新模型", "某实验室发布新模型。", "fallback"]);
-  // The identity lexicon: a Chinese rendering of a company the input names in English is no invention.
-  const alibaba = { title: "Alibaba ships a new coding model", text: "Alibaba released a coding model with pricing details.", sourceKind: "rss" };
-  assert.equal(enforceIdentity(alibaba, { titleZh: "阿里巴巴发布编程模型", summaryZh: "阿里巴巴发布了编程模型并公布价格。" }).identityGuard.outcome, "pass");
+test("guards: a vendor the input does not name is not written in; long summaries are cut at sentences", () => {
+  const input = { title: "某实验室披露某型号固件漏洞", text: "某实验室披露了一处固件漏洞，涉及型号与修复版本。", sourceKind: "rss" };
+  const guarded = enforceIdentity(input, { titleZh: "海康威视披露固件漏洞", summaryZh: "某实验室披露了一处固件漏洞。" });
+  assert.deepEqual([guarded.titleZh, guarded.summaryZh, guarded.identityGuard.outcome], ["某实验室披露某型号固件漏洞", "某实验室披露了一处固件漏洞。", "fallback"]);
+  // The identity lexicon: a Chinese rendering of a vendor the input names in English is no invention.
+  const cisco = { title: "Cisco ships a new advisory", text: "Cisco released an advisory with affected models and fixed versions.", sourceKind: "rss" };
+  assert.equal(enforceIdentity(cisco, { titleZh: "思科发布安全公告", summaryZh: "思科发布了安全公告，给出受影响型号与修复版本。" }).identityGuard.outcome, "pass");
   const long = "第一句交代了谁做了什么以及关键结果，这一句本身已经足够说明核心事件的来龙去脉。".repeat(3) + "第二句补充数字。".repeat(20);
   assert.ok(compactAnswerFirstSummary(long).length <= 190);
   assert.deepEqual(parseTranslateOutput("title_zh: 标题\nsummary_zh: 第一句。\n第二句。"), { titleZh: "标题", summaryZh: "第一句。\n第二句。", bodyZh: "" });
