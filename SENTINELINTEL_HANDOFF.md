@@ -5,7 +5,7 @@
 
 > **Current-state override (2026-10-08):** Phase 3 was merged to `main` at `7282efd`; canonical Linux
 > run `37755597908` passed both jobs. Phase 4 implementation is active on
-> `phase/4-security-research-agent`; deterministic checkpoint 1 is complete, but no live research
+> `phase/4-security-research-agent`; deterministic callback checkpoint 2 is complete, but no live research
 > adapter, model call, paid call, or benchmark case has started. Sections
 > 4–14 below preserve the earlier Phase 2 design snapshot and are historical where they conflict with
 > this override. The active Phase 4 contract is
@@ -86,7 +86,7 @@ The planned project phases are:
 | 1 | Security Verticalization | ACCEPTED_WITH_LIMITATIONS |
 | 2 | Security Event Grouping Benchmark | COMPLETE_WITH_MODEL_REVIEWED_HOLDOUT_AND_BASELINE_LIMITATIONS |
 | 3 | Python Agent Foundation | COMPLETE |
-| 4 | Security Research Agent | IMPLEMENTATION_IN_PROGRESS — DETERMINISTIC_FOUNDATION_COMPLETE |
+| 4 | Security Research Agent | IMPLEMENTATION_IN_PROGRESS — STUB_CALLBACK_LOOP_COMPLETE |
 | 5 | Event Tracking Agent | NOT STARTED |
 | 6 | Product Impact Agent | NOT STARTED |
 | 7 | UI / Admin / MCP | NOT STARTED |
@@ -629,8 +629,8 @@ If the branch has advanced, update this handoff as part of the next accepted che
 
 ## 17. Immediate next action at this snapshot
 
-Current action after Phase 4 deterministic checkpoint 1:
+Current action after Phase 4 deterministic checkpoint 2:
 
-> **Build the TypeScript-owned stub tool gateway and deterministic TypeScript → Python → TypeScript
-> callback while all external-network and paid-call switches remain off. Do not begin live adapters,
-> benchmark construction, holdout freeze, or final evaluation yet.**
+> **Add fixture-first NVD and CISA KEV adapters through the existing TypeScript gateway. Keep live
+> development requests behind `AGENT_RESEARCH_NETWORK_ENABLED`; do not begin vendor discovery, generic
+> search, real models, paid calls, benchmark construction, holdout freeze, or final evaluation yet.**

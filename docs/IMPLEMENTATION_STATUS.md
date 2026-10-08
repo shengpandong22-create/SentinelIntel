@@ -132,7 +132,7 @@ Branch: `phase/4-security-research-agent`
 
 Base: `main` = `7282efd` (Phase 3 merge)
 
-Status: **IMPLEMENTATION_IN_PROGRESS — DETERMINISTIC_FOUNDATION_COMPLETE**
+Status: **IMPLEMENTATION_IN_PROGRESS — STUB_CALLBACK_LOOP_COMPLETE**
 
 Implementation contract: `docs/00-sentinelintel/05-Phase4-Security-Research-Plan.md`.
 
@@ -170,9 +170,28 @@ Verification: Python 11/11, TypeScript Agent client 10/10, scratch PostgreSQL pe
 an older local Docker volume and failed at PostgreSQL authentication before any migration; verification
 then used a dedicated `sentinelintel_phase4_test` database and test-only role successfully.
 
-Next implementation gate: TypeScript-owned stub tool gateway and deterministic end-to-end
-TypeScript → Python → TypeScript tool callback. Live NVD/KEV/vendor adapters remain out of this
-checkpoint.
+### Phase 4 implementation checkpoint 2 — deterministic callback loop
+
+Implemented and verified on 2026-10-08:
+
+- private `/api/internal/agent/tools/:tool` route with constant-time service-token authentication,
+  trace/run/capability correlation, sanitized errors, and no-store responses;
+- Python tool-gateway client carrying the run capability without persisting or returning it;
+- TypeScript-owned `stub` adapter returning explicit fixture evidence with `external_network: false`, no
+  paid receipt, and no claim that the underlying research question was answered;
+- LangGraph tool invocation and trace assembly while preserving the real question as unknown;
+- an isolated full loop: TypeScript run → Python graph → TypeScript tool callback → Python proposal →
+  TypeScript validation/persistence, with one bounded tool call and one Evidence row while Story remains
+  unchanged.
+
+Verification after checkpoint 2: Python 12/12, TypeScript Agent client 10/10, persistence 5/5, internal
+gateway 3/3, `npm run typecheck`, `docker compose config --quiet`, `git diff --check`, and the isolated
+Docker-network end-to-end check pass. The end-to-end result recorded `status=completed`, `toolCalls=1`,
+`evidence=1`, and `externalNetwork=false`. Temporary API/Agent check containers were removed.
+
+Next implementation gate: no-cost NVD and CISA KEV adapters through the same TypeScript gateway, with
+fixture-first tests and live development checks separately guarded by `AGENT_RESEARCH_NETWORK_ENABLED`.
+Vendor discovery, generic search, real models, paid calls, and benchmark construction remain later gates.
 
 ## Phase 3 — completed history
 

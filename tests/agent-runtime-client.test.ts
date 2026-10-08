@@ -102,10 +102,11 @@ const SNAPSHOT = {
   missing_questions: ["Which versions are affected?"],
   captured_at: "2026-10-08T00:00:00Z",
 };
+const CAPABILITY = "test-capability-0123456789-abcdef";
 
 test("research client fails closed when the feature is disabled", async () => {
   await assert.rejects(
-    runAgentResearchTask({ runId: TRACE, objective: "Research", snapshot: SNAPSHOT, limits: DEFAULT_RESEARCH_LIMITS }),
+    runAgentResearchTask({ runId: TRACE, toolCapability: CAPABILITY, objective: "Research", snapshot: SNAPSHOT, limits: DEFAULT_RESEARCH_LIMITS }),
     (error: unknown) => error instanceof AgentRuntimeError && error.code === "research_disabled",
   );
 });
@@ -113,7 +114,7 @@ test("research client fails closed when the feature is disabled", async () => {
 test("research client authenticates and validates the deterministic proposal", async () => {
   let authorization = "";
   const result = await runAgentResearchTask(
-    { traceId: TRACE, runId: TRACE, objective: "Research", snapshot: SNAPSHOT, limits: DEFAULT_RESEARCH_LIMITS },
+    { traceId: TRACE, runId: TRACE, toolCapability: CAPABILITY, objective: "Research", snapshot: SNAPSHOT, limits: DEFAULT_RESEARCH_LIMITS },
     {
       researchEnabled: true,
       internalToken: "test-token",
@@ -143,7 +144,7 @@ test("research client authenticates and validates the deterministic proposal", a
 test("research client rejects dangling evidence references", async () => {
   await assert.rejects(
     runAgentResearchTask(
-      { traceId: TRACE, runId: TRACE, objective: "Research", snapshot: SNAPSHOT, limits: DEFAULT_RESEARCH_LIMITS },
+      { traceId: TRACE, runId: TRACE, toolCapability: CAPABILITY, objective: "Research", snapshot: SNAPSHOT, limits: DEFAULT_RESEARCH_LIMITS },
       {
         researchEnabled: true,
         internalToken: "test-token",

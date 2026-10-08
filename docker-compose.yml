@@ -30,6 +30,7 @@ services:
       AGENT_RESEARCH_ENABLED: ${AGENT_RESEARCH_ENABLED:-false}
       AGENT_RESEARCH_NETWORK_ENABLED: ${AGENT_RESEARCH_NETWORK_ENABLED:-false}
       AGENT_INTERNAL_TOKEN: ${AGENT_INTERNAL_TOKEN:-}
+      AGENT_GATEWAY_URL: http://api:3001
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
       interval: 5s

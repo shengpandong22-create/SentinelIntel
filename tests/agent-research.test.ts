@@ -53,8 +53,8 @@ test("persists an immutable snapshot and evidence proposal without modifying the
     limits: DEFAULT_RESEARCH_LIMITS,
   });
   const evidenceId = randomUUID();
-  await authorizeResearchToolCall({ runId: run.id, capability: run.capability, tool: "stub" });
-  await recordResearchToolResult({ runId: run.id, capability: run.capability, evidenceDocuments: 1, responseBytes: 512 });
+  await authorizeResearchToolCall({ runPublicId: run.publicId, traceId, capability: run.capability, tool: "stub" });
+  await recordResearchToolResult({ runPublicId: run.publicId, traceId, capability: run.capability, evidenceDocuments: 1, responseBytes: 512 });
   const proposal = ResearchProposalSchema.parse({
     claims: [{
       claim_id: "kev-status",
@@ -154,20 +154,20 @@ test("backend-enforced capabilities, network switch, and tool limits fail closed
     limits: { ...DEFAULT_RESEARCH_LIMITS, max_tool_calls: 1 },
   });
   await assert.rejects(
-    authorizeResearchToolCall({ runId: run.id, capability: "wrong", tool: "stub" }),
+    authorizeResearchToolCall({ runPublicId: run.publicId, traceId: run.traceId, capability: "wrong", tool: "stub" }),
     /invalid research run capability/,
   );
   await assert.rejects(
-    authorizeResearchToolCall({ runId: run.id, capability: run.capability, tool: "nvd_lookup" }),
+    authorizeResearchToolCall({ runPublicId: run.publicId, traceId: run.traceId, capability: run.capability, tool: "nvd_lookup" }),
     /research network is disabled/,
   );
-  await authorizeResearchToolCall({ runId: run.id, capability: run.capability, tool: "stub" });
+  await authorizeResearchToolCall({ runPublicId: run.publicId, traceId: run.traceId, capability: run.capability, tool: "stub" });
   await assert.rejects(
-    authorizeResearchToolCall({ runId: run.id, capability: run.capability, tool: "stub" }),
+    authorizeResearchToolCall({ runPublicId: run.publicId, traceId: run.traceId, capability: run.capability, tool: "stub" }),
     /tool call limit exhausted/,
   );
   await assert.rejects(
-    recordResearchToolResult({ runId: run.id, capability: run.capability, evidenceDocuments: 13, responseBytes: 1 }),
+    recordResearchToolResult({ runPublicId: run.publicId, traceId: run.traceId, capability: run.capability, evidenceDocuments: 13, responseBytes: 1 }),
     /exceeds limits/,
   );
   await failResearchRun(run.id, "fixture_done", "limit test complete");

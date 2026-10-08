@@ -130,6 +130,7 @@ export async function runAgentResearchTask(
   task: {
     traceId?: string;
     runId: string;
+    toolCapability: string;
     objective: string;
     snapshot: StoryResearchSnapshot;
     limits: ResearchLimits;
@@ -159,6 +160,7 @@ export async function runAgentResearchTask(
         body: JSON.stringify({
           trace_id: traceId,
           run_id: task.runId,
+          tool_capability: task.toolCapability,
           objective: task.objective,
           snapshot,
           limits,

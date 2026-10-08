@@ -11,6 +11,11 @@ internal endpoint authentication, backend-owned run capabilities/limits, determi
 research graph, proposal persistence, and no-network tests are implemented. No live research adapter,
 model call, paid call, or benchmark case was added.
 
+Checkpoint 2 completed on 2026-10-08: the authenticated TypeScript-owned stub tool gateway and full
+TypeScript → Python → TypeScript callback/persistence loop are implemented. The fixture adapter returns
+explicitly marked secondary test evidence, creates no receipt, makes no external request, and never
+pretends to resolve the security question. Live research adapters remain outside this checkpoint.
+
 ## 1. Objective
 
 Phase 4 proves that one bounded Security Research Agent can identify missing questions in an existing

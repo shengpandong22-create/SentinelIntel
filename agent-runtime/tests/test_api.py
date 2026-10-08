@@ -6,7 +6,8 @@ from pydantic import SecretStr
 
 from app.config import settings
 from app.main import app
-from app.schemas.research import ResearchProposal
+from app.schemas.research import ResearchProposal, ResearchToolResponse
+from app.tools.research_gateway import research_gateway
 
 
 @pytest.fixture
@@ -94,6 +95,7 @@ def research_body(trace_id: str, run_id: str, story_id: int = 7) -> dict[str, ob
     return {
         "trace_id": trace_id,
         "run_id": run_id,
+        "tool_capability": "test-capability-0123456789-abcdef",
         "objective": "Confirm affected versions",
         "snapshot": {
             "schema_version": 1,
@@ -154,8 +156,54 @@ async def test_research_requires_enabled_switch_after_authentication() -> None:
 
 
 @pytest.mark.anyio
-async def test_deterministic_research_preserves_unknowns_without_network() -> None:
+async def test_invalid_research_capability_is_not_reflected_in_validation_error() -> None:
+    trace_id = str(uuid4())
+    body = research_body(trace_id, str(uuid4()))
+    body["tool_capability"] = "secret-too-short"
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
+        response = await client.post("/v1/research/story/7", json=body)
+    assert response.status_code == 422
+    assert response.json()["error"]["message"] == "request validation failed"
+    assert "secret-too-short" not in response.text
+
+
+@pytest.mark.anyio
+async def test_deterministic_research_calls_stub_and_preserves_unknowns_without_external_network(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     trace_id, run_id = str(uuid4()), str(uuid4())
+    evidence_id = str(uuid4())
+
+    async def stub_invoke(task: object, tool: str, input_data: dict[str, object]) -> ResearchToolResponse:
+        del task
+        assert tool == "stub"
+        assert input_data == {"question": "Which versions are affected?"}
+        return ResearchToolResponse.model_validate({
+            "trace_id": trace_id,
+            "run_id": run_id,
+            "tool": "stub",
+            "status": "ok",
+            "output": {"answered": False},
+            "evidence": [{
+                "evidence_id": evidence_id,
+                "source_type": "stub_fixture",
+                "source_name": "Fixture",
+                "canonical_url": "https://fixture.invalid/evidence",
+                "title": "Fixture evidence",
+                "excerpt": "Which versions are affected?",
+                "normalized": {"fixture": True},
+                "content_hash": "c" * 64,
+                "authority_level": "secondary",
+                "published_at": None,
+                "source_updated_at": None,
+                "retrieved_at": "2026-10-08T00:00:00Z",
+                "provenance": {"external_network": False},
+            }],
+            "receipt_ids": [],
+            "latency_ms": 0,
+        })
+
+    monkeypatch.setattr(research_gateway, "invoke", stub_invoke)
     old_token, old_enabled = settings.internal_token, settings.research_enabled
     settings.internal_token, settings.research_enabled = SecretStr("test-token"), True
     try:
@@ -173,7 +221,8 @@ async def test_deterministic_research_preserves_unknowns_without_network() -> No
     assert body["run_id"] == run_id
     assert body["proposal"]["terminal_status"] == "insufficient_evidence"
     assert body["proposal"]["claims"] == []
-    assert body["proposal"]["evidence"] == []
+    assert body["proposal"]["evidence"][0]["evidence_id"] == evidence_id
+    assert body["proposal"]["tool_trace"][0]["tool"] == "stub"
     assert body["proposal"]["unknowns"][0]["question"] == "Which versions are affected?"
 
 

@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, SecretStr, model_validator
 
 
 class StrictModel(BaseModel):
@@ -123,6 +123,7 @@ class ResearchProposal(StrictModel):
 class ResearchTaskRequest(StrictModel):
     trace_id: UUID
     run_id: UUID
+    tool_capability: SecretStr = Field(min_length=32)
     objective: str = Field(min_length=1, max_length=2_000)
     snapshot: StoryResearchSnapshot
     limits: ResearchLimits
@@ -133,3 +134,14 @@ class ResearchTaskResponse(StrictModel):
     run_id: UUID
     status: Literal["ok"] = "ok"
     proposal: ResearchProposal
+
+
+class ResearchToolResponse(StrictModel):
+    trace_id: UUID
+    run_id: UUID
+    tool: str
+    status: Literal["ok"]
+    output: dict[str, object]
+    evidence: list[ResearchEvidence]
+    receipt_ids: list[int]
+    latency_ms: int = Field(ge=0)

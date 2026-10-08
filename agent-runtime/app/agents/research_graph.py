@@ -3,7 +3,8 @@ from uuid import UUID
 
 from langgraph.graph import END, START, StateGraph
 
-from app.schemas.research import ResearchProposal, ResearchTaskRequest, ResearchUnknown
+from app.schemas.research import ResearchProposal, ResearchTaskRequest, ResearchToolTrace, ResearchUnknown
+from app.tools.research_gateway import ResearchGatewayError, research_gateway
 
 
 class ResearchState(TypedDict, total=False):
@@ -15,11 +16,41 @@ class ResearchState(TypedDict, total=False):
 async def identify_gaps(state: ResearchState) -> dict[str, ResearchProposal]:
     task = state["task"]
     questions = task.snapshot.missing_questions or [task.objective]
+    evidence = []
+    tool_trace = []
+    attempted_sources: list[str] = []
+    if task.limits.max_tool_calls > 0:
+        try:
+            result = await research_gateway.invoke(task, "stub", {"question": questions[0]})
+            evidence.extend(result.evidence)
+            attempted_sources.append("stub")
+            tool_trace.append(ResearchToolTrace(
+                sequence=1,
+                tool="stub",
+                status="ok",
+                input_summary={"question": questions[0]},
+                evidence_ids=[item.evidence_id for item in result.evidence],
+                receipt_ids=result.receipt_ids,
+                latency_ms=result.latency_ms,
+                error_code=None,
+            ))
+        except ResearchGatewayError:
+            attempted_sources.append("stub")
+            tool_trace.append(ResearchToolTrace(
+                sequence=1,
+                tool="stub",
+                status="error",
+                input_summary={"question": questions[0]},
+                evidence_ids=[],
+                receipt_ids=[],
+                latency_ms=0,
+                error_code="tool_gateway_error",
+            ))
     unknowns = [
         ResearchUnknown(
             question=question,
-            attempted_sources=[],
-            reason="deterministic foundation has no live research tools enabled",
+            attempted_sources=attempted_sources,
+            reason="deterministic fixture evidence cannot resolve a real research question",
         )
         for question in questions
     ]
@@ -27,10 +58,10 @@ async def identify_gaps(state: ResearchState) -> dict[str, ResearchProposal]:
         "proposal": ResearchProposal(
             claims=[],
             unknowns=unknowns,
-            evidence=[],
+            evidence=evidence,
             conflicts=[],
-            tool_trace=[],
-            summary="No external research was attempted; all requested questions remain unknown.",
+            tool_trace=tool_trace,
+            summary="Only deterministic fixture research was attempted; all requested questions remain unknown.",
             terminal_status="insufficient_evidence",
         )
     }

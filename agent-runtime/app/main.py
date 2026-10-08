@@ -39,7 +39,7 @@ async def handle_validation_error(request: Request, error: RequestValidationErro
         pass
     return error_response(
         422,
-        ErrorBody(code="invalid_request", message=str(error), retryable=False, trace_id=trace_id),
+        ErrorBody(code="invalid_request", message="request validation failed", retryable=False, trace_id=trace_id),
     )
 
 

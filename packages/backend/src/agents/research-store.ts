@@ -50,7 +50,8 @@ const RESEARCH_TOOLS = new Set(["nvd_lookup", "kev_lookup", "vendor_advisory_sea
 
 /** Reserves one tool call in the backend before any adapter runs; Python cannot self-report these limits. */
 export async function authorizeResearchToolCall(input: {
-  runId: number;
+  runPublicId: string;
+  traceId: string;
   capability: string;
   tool: string;
   networkEnabled?: boolean;
@@ -72,7 +73,7 @@ export async function authorizeResearchToolCall(input: {
     }[]>`
       SELECT status, capability_hash, capability_expires_at, deadline_at, tool_calls_used,
              generic_searches_used, limits
-      FROM agent_research_runs WHERE id = ${input.runId} FOR UPDATE`;
+      FROM agent_research_runs WHERE public_id = ${input.runPublicId} AND trace_id = ${input.traceId} FOR UPDATE`;
     if (!run || run.status !== "running") throw new Error("research run is missing or terminal");
     if (run.capability_hash !== capabilityHash) throw new Error("invalid research run capability");
     if (run.capability_expires_at.getTime() <= Date.now() || run.deadline_at.getTime() <= Date.now()) {
@@ -87,13 +88,14 @@ export async function authorizeResearchToolCall(input: {
       UPDATE agent_research_runs SET
         tool_calls_used = tool_calls_used + 1,
         generic_searches_used = generic_searches_used + ${input.tool === "web_search" ? 1 : 0}
-      WHERE id = ${input.runId}`;
+      WHERE public_id = ${input.runPublicId}`;
   });
 }
 
 /** Accounts for a validated tool result before it is returned to Python. */
 export async function recordResearchToolResult(input: {
-  runId: number;
+  runPublicId: string;
+  traceId: string;
   capability: string;
   evidenceDocuments: number;
   responseBytes: number;
@@ -105,7 +107,8 @@ export async function recordResearchToolResult(input: {
     UPDATE agent_research_runs SET
       evidence_documents_used = evidence_documents_used + ${input.evidenceDocuments},
       response_bytes_used = response_bytes_used + ${input.responseBytes}
-    WHERE id = ${input.runId} AND status = 'running' AND capability_hash = ${capabilityHash}
+    WHERE public_id = ${input.runPublicId} AND trace_id = ${input.traceId}
+      AND status = 'running' AND capability_hash = ${capabilityHash}
       AND capability_expires_at > now() AND deadline_at > now()
       AND evidence_documents_used + ${input.evidenceDocuments} <= (limits->>'max_evidence_documents')::int
       AND response_bytes_used + ${input.responseBytes} <= (limits->>'max_response_bytes')::bigint
