@@ -1,7 +1,8 @@
 # Phase 2 — Security Event Grouping Benchmark: Baseline Audit & Design
 
-Status: **BASELINE_AUDIT_AND_BENCHMARK_DESIGN** — design for owner review. No benchmark data, no
-harness and no production grouping change has been made.
+Status: **IMPLEMENTED_AND_BASELINED** — the design below is the historical contract; implementation and
+the final results are recorded in `docs/evaluation/event-grouping-baseline.md`. No production grouping
+prompt, threshold or runtime behavior was changed.
 
 Phase 2 goal (Migration Spec §11): *先判断 AIHOT grouping 在安防场景到底哪里不够* — establish an
 event-relation benchmark, measure the current baseline, and name the failing security hard cases.
@@ -191,11 +192,10 @@ defines them (`industry/prompts/group-definitions.md`), and `group.ts` consumes 
 | `UNRELATED` | no attachment; also the default for a candidate the model skipped (`verdictsByFact`, `relate.ts:114`) |
 | `ROUNDUP` | one side is a multi-topic digest; only when **every** candidate is ROUNDUP (`looksLikeRoundup`, `relate.ts:130`) |
 
-The prompt already encodes the eight required security boundaries — disclosure → vendor confirmation,
-disclosure → patch, disclosure → PoC/exploitation/KEV, one CVE across vendors, advisory revision,
-tender → award, policy draft → final → implementation date, incident → official follow-up — as
-`SAME_STORY`, and draws the *repeat-coverage vs revision* line: **repeated coverage of the same advisory
-is `SAME_OCCURRENCE`; a new version of that advisory is `SAME_STORY`**
+The prompt encodes the required security boundaries and draws the *repeat-coverage vs revision* line:
+**synchronous official/vendor confirmation or cross-vendor reporting of the same disclosure is
+`SAME_OCCURRENCE`; a later confirmation/status change, patch, PoC/exploitation/KEV event or new version
+of that advisory is `SAME_STORY`**
 (`group-definitions.md:1, 8`). `UNRELATED` explicitly covers the same vendor / product / model with a
 **different** CVE (`group-definitions.md:14–16`).
 
@@ -460,7 +460,8 @@ of the production batch judge*: one query report plus an ordered candidate set.
 **Annotation is candidate-level, not case-level.** The gold relation is a property of one
 (query, candidate) pair, so it — and everything that justifies it — lives on the candidate. A case-level
 `humanAdjudicated` flag may **not** stand in for several candidate labels that were never separately
-adjudicated.
+adjudicated. Under the owner-approved Phase 2 deviation, model-reviewed holdout labels instead record
+each independent model identifier in `reviewers`; this provenance is also candidate-level.
 
 ```jsonc
 {
@@ -507,10 +508,11 @@ adjudicated.
       "annotation": {                           // PER CANDIDATE — the label's own provenance
         "status": "decisive",                   // decisive | disputed | insufficient
         "labelSource": "model-reviewed",        // human | model-proposed | model-reviewed
-        "humanAdjudicated": false,              // must be true for every decisive holdout label (§7.7)
+        "humanAdjudicated": false,
         "labeller": "…",
         "confidence": "medium",                 // high | medium | low
         "adjudicator": null,                    // required whenever humanAdjudicated is true
+        "reviewers": [],                        // holdout MODEL_REVIEWED requires >=3 unique models
         "sourceUrls": ["https://…", "https://…"],
         "note": "one line: why this particular pair got this relation"
       }
@@ -611,10 +613,10 @@ Required by Migration Spec §11:
 
 | # | stratum | intended gold | why it is a hard case |
 |---|---|---|---|
-| 1 | `disclosure-vs-vendor-confirmation` | `SAME_STORY` | the classic false *split*: two different sources, same vulnerability |
+| 1 | `disclosure-vs-vendor-confirmation` | `SAME_OCCURRENCE` | a synchronous official/vendor confirmation of the same disclosure is repeat coverage of one happening; a later status change remains `SAME_STORY` |
 | 2 | `disclosure-vs-patch` | `SAME_STORY` | patch notes rarely repeat the disclosure's wording, so cosine is low |
 | 3 | `poc-vs-disclosure` | `SAME_STORY` | a PoC post names the CVE but reports a different happening |
-| 4 | `same-cve-multi-vendor-product` | `SAME_STORY` | two vendors, one upstream issue — the highest false-*split* risk |
+| 4 | `same-cve-multi-vendor-product` | `SAME_OCCURRENCE` | synchronous cross-vendor reports of one upstream disclosure are repeat coverage of the same happening; later vendor-specific fixes remain `SAME_STORY` |
 | 5 | `same-vendor-different-cve` | `UNRELATED` | the highest false-*merge* risk: same vendor, same month, similar wording |
 | 6 | `same-model-different-vulnerability` | `UNRELATED` | same product name, different CVE |
 | 7 | `procurement-notice-vs-award` | `SAME_STORY` | the same project from tender to award |
@@ -624,7 +626,7 @@ Additions, each justified by a specific mechanism in the code:
 
 | # | stratum | intended gold | justification |
 |---|---|---|---|
-| 9 | `same-cve-cross-source-different-url` | `SAME_OCCURRENCE` | two outlets covering one advisory, **at different URLs**, so the deterministic `same-url` shortcut does **not** fire and the batch judge has to decide. This is the "repeat coverage" rule of `group-definitions.md:1`, and after this revision it is the **only** `SAME_OCCURRENCE`-by-repeat stratum in the primary set |
+| 9 | `same-cve-cross-source-different-url` | `SAME_OCCURRENCE` | two outlets covering one advisory, **at different URLs**, so the deterministic `same-url` shortcut does **not** fire and the batch judge has to decide. This is the "repeat coverage" rule of `group-definitions.md:1` |
 | 10 | `advisory-republished-by-cert` | `SAME_OCCURRENCE` | a CERT republishing a vendor advisory is a *repeat* of one happening, but the source and the wording change (low cosine) |
 | 11 | `advisory-revision-vs-republication` | `SAME_STORY` | the exact boundary the prompt draws between "重复报道" and "同一份公告的修订" (`group-definitions.md:1, 8`); the two are near-identical in text. This stratum **is** the "advisory scope/status revision" case — line 8 names "范围更正、状态更新" explicitly — so no separate stratum was added for it |
 | 12 | `roundup-containing-one-event` | `ROUNDUP` | `looksLikeRoundup` requires **every** candidate to be ROUNDUP (`relate.ts:131`), so a digest plus one strong candidate is the false-split trap |
@@ -715,15 +717,15 @@ mechanically:
 | minimum cases per relation class in the holdout | **≥ 9** (`ROUNDUP`), replacing the withdrawn ≥12 |
 | split unit | **`splitGroupId`**, assigned **globally** during construction and then frozen (§7.6) |
 
-Per class: `SAME_STORY` 96 (dev 69 / holdout 27) · `SAME_OCCURRENCE` 46 (34 / 12) ·
+Per class: `SAME_STORY` 66 (dev 45 / holdout 21) · `SAME_OCCURRENCE` 76 (58 / 18) ·
 `UNRELATED` 64 (52 / 12) · `ROUNDUP` 34 (25 / 9) — **240 (180 / 60)**.
 
 | # | stratum | class | total | dev | holdout |
 |---|---|---|---|---|---|
-| 1 | `disclosure-vs-vendor-confirmation` | SAME_STORY | 16 | 13 | 3 |
+| 1 | `disclosure-vs-vendor-confirmation` | SAME_OCCURRENCE | 16 | 13 | 3 |
 | 2 | `disclosure-vs-patch` | SAME_STORY | 14 | 11 | 3 |
 | 3 | `poc-vs-disclosure` | SAME_STORY | 10 | 7 | 3 |
-| 4 | `same-cve-multi-vendor-product` | SAME_STORY | 14 | 11 | 3 |
+| 4 | `same-cve-multi-vendor-product` | SAME_OCCURRENCE | 14 | 11 | 3 |
 | 5 | `same-vendor-different-cve` | UNRELATED | 22 | 19 | 3 |
 | 6 | `same-model-different-vulnerability` | UNRELATED | 14 | 11 | 3 |
 | 7 | `procurement-notice-vs-award` | SAME_STORY | 10 | 7 | 3 |
@@ -797,7 +799,7 @@ The rule is now:
    | `gold.relation` is one of the four production relations | no fifth label (§7.3) |
    | relation ↔ identity consistency | §7.3.1 |
    | every `annotation.status` is `decisive` | the frozen benchmark is decisive-only (§7.7) |
-   | every decisive holdout candidate has `annotation.humanAdjudicated = true` | the owner's decision (§12.1), now checked per **candidate**, not per case |
+   | every decisive holdout candidate is human-adjudicated **or** has unanimous high-confidence review from ≥3 recorded models | the owner-approved deviation (§12.1), checked per **candidate** |
 
 5. **What must never be split across development and holdout:** the same CVE, the same vendor advisory
    (including its later revisions), the same procurement project, and the same policy lifecycle. That is
@@ -816,7 +818,7 @@ Per relation:
 | relation | definition | positive criteria | negative boundary | security example | confusing counterexample |
 |---|---|---|---|---|---|
 | `SAME_OCCURRENCE` | one real-world happening, one time, one set of objects | cross-language rewrites; different outlets emphasising different details; official text and its media coverage; **repeat coverage of the same advisory**; one advisory's several affected product lines; incident duplicates | if the world would count two happenings, it is not this | CISA and a vendor portal both carry the same advisory | an advisory and its **v2 revision** — same document, but a later happening → `SAME_STORY` |
-| `SAME_STORY` | not the same happening, but a direct earlier/later relation around one CVE, event, project or document | disclosure → vendor confirmation; disclosure → patch/fixed version; disclosure → PoC/exploitation/KEV; one CVE across vendors; advisory revision or status change; tender → award; policy draft → final → implementation date; incident → official follow-up | a different CVE is never this, however similar the text | vendor confirms a flaw a researcher disclosed last week | two different CVEs in the same monthly patch release → `UNRELATED` |
+| `SAME_STORY` | not the same happening, but a direct earlier/later relation around one CVE, event, project or document | disclosure → later confirmation/status change; disclosure → patch/fixed version; disclosure → PoC/exploitation/KEV; advisory revision; tender → award; policy draft → final → implementation date; incident → official follow-up | a synchronous official confirmation or cross-vendor report of the same disclosure is `SAME_OCCURRENCE`; a different CVE is never this | vendor publishes a fix after the original disclosure | two different CVEs in the same monthly patch release → `UNRELATED` |
 | `UNRELATED` | different happening, even for the same company/product | different CVEs from one vendor or product; different vulnerabilities in one model; a product's non-security release; merely mentioning the same vendor, product, model, standard or CVE; hardening guides, opinions, marketing, unless they target the candidate disclosure specifically | do not use it for a genuine development | same vendor, two CVEs, published the same day | a PoC post about the disclosed CVE → this is `SAME_STORY`, not UNRELATED |
 | `ROUNDUP` | one side is a multi-topic digest | monthly patch roundup, daily/weekly digest, morning briefing, security weekly, where the other side is one entry | use only when **one side** is the digest | a weekly roundup listing one of our benchmark advisories | a digest that is *itself* the only report of one event → still `ROUNDUP` on that pair |
 
@@ -863,21 +865,20 @@ not shipped in the benchmark files.
 
 **PROPOSED process — the steps, and who does what (owner decisions in §12):**
 
-1. **Development may be labelled by a model** (`labelSource: model-proposed`) and reviewed by a model
-   (`model-reviewed`). Any development candidate whose `SAME_OCCURRENCE` vs `SAME_STORY` boundary is
-   disputed or low-confidence must be human-adjudicated — `annotation.humanAdjudicated = true` **on that
-   candidate**, with an `adjudicator` recorded.
-2. **Every candidate-level gold label that enters the holdout's decisive relation metrics must be
-   human-adjudicated.** This is the holdout constraint (contract correction), and it is **per candidate**:
-   a holdout case holds several candidates and each carries its own `humanAdjudicated` and `adjudicator`.
-   The validator asserts it per candidate (§7.6), never per case. A holdout with even one non-adjudicated
-   decisive label cannot be frozen.
+1. **Development may be labelled and reviewed by models.** Disputed, insufficient, or low-confidence
+   pairs do not enter the frozen set; they are replaced from the construction pool rather than silently
+   resolved. A human may still adjudicate them, but Phase 2 completion does not depend on that path.
+2. **Holdout uses the owner-approved three-model deviation.** Each model sees the evidence independently.
+   A candidate may enter the frozen holdout only when at least three uniquely identified models return
+   the same relation, all with `confidence: "high"` and none with `insufficient: true`. It is recorded as
+   `labelSource: "model-reviewed"`, `humanAdjudicated: false`, `adjudicator: null`, with all model ids in
+   `reviewers`. Any disagreement or lower-confidence vote goes to the review pool and is replaced.
 3. **Neither set may be called human gold unless it actually is.** The report prints the `labelSource`
    breakdown **per candidate** for the split it ran. A development set that is mostly `model-reviewed` is
    **not** human-labelled gold, and the document, the report and the run label must say so. (Phase 1's
    accepted deviation was exactly this point — `docs/evaluation/selection.md` §B.)
 4. **Provenance is recorded per candidate**: `labelSource`, `labeller`, `confidence`, `humanAdjudicated`,
-   `adjudicator`, `sourceUrls`, `note`. Case-level `construction` metadata is optional and is never a
+   `adjudicator`, `reviewers`, `sourceUrls`, `note`. Case-level `construction` metadata is optional and is never a
    label (§7.3).
 
 ### 7.8 Benchmark time rebasing (contract)
@@ -1066,7 +1067,7 @@ separate later addition rather than building two cluster metrics now.
 | DB writes | **none to production membership.** Relation stage: no writes at all. Recall / end-to-end stages: a scratch database whose name ends `_test` or `_ci` (enforced by `tests/setup.ts`'s invariant), seeded per case, discarded |
 | fixture time rebasing | required by the recall and end-to-end stages. `discovered_at` and `published_at` shift by one common `discoveryTimeShift` so the fixture lands inside the `RECALL_DAYS = 14` window, `backfill = false` on every fixture row, and each report's `discovered_at - published_at` is asserted equal to the dataset's (§7.8). Without this the benchmark expires ~14 days after collection, and a `backfill` row would be short-circuited by `isHistorical()` into `verdict: "historical"` before recall or judging ever runs |
 | deterministic diagnostic track | the `same-url` shortcut is **not** a primary stratum (§7.4). It gets a small deterministic fixture test that ingests the same normalised URL twice and asserts the shortcut fires — kept beside the grouping fixture tests, not inside the 240 |
-| pre-flight validation | before any stage runs, the validator described in §7.6 and §7.3.1 is executed over the frozen file and **must pass** (totals, split isolation, decisive-only, per-candidate holdout adjudication, relation↔identity consistency). A dataset that fails validation does not run |
+| pre-flight validation | before any stage runs, the validator described in §7.6 and §7.3.1 is executed over the frozen file and **must pass** (totals, split isolation, decisive-only, per-candidate holdout provenance gate, relation↔identity consistency). A dataset that fails validation does not run |
 | report | `.data/eval/event-grouping-<split>-<n>-<ts>.json`: meta (split, n, seed, `RELATE_PROMPT_VERSION`, `GROUP_PROMPT_VERSION`, recall branch, model ids, **`evaluationTimeAnchor`**, **`discoveryTimeShift`**, and the `labelSource` counts per candidate), per-case rows (caseId, stratum, gold, predicted, confidence, recall score, whether the review model was called, fallbacks), the confusion matrix (with and without distractors), per-class and macro metrics, stage-A recall, stage-C merge P/R with the false-merge/false-split lists, token and latency totals |
 | SelectBench | **not used for the primary result — corrected.** The first revision said SelectBench "cannot hold a 4-class relation matrix without new columns". That overstates it: `gold` and `decision` are plain text (`CaseIn` in `packages/backend/src/admin/selectbench.ts:12–13`), so the columns could physically store `SAME_STORY`. What is binary selection-specific is everything around them — `importSelectBenchRun` requires each model's `summary` and copies it verbatim into `selectbench_runs.summary`, deriving `sample_size` from `meta.n` (`selectbench.ts:32–41`); the admin outcome filter hardcodes `'fp' THEN decision='select' AND gold='reject'`, `'fn' … 'select'`/`'reject'`, `'tp'`, `'tn'`, `'either' THEN gold='either'`, `'error' THEN decision IS NULL` (`selectbench.ts:87–96`); `score` is the selection 0–100 score; `relevance` is pass/block; and the run browser is a "same cases, outcome filter, disagreement count" selection comparison. Reusing it would therefore mean new columns **and** new summary/outcome semantics. Phase 2 writes its own JSON report in `.data/eval/`; a grouping view in the admin UI is a **deferred UI enhancement**, not a Phase 2 blocker |
 
@@ -1161,26 +1162,17 @@ Migration Spec §11 states the gate directly: *只有此报告证明有问题，
 | **240 total / 180 development / 60 holdout** | §7.5's fixed allocation table |
 | **Signal relations do not enter the primary benchmark** | §4.8; the signal verdicts are reported as `0` in stage C |
 | **A minimal non-runtime evaluation seam is allowed, targeting the production batch judge** | §9.1 — the seam may expose `judgeBatch`, and may **not** touch prompts, models, thresholds or routing |
-| **No paid evaluation is authorized yet** | the relation and end-to-end stages cannot be run; only the free recall stage could be. No run is scheduled by this document |
-| **All 60 holdout cases must be human-adjudicated** | `annotation.humanAdjudicated = true` on every holdout case, asserted by the harness (§7.6 rule 4) and printed in the report |
-| **Development may be model-proposed / model-reviewed, but disputed or low-confidence `SAME_OCCURRENCE` vs `SAME_STORY` cases must be human-adjudicated** | §7.7 steps 1–2 |
-| **Non-human development labels must never be called human gold** | §7.7 step 3; the report prints the `labelSource` breakdown for the split it ran |
+| **Paid evaluation authorization** | **Granted by the owner on 2026-10-06 for final Stage B/C.** Runs remain sequenced after dataset completion and freeze, and must use receipts and budget breakers. |
+| **Owner-approved holdout deviation (2026-10-06)** | The original human-adjudicated requirement is replaced for Phase 2 by ≥3 independent model reviews. Only unanimous, high-confidence, sufficient labels freeze; provenance is `MODEL_REVIEWED`, never human gold (§7.7). |
+| **Development may be model-proposed / model-reviewed** | Disputed, insufficient and low-confidence boundary cases stay outside the frozen set and are replaced (§7.7). |
+| **Non-human labels must never be called human gold** | The report prints the `labelSource` and reviewer breakdown for the split it ran. Phase 2 may close only as completed with an accepted human-annotation deviation. |
 
-### 12.2 Still open — and exactly what each item blocks
+### 12.2 Remaining execution gates
 
-**Neither open item blocks benchmark implementation.** Each blocks one specific *execution* step. The
-earlier revisions of this document said these "block implementation", which was wrong and is corrected
-here:
-
-| open item | blocks | does **not** block |
-|---|---|---|
-| **Who adjudicates the holdout, and when** — no adjudicator is assigned yet | **holdout finalization / freeze**: the 60 holdout cases cannot be frozen until every decisive holdout candidate label is human-adjudicated (§7.7 step 2) | schema implementation · the validator · the evaluation seam · the offline harness · fixture tests · **development candidate construction** · development annotation |
-| **Paid model authorization** — none granted | **paid baseline execution**: the relation (`judgeBatch`) and end-to-end stages call paid models, so no scored run can happen | all of the above, plus the **free recall stage** (zero model calls) and the rest of §9's plumbing |
-
-So the order is: design review → **implementation can start immediately** (schema, validator, seam,
-offline harness, fixture tests, development construction) → holdout freeze once an adjudicator exists →
-paid scoring once authorization exists. The two blockers gate *when the benchmark can be scored*, not
-whether it can be **built**.
+There is no longer a human-adjudicator gate. Paid authorization was granted on 2026-10-06. The remaining
+gates are mechanical: finish the evidence-backed construction pools, run the required independent
+reviews, freeze only decisive cases, then execute the authorized Stage B/C runs through receipts and
+budget breakers. This deviation does not retroactively satisfy the original human-adjudicated contract.
 
 Two further items are implementation-time choices the design constrains but deliberately does not
 pre-empt:
@@ -1235,8 +1227,14 @@ exactly what the Phase 2 benchmark exists to fill.
 ## 14. Recommendation
 
 ```text
-READY_FOR_PHASE2_BENCHMARK_IMPLEMENTATION_REVIEW
+PHASE2_COMPLETE_WITH_MODEL_REVIEWED_HOLDOUT_AND_BASELINE_LIMITATIONS
 ```
+
+Implementation completed on 2026-10-08: 180 development and 60 holdout cases are frozen, the holdout is
+explicitly `MODEL_REVIEWED` rather than human gold, Stage A/B/C and the pair diagnostic ran through the
+required scratch-database and receipt paths, and the baseline/error taxonomy is published in
+`docs/evaluation/event-grouping-baseline.md`. The bullets below describe the design correction that made
+that implementation possible.
 
 This correction round fixes the **contract** details an implementation would otherwise get wrong:
 
@@ -1260,5 +1258,6 @@ The primary classifier remains the production **batch** judge (`BATCH_SYSTEM`, `
 relations; signals remain out of the primary benchmark; SelectBench keeps its accurate description; and
 `REPO_VERIFIED` stays distinct from `LOCAL_OBSERVED`.
 
-No benchmark data was generated, no harness was written, no evaluation seam was added, no production
-grouping code, threshold or prompt was touched, no paid evaluation was run, and Phase 3 has not started.
+The implementation added benchmark data, the offline harness and a non-runtime evaluation seam. It did
+not change the production grouping prompt, threshold, model route or runtime decision behavior. The
+authorized paid baseline ran only after both splits froze. Phase 3 has not started.
