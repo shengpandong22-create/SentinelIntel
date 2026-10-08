@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { AgentRuntimeError, runAgentTestTask } from "@aihot/backend/agents/client";
+import { AgentRuntimeError, runAgentResearchTask, runAgentTestTask } from "@aihot/backend/agents/client";
+import { DEFAULT_RESEARCH_LIMITS } from "@aihot/backend/agents/research-contract";
 
 const TRACE = "123e4567-e89b-42d3-a456-426614174000";
 
@@ -87,5 +88,77 @@ test("rejects a mismatched error trace id", async () => {
       fetch: async () => Response.json({ error: { code: "busy", message: "busy", retryable: true, trace_id: "123e4567-e89b-42d3-a456-426614174001" } }, { status: 503 }),
     }),
     (error: unknown) => error instanceof AgentRuntimeError && error.code === "invalid_response" && !error.retryable,
+  );
+});
+
+const SNAPSHOT = {
+  schema_version: 1 as const,
+  story_id: 7,
+  story_version: 1,
+  title: "Test vulnerability",
+  digest: null,
+  status: "active" as const,
+  facts: [],
+  missing_questions: ["Which versions are affected?"],
+  captured_at: "2026-10-08T00:00:00Z",
+};
+
+test("research client fails closed when the feature is disabled", async () => {
+  await assert.rejects(
+    runAgentResearchTask({ runId: TRACE, objective: "Research", snapshot: SNAPSHOT, limits: DEFAULT_RESEARCH_LIMITS }),
+    (error: unknown) => error instanceof AgentRuntimeError && error.code === "research_disabled",
+  );
+});
+
+test("research client authenticates and validates the deterministic proposal", async () => {
+  let authorization = "";
+  const result = await runAgentResearchTask(
+    { traceId: TRACE, runId: TRACE, objective: "Research", snapshot: SNAPSHOT, limits: DEFAULT_RESEARCH_LIMITS },
+    {
+      researchEnabled: true,
+      internalToken: "test-token",
+      fetch: async (_url, init) => {
+        authorization = String((init?.headers as Record<string, string>).authorization);
+        return Response.json({
+          trace_id: TRACE,
+          run_id: TRACE,
+          status: "ok",
+          proposal: {
+            claims: [],
+            unknowns: [{ question: "Which versions are affected?", attempted_sources: [], reason: "no tools" }],
+            evidence: [],
+            conflicts: [],
+            tool_trace: [],
+            summary: "No evidence collected.",
+            terminal_status: "insufficient_evidence",
+          },
+        });
+      },
+    },
+  );
+  assert.equal(authorization, "Bearer test-token");
+  assert.equal(result.proposal.terminal_status, "insufficient_evidence");
+});
+
+test("research client rejects dangling evidence references", async () => {
+  await assert.rejects(
+    runAgentResearchTask(
+      { traceId: TRACE, runId: TRACE, objective: "Research", snapshot: SNAPSHOT, limits: DEFAULT_RESEARCH_LIMITS },
+      {
+        researchEnabled: true,
+        internalToken: "test-token",
+        retries: 0,
+        fetch: async () => Response.json({
+          trace_id: TRACE,
+          run_id: TRACE,
+          status: "ok",
+          proposal: {
+            claims: [{ claim_id: "c1", text: "Affected", criticality: "critical", status: "confirmed", confidence: 1, evidence_ids: ["123e4567-e89b-42d3-a456-426614174001"] }],
+            unknowns: [], evidence: [], conflicts: [], tool_trace: [], summary: "Bad", terminal_status: "completed",
+          },
+        }),
+      },
+    ),
+    (error: unknown) => error instanceof AgentRuntimeError && error.code === "invalid_response",
   );
 });

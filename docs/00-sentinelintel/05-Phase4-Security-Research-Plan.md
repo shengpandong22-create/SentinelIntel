@@ -1,10 +1,15 @@
 # Phase 4 — Security Research Agent implementation contract
 
-Status: `APPROVED_FOR_IMPLEMENTATION`
+Status: `IMPLEMENTATION_IN_PROGRESS`
 
 Approval: contract self-audited against the repository and approved on 2026-10-08. This approval covers
 implementation through deterministic tests and no-cost development adapters. It does not enable paid
 calls, freeze a holdout, or authorize the final paid evaluation.
+
+Checkpoint 1 completed on 2026-10-08: migration `0040`, cross-runtime schemas, fail-closed switches,
+internal endpoint authentication, backend-owned run capabilities/limits, deterministic unknown-preserving
+research graph, proposal persistence, and no-network tests are implemented. No live research adapter,
+model call, paid call, or benchmark case was added.
 
 ## 1. Objective
 

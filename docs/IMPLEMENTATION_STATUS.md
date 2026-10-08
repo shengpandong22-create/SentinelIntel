@@ -126,13 +126,13 @@ Deliberately not modified: `tests/analyze-shutdown.test.ts` and `tests/translate
 
 ## Current Phase
 
-Phase: **Phase 4 — Security Research Agent planning**
+Phase: **Phase 4 — Security Research Agent**
 
-Branch: `phase/4-security-research-planning`
+Branch: `phase/4-security-research-agent`
 
 Base: `main` = `7282efd` (Phase 3 merge)
 
-Status: **APPROVED_FOR_IMPLEMENTATION**
+Status: **IMPLEMENTATION_IN_PROGRESS — DETERMINISTIC_FOUNDATION_COMPLETE**
 
 Implementation contract: `docs/00-sentinelintel/05-Phase4-Security-Research-Plan.md`.
 
@@ -141,12 +141,38 @@ limits Phase 4 to one bounded Security Research Agent. Python owns reasoning; th
 retains database writes, credentials, outbound-network controls, receipts, budgets, validation, and
 persistence. The Agent returns an auditable proposal and cannot modify core Story/Fact state.
 
-No Phase 4 code, migration, benchmark data, external research call, or paid model run was produced by
-this planning checkpoint. A repository-grounded contract audit on 2026-10-08 added independent research
-execution/network switches, TypeScript-enforced per-run capabilities and limits, and fail-closed paid
-service budgets. The contract is approved for deterministic implementation and no-cost development
-adapters. Development paid calls, holdout freeze, and final paid evaluation remain separate gates. See
-the contract for the ordered implementation and acceptance checklists.
+A repository-grounded contract audit on 2026-10-08 added independent research execution/network
+switches, TypeScript-enforced per-run capabilities and limits, and fail-closed paid service budgets.
+The deterministic foundation described below is now implemented. Benchmark data, external research
+calls, and paid model runs have not started; development paid calls, holdout freeze, and final paid
+evaluation remain separate gates. See the contract for the ordered implementation and acceptance
+checklists.
+
+### Phase 4 implementation checkpoint 1 — deterministic foundation
+
+Implemented on 2026-10-08 without external or paid calls:
+
+- additive migration `0040_agent_research.sql` for immutable run snapshots, hashed/expiring run
+  capabilities, backend-owned usage counters, and append-oriented external evidence;
+- strict matching Python/TypeScript research schemas, including dangling evidence rejection and the
+  rule that a confirmed critical claim cannot rely only on secondary evidence;
+- `AGENT_RESEARCH_ENABLED` and `AGENT_RESEARCH_NETWORK_ENABLED`, both default false independently of
+  `MODEL_CALLS_ENABLED`;
+- authenticated internal research endpoint and deterministic LangGraph behavior that preserves every
+  unanswered question as an explicit unknown;
+- TypeScript research client, run lifecycle persistence, hashed capability checks, server-side tool and
+  byte/document limits, and fail-closed paid-service budget validation;
+- scratch-database tests proving evidence/run persistence without modifying Story state.
+
+Verification: Python 11/11, TypeScript Agent client 10/10, scratch PostgreSQL persistence 5/5,
+`npm run typecheck`, `docker compose config --quiet`, empty-database migration through `0040`, and
+`git diff --check` pass. The initial scratch migration attempt used the Compose default password against
+an older local Docker volume and failed at PostgreSQL authentication before any migration; verification
+then used a dedicated `sentinelintel_phase4_test` database and test-only role successfully.
+
+Next implementation gate: TypeScript-owned stub tool gateway and deterministic end-to-end
+TypeScript → Python → TypeScript tool callback. Live NVD/KEV/vendor adapters remain out of this
+checkpoint.
 
 ## Phase 3 — completed history
 
