@@ -1,6 +1,6 @@
 # Phase 3 — Python Agent Foundation implementation contract
 
-Status: `IMPLEMENTED_PENDING_CANONICAL_CI`
+Status: `COMPLETE`
 
 ## Scope
 
@@ -46,3 +46,10 @@ HTTP timeout and retry behavior; LangGraph does not become a scheduler or retry 
 
 Phase 4 may replace the deterministic adapters with real research capabilities, but it must preserve
 this transport, error, trace, and test boundary unless a separately reviewed change says otherwise.
+
+## Acceptance result
+
+All six acceptance items passed. Local Windows evidence includes Python 7/7, TypeScript client 7/7,
+typecheck, native and Compose-network contract checks, Agent image health/dependency checks, production
+web build, and web tests 16/16. Canonical Linux GitHub Actions run `37755597908` passed both jobs:
+`check` in 1m33s and `docker` in 1m00s. Phase 3 is complete; Phase 4 has not started.

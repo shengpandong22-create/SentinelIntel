@@ -4,7 +4,8 @@
 > When resuming after switching projects, a new long-running session, or a different coding agent, read this file first instead of reconstructing state from chat history.
 
 > **Current-state override (2026-10-08):** Phase 2 was accepted and squash-merged to `main` at
-> `694973c`. Phase 3 is now authorized and active on `phase/3-python-agent-foundation`. Sections 4–14
+> `694973c`. Phase 3 is complete on `phase/3-python-agent-foundation`; canonical Linux run `37755597908`
+> passed both jobs. Sections 4–14
 > below preserve the earlier Phase 2 design snapshot and are historical where they conflict with this
 > override. The active Phase 3 contract is
 > `docs/00-sentinelintel/04-Phase3-Agent-Runtime-Plan.md`.
@@ -83,7 +84,7 @@ The planned project phases are:
 | 0 | Baseline Audit & Freeze | ACCEPTED |
 | 1 | Security Verticalization | ACCEPTED_WITH_LIMITATIONS |
 | 2 | Security Event Grouping Benchmark | COMPLETE_WITH_MODEL_REVIEWED_HOLDOUT_AND_BASELINE_LIMITATIONS |
-| 3 | Python Agent Foundation | CURRENT |
+| 3 | Python Agent Foundation | COMPLETE |
 | 4 | Security Research Agent | NOT STARTED |
 | 5 | Event Tracking Agent | NOT STARTED |
 | 6 | Product Impact Agent | NOT STARTED |
@@ -626,7 +627,7 @@ If the branch has advanced, update this handoff as part of the next accepted che
 
 ## 17. Immediate next action at this snapshot
 
-Current action:
+Current action after Phase 3 merge:
 
-> **Implement and verify the Phase 3 Python Agent Foundation against the frozen contract in
-> `docs/00-sentinelintel/04-Phase3-Agent-Runtime-Plan.md`, without starting Phase 4 business logic.**
+> **Review and explicitly authorize the separately scoped Phase 4 Security Research Agent before adding
+> real model calls, research tools, persistence, or business logic.**

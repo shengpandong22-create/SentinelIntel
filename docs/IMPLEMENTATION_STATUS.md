@@ -132,7 +132,7 @@ Branch: `phase/3-python-agent-foundation`
 
 Base: `main` = `694973c` (Phase 2 squash merge)
 
-Status: **IMPLEMENTED_PENDING_CANONICAL_CI**
+Status: **COMPLETE**
 
 Implementation contract: `docs/00-sentinelintel/04-Phase3-Agent-Runtime-Plan.md`.
 
@@ -146,8 +146,9 @@ Verified locally on Windows on 2026-10-08: Python tests 7/7, TypeScript client t
 Docker image build/health, isolated-container dependency check, the in-network TypeScript-to-Python
 contract check, the production web build, and web tests 16/16 all pass. The GitHub workflow now repeats
 the Python, TypeScript, cross-runtime, Docker-health and in-network checks without credentials or external
-service calls. Canonical Linux CI has not run on this branch yet, so Phase 3 is implementation-complete
-but not accepted/closed.
+service calls. Canonical Linux GitHub Actions run `37755597908` passed both jobs: `check` in 1m33s and
+`docker` in 1m00s. All contract acceptance items are satisfied. Phase 3 is complete; Phase 4 has not
+started.
 
 ## Phase 2 — completed history
 
