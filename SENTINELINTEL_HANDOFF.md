@@ -3,18 +3,24 @@
 > Purpose: this file is the durable restart point for SentinelIntel.  
 > When resuming after switching projects, a new long-running session, or a different coding agent, read this file first instead of reconstructing state from chat history.
 
+> **Current-state override (2026-10-08):** Phase 2 was accepted and squash-merged to `main` at
+> `694973c`. Phase 3 is now authorized and active on `phase/3-python-agent-foundation`. Sections 4–14
+> below preserve the earlier Phase 2 design snapshot and are historical where they conflict with this
+> override. The active Phase 3 contract is
+> `docs/00-sentinelintel/04-Phase3-Agent-Runtime-Plan.md`.
+
 ## 0. How to use this handoff
 
 Before changing code:
 
 1. Verify the repository and branch:
    - repository: `shengpandong22-create/SentinelIntel`
-   - current Phase 2 branch: `phase/2-security-event-grouping`
-   - Phase 2 base: `main`
+   - current Phase 3 branch: `phase/3-python-agent-foundation`
+   - Phase 3 base: `main` at or after `694973c`
 2. Read, in order:
    - `SENTINELINTEL_HANDOFF.md`
    - `docs/IMPLEMENTATION_STATUS.md`
-   - `docs/evaluation/event-grouping-plan.md`
+   - `docs/00-sentinelintel/04-Phase3-Agent-Runtime-Plan.md`
 3. Verify the current branch head instead of assuming the SHA in an old conversation is still current.
 4. Classify evidence explicitly:
    - `REPO_VERIFIED`: directly supported by repository code/history/tests.
@@ -76,15 +82,15 @@ The planned project phases are:
 |---|---|---|
 | 0 | Baseline Audit & Freeze | ACCEPTED |
 | 1 | Security Verticalization | ACCEPTED_WITH_LIMITATIONS |
-| 2 | Security Event Grouping Benchmark | CURRENT |
-| 3 | Python Agent Foundation | NOT STARTED |
+| 2 | Security Event Grouping Benchmark | COMPLETE_WITH_MODEL_REVIEWED_HOLDOUT_AND_BASELINE_LIMITATIONS |
+| 3 | Python Agent Foundation | CURRENT |
 | 4 | Security Research Agent | NOT STARTED |
 | 5 | Event Tracking Agent | NOT STARTED |
 | 6 | Product Impact Agent | NOT STARTED |
 | 7 | UI / Admin / MCP | NOT STARTED |
 | 8 | Final Eval & Resume Package | NOT STARTED |
 
-**Hard gate:** do not begin Phase 3 until Phase 2 is accepted.
+**Hard gate satisfied:** Phase 2 was accepted and merged before Phase 3 began.
 
 ---
 
@@ -604,13 +610,13 @@ When returning to SentinelIntel after working on another project:
 ```text
 1. git fetch origin
 2. verify current branch and HEAD
-3. compare phase/2-security-event-grouping against main
+3. compare phase/3-python-agent-foundation against main
 4. read SENTINELINTEL_HANDOFF.md
 5. read docs/IMPLEMENTATION_STATUS.md
-6. read docs/evaluation/event-grouping-plan.md
-7. confirm whether any Phase 2 implementation landed after this snapshot
+6. read docs/00-sentinelintel/04-Phase3-Agent-Runtime-Plan.md
+7. confirm the latest Phase 3 implementation and acceptance state
 8. run/inspect the relevant tests before changing code
-9. preserve “measure first” and paid/human gates
+9. preserve the deterministic/Agent boundary and no-external-network test gate
 10. continue from the smallest currently authorized implementation slice
 ```
 
@@ -620,16 +626,7 @@ If the branch has advanced, update this handoff as part of the next accepted che
 
 ## 17. Immediate next action at this snapshot
 
-At the snapshot used to create this handoff:
+Current action:
 
-- Phase 2 design is complete enough for implementation review;
-- benchmark implementation has not started;
-- no paid evaluation is authorized;
-- no holdout human adjudicator is assigned;
-- Phase 3 is forbidden.
-
-Therefore the next engineering action is:
-
-> **Implement the Phase 2 benchmark foundation — schema, validator, minimal production-judge evaluation seam, and offline fixture/harness support — without changing grouping behavior.**
-
-After that implementation is independently audited, proceed to development candidate construction and the free recall-stage baseline. Only then decide, from measured evidence, whether any grouping change deserves a separate proposal.
+> **Implement and verify the Phase 3 Python Agent Foundation against the frozen contract in
+> `docs/00-sentinelintel/04-Phase3-Agent-Runtime-Plan.md`, without starting Phase 4 business logic.**
