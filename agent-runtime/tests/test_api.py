@@ -261,6 +261,35 @@ def test_critical_claim_rejects_secondary_only_evidence() -> None:
         })
 
 
+def test_conflict_requires_two_distinct_evidence_ids() -> None:
+    evidence_id = str(uuid4())
+    evidence = {
+        "evidence_id": evidence_id,
+        "source_type": "nvd",
+        "source_name": "NVD",
+        "canonical_url": "https://nvd.nist.gov/vuln/detail/CVE-2021-44228",
+        "title": "NVD record",
+        "excerpt": None,
+        "normalized": {},
+        "content_hash": "a" * 64,
+        "authority_level": "authoritative",
+        "published_at": None,
+        "source_updated_at": None,
+        "retrieved_at": "2026-10-08T00:00:00Z",
+        "provenance": {},
+    }
+    with pytest.raises(ValueError, match="two distinct evidence ids"):
+        ResearchProposal.model_validate({
+            "claims": [],
+            "unknowns": [],
+            "evidence": [evidence],
+            "conflicts": [{"description": "Invalid duplicate support", "evidence_ids": [evidence_id, evidence_id]}],
+            "tool_trace": [],
+            "summary": "Invalid",
+            "terminal_status": "completed",
+        })
+
+
 @pytest.mark.anyio
 async def test_cve_research_selects_nvd_then_kev_and_builds_supported_claims(
     monkeypatch: pytest.MonkeyPatch,

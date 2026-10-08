@@ -114,6 +114,8 @@ class ResearchProposal(StrictModel):
         )
         if unsupported is not None:
             raise ValueError(f"critical claim lacks authoritative or primary evidence: {unsupported}")
+        if any(len(set(conflict.evidence_ids)) < 2 for conflict in self.conflicts):
+            raise ValueError("conflict requires at least two distinct evidence ids")
         sequences = [trace.sequence for trace in self.tool_trace]
         if len(sequences) != len(set(sequences)):
             raise ValueError("duplicate tool trace sequence")

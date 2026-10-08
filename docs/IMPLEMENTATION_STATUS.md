@@ -132,7 +132,7 @@ Branch: `phase/4-security-research-agent`
 
 Base: `main` = `7282efd` (Phase 3 merge)
 
-Status: **IMPLEMENTATION_IN_PROGRESS — VENDOR_ADVISORY_ADAPTERS_COMPLETE**
+Status: **IMPLEMENTATION_IN_PROGRESS — EVALUATION_HARNESS_PILOT_COMPLETE**
 
 Implementation contract: `docs/00-sentinelintel/05-Phase4-Security-Research-Plan.md`.
 
@@ -248,6 +248,33 @@ Microsoft evidence success is claimed.
 Next implementation gate: construct the Phase 4 development benchmark and deterministic evaluation
 harness from evidence-backed cases. Generic search, real models, paid calls, holdout freeze, and final
 evaluation remain later gates.
+
+### Phase 4 evaluation checkpoint 5a — deterministic harness pilot
+
+Implemented and verified on 2026-10-08:
+
+- a strict JSONL case schema that freezes the existing versioned Story snapshot, objective, expected
+  claims/unknowns/conflicts, forbidden conclusions, source identities, collection time, and label method;
+- holdout provenance gates that reject source-only labels and require at least three distinct reviewers
+  for `MODEL_REVIEWED` cases;
+- a strict result schema for B0 snapshot-only and B1 bounded-tool proposals, including latency, tokens,
+  cost, tool calls, receipts, policy violations, and core mutations;
+- safety scoring for unsupported critical claims, missing Evidence, search snippets used as Evidence,
+  policy violations, Story/Fact mutations, forbidden conclusions, and incomplete tool traces;
+- quality scoring for expected-claim recall, authoritative-evidence recall, supported-claim precision,
+  expected-unknown preservation, conflict preservation, tool errors, terminal status, and operations;
+- a six-case `SOURCE_VERIFIED` development pilot covering all required strata once. It validates the
+  harness but is neither the final benchmark nor a frozen/model-run baseline;
+- cross-runtime rejection of conflicts that repeat one Evidence id instead of citing two distinct
+  documents.
+
+Verification after checkpoint 5a: Python 15/15, evaluation harness 5/5, combined adapter/client/harness
+26/26, `npm run typecheck`, pilot parse/validation 6 cases / 6 strata, and `git diff --check`.
+
+Next implementation gate: collect, verify, and adjudicate the remaining evidence-backed development
+cases until the canonical `development.jsonl` contains 20–50 valid cases, then execute a small explicitly
+budgeted real-model development pilot and pre-register thresholds. Holdout construction/freeze and final
+B0/B1 remain later gates.
 
 ## Phase 3 — completed history
 

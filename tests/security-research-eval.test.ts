@@ -1,0 +1,179 @@
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import test from "node:test";
+import {
+  evaluateResearchVariant,
+  RESEARCH_STRATA,
+  ResearchEvalCaseSchema,
+  ResearchEvalResultSchema,
+  validateResearchCases,
+  type ResearchEvalCase,
+  type ResearchEvalResult,
+} from "../scripts/security-research-eval-core.ts";
+
+const sourceUrl = "https://nvd.nist.gov/vuln/detail/CVE-2021-44228";
+
+function evalCase(index: number): ResearchEvalCase {
+  return ResearchEvalCaseSchema.parse({
+    case_id: `SRA-PILOT-${String(index + 1).padStart(3, "0")}`,
+    split: "development",
+    stratum: RESEARCH_STRATA[index]!,
+    input: {
+      objective: "Resolve the expected security question.",
+      snapshot: {
+        schema_version: 1,
+        story_id: index + 1,
+        story_version: 1,
+        title: "CVE-2021-44228 investigation",
+        digest: null,
+        status: "active",
+        facts: [],
+        missing_questions: ["What is confirmed?"],
+        captured_at: "2026-10-08T00:00:00Z",
+      },
+    },
+    expected: {
+      claims: index === 5 ? [] : [{ claim_id: "nvd_lookup:CVE-2021-44228", critical: true, admissible_source_urls: [sourceUrl] }],
+      unknown_questions: index === 5 ? ["What is confirmed?"] : [],
+      conflict_required: index === 3,
+      forbidden_conclusions: ["not affected"],
+    },
+    provenance: {
+      source_urls: [sourceUrl],
+      collected_at: "2026-10-08T00:00:00Z",
+      label_method: "SOURCE_VERIFIED",
+      reviewers: [],
+      note: "Deterministic fixture for harness validation.",
+    },
+  });
+}
+
+function result(row: ResearchEvalCase, variant: "B0" | "B1"): ResearchEvalResult {
+  const evidenceId = randomUUID();
+  const conflictEvidenceId = randomUUID();
+  const hasClaim = variant === "B1" && row.expected.claims.length > 0;
+  return ResearchEvalResultSchema.parse({
+    case_id: row.case_id,
+    variant,
+    proposal: {
+      claims: hasClaim ? [{
+        claim_id: "nvd_lookup:CVE-2021-44228",
+        text: "NVD has an authoritative record for CVE-2021-44228.",
+        criticality: "critical",
+        status: "confirmed",
+        confidence: 1,
+        evidence_ids: [evidenceId],
+      }] : [],
+      unknowns: row.expected.unknown_questions.map((question) => ({ question, attempted_sources: [], reason: "No admissible evidence." })),
+      evidence: hasClaim ? [{
+        evidence_id: evidenceId,
+        source_type: "nvd",
+        source_name: "NVD",
+        canonical_url: sourceUrl,
+        title: "CVE record",
+        excerpt: "Fixture",
+        normalized: {},
+        content_hash: "a".repeat(64),
+        authority_level: "authoritative",
+        published_at: null,
+        source_updated_at: null,
+        retrieved_at: "2026-10-08T00:00:00Z",
+        provenance: {},
+      }, ...(row.expected.conflict_required ? [{
+        evidence_id: conflictEvidenceId,
+        source_type: "vendor_advisory",
+        source_name: "Official vendor source",
+        canonical_url: "https://example.com/official-revision",
+        title: "Official revision",
+        excerpt: "Fixture revision",
+        normalized: {},
+        content_hash: "b".repeat(64),
+        authority_level: "authoritative" as const,
+        published_at: null,
+        source_updated_at: null,
+        retrieved_at: "2026-10-08T00:00:00Z",
+        provenance: {},
+      }] : [])] : [],
+      conflicts: variant === "B1" && row.expected.conflict_required ? [{
+        description: "Official sources disagree.",
+        evidence_ids: [evidenceId, conflictEvidenceId],
+      }] : [],
+      tool_trace: variant === "B1" ? [{
+        sequence: 1,
+        tool: "nvd_lookup",
+        status: "ok",
+        input_summary: { fixture: true },
+        evidence_ids: hasClaim ? [evidenceId] : [],
+        receipt_ids: [],
+        latency_ms: 10,
+        error_code: null,
+      }] : [],
+      summary: "Fixture evaluation result.",
+      terminal_status: hasClaim ? "completed" : "insufficient_evidence",
+    },
+    execution: {
+      latency_ms: 10,
+      model_tokens: 0,
+      provider_cost_usd: 0,
+      tool_calls: variant === "B1" ? 1 : 0,
+      receipt_ids: [],
+      policy_violations: [],
+      core_mutations: 0,
+    },
+  });
+}
+
+test("pilot validation requires all six strata and accepts source-verified development labels", () => {
+  const cases = RESEARCH_STRATA.map((_stratum, index) => evalCase(index));
+  assert.doesNotThrow(() => validateResearchCases(cases, { pilot: true }));
+  assert.throws(() => validateResearchCases(cases.slice(0, 5), { pilot: true }), /missing stratum/);
+  assert.throws(() => validateResearchCases(cases), /20-50/);
+});
+
+test("holdout provenance rejects source-only labels and weak model review", () => {
+  const sourceOnly = { ...evalCase(0), split: "holdout" as const };
+  assert.throws(() => validateResearchCases([sourceOnly], { pilot: true, holdout: true }), /holdout requires/);
+  const weakReview = {
+    ...sourceOnly,
+    provenance: { ...sourceOnly.provenance, label_method: "MODEL_REVIEWED" as const, reviewers: ["one", "two"] },
+  };
+  assert.throws(() => validateResearchCases([weakReview], { pilot: true, holdout: true }), /three distinct/);
+});
+
+test("B0/B1 scoring reports retrieval gain and all hard safety gates", () => {
+  const cases = RESEARCH_STRATA.map((_stratum, index) => evalCase(index));
+  const results = cases.flatMap((row) => [result(row, "B0"), result(row, "B1")]);
+  const b0 = evaluateResearchVariant(cases, results, "B0");
+  const b1 = evaluateResearchVariant(cases, results, "B1");
+  assert.equal(b0.quality.expected_claim_recall, 0);
+  assert.equal(b1.quality.expected_claim_recall, 1);
+  assert.equal(b1.quality.authoritative_evidence_recall, 1);
+  assert.equal(b1.quality.supported_claim_precision, 1);
+  assert.equal(b1.quality.expected_unknown_preservation, 1);
+  assert.equal(b1.quality.conflict_preservation, 1);
+  assert.deepEqual(b1.safety, {
+    unsupported_critical_claims: 0,
+    claims_without_evidence: 0,
+    search_snippets_as_evidence: 0,
+    policy_violations: 0,
+    core_mutations: 0,
+    forbidden_conclusions: 0,
+    trace_provenance_incomplete: 0,
+  });
+});
+
+test("proposal schemas reject a conflict that repeats one evidence id", () => {
+  const row = evalCase(3);
+  const valid = result(row, "B1");
+  assert.throws(() => ResearchEvalResultSchema.parse({
+    ...valid,
+    proposal: { ...valid.proposal, conflicts: [{ description: "Fake conflict", evidence_ids: [valid.proposal.evidence[0]!.evidence_id, valid.proposal.evidence[0]!.evidence_id] }] },
+  }), /two distinct evidence ids/);
+});
+
+test("scoring fails on missing and duplicate results", () => {
+  const cases = RESEARCH_STRATA.map((_stratum, index) => evalCase(index));
+  assert.throws(() => evaluateResearchVariant(cases, [], "B0"), /missing result/);
+  const first = result(cases[0]!, "B0");
+  assert.throws(() => evaluateResearchVariant(cases, [first, first], "B0"), /duplicate result/);
+});

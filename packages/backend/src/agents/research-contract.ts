@@ -88,6 +88,9 @@ export const ResearchProposalSchema = z.object({
       ctx.addIssue({ code: "custom", message: `critical claim lacks authoritative or primary evidence: ${claim.claim_id}` });
     }
   }
+  for (const conflict of proposal.conflicts) {
+    if (new Set(conflict.evidence_ids).size < 2) ctx.addIssue({ code: "custom", message: "conflict requires at least two distinct evidence ids" });
+  }
   const sequences = proposal.tool_trace.map((entry) => entry.sequence);
   if (new Set(sequences).size !== sequences.length) ctx.addIssue({ code: "custom", message: "duplicate tool trace sequence" });
 });

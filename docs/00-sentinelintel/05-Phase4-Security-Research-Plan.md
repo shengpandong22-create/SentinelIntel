@@ -34,6 +34,13 @@ produced authoritative Evidence with zero receipts. Microsoft CVE URLs can be lo
 but their client-rendered response currently fails the usable-body gate; no live Microsoft fetch success
 is claimed.
 
+Evaluation checkpoint 5a completed on 2026-10-08: the deterministic B0/B1 result contract, JSONL
+validator, safety gates, quality/operations scorer, and a six-stratum development pilot are implemented.
+The pilot freezes the complete Story snapshot shape and verifies the harness only; it is explicitly not
+the required 20–50 case benchmark and has not been used for a real-model baseline. Conflict records now
+require two distinct Evidence ids in both runtimes. The harness refuses missing or duplicate B0/B1
+results and never fabricates run output.
+
 ## 1. Objective
 
 Phase 4 proves that one bounded Security Research Agent can identify missing questions in an existing
