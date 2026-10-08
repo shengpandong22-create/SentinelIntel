@@ -3,6 +3,7 @@ import { z } from "zod";
 import { sha256 } from "../lib/ids.ts";
 import { authorizeResearchToolCall, recordResearchToolResult } from "./research-store.ts";
 import { ResearchEvidenceSchema } from "./research-contract.ts";
+import { lookupKev, lookupNvd, parseCveId, type ResearchFetchJson } from "./research-adapters.ts";
 
 export const ResearchToolRequestSchema = z.object({
   trace_id: z.uuid(),
@@ -25,44 +26,64 @@ export const ResearchToolResponseSchema = z.object({
 export type ResearchToolRequest = z.infer<typeof ResearchToolRequestSchema>;
 export type ResearchToolResponse = z.infer<typeof ResearchToolResponseSchema>;
 
-/** Checkpoint-2 deterministic tool. It proves the callback contract but makes no external request. */
-export async function executeResearchTool(request: ResearchToolRequest, capability: string): Promise<ResearchToolResponse> {
+export async function executeResearchTool(
+  request: ResearchToolRequest,
+  capability: string,
+  deps: { networkEnabled?: boolean; fetchJson?: ResearchFetchJson } = {},
+): Promise<ResearchToolResponse> {
   const parsed = ResearchToolRequestSchema.parse(request);
-  if (parsed.tool !== "stub") throw new Error("live research tools are not implemented");
+  let question: string | null = null;
+  let cveId: string | null = null;
+  if (parsed.tool === "stub") question = z.string().min(1).max(2_000).parse(parsed.input.question);
+  else if (parsed.tool === "nvd_lookup" || parsed.tool === "kev_lookup") cveId = parseCveId(parsed.input.cve_id);
+  else throw new Error("research tool is not implemented");
   await authorizeResearchToolCall({
     runPublicId: parsed.run_id,
     traceId: parsed.trace_id,
     capability,
     tool: parsed.tool,
+    networkEnabled: deps.networkEnabled,
   });
 
   const started = Date.now();
-  const question = z.string().min(1).max(2_000).parse(parsed.input.question);
-  const evidenceId = randomUUID();
-  const retrievedAt = new Date().toISOString();
-  const evidence = ResearchEvidenceSchema.parse({
-    evidence_id: evidenceId,
-    source_type: "stub_fixture",
-    source_name: "SentinelIntel deterministic fixture",
-    canonical_url: `https://fixture.invalid/research/${evidenceId}`,
-    title: "Deterministic research callback evidence",
-    excerpt: question,
-    normalized: { question, fixture: true },
-    content_hash: sha256(question),
-    authority_level: "secondary",
-    published_at: null,
-    source_updated_at: null,
-    retrieved_at: retrievedAt,
-    provenance: { adapter: "stub", external_network: false },
-  });
+  let result: { output: Record<string, unknown>; evidence: z.infer<typeof ResearchEvidenceSchema>[]; receiptIds: number[] };
+  if (parsed.tool === "stub") {
+    const evidenceId = randomUUID();
+    if (question === null) throw new Error("stub question is missing");
+    result = {
+      output: { answered: false, reason: "fixture evidence cannot resolve a real research question" },
+      evidence: [ResearchEvidenceSchema.parse({
+        evidence_id: evidenceId,
+        source_type: "stub_fixture",
+        source_name: "SentinelIntel deterministic fixture",
+        canonical_url: `https://fixture.invalid/research/${evidenceId}`,
+        title: "Deterministic research callback evidence",
+        excerpt: question,
+        normalized: { question, fixture: true },
+        content_hash: sha256(question),
+        authority_level: "secondary",
+        published_at: null,
+        source_updated_at: null,
+        retrieved_at: new Date().toISOString(),
+        provenance: { adapter: "stub", external_network: false },
+      })],
+      receiptIds: [],
+    };
+  } else if (parsed.tool === "nvd_lookup") {
+    if (cveId === null) throw new Error("CVE id is missing");
+    result = await lookupNvd(cveId, deps.fetchJson);
+  } else {
+    if (cveId === null) throw new Error("CVE id is missing");
+    result = await lookupKev(cveId, deps.fetchJson);
+  }
   const response = ResearchToolResponseSchema.parse({
     trace_id: parsed.trace_id,
     run_id: parsed.run_id,
     tool: parsed.tool,
     status: "ok",
-    output: { answered: false, reason: "fixture evidence cannot resolve a real research question" },
-    evidence: [evidence],
-    receipt_ids: [],
+    output: result.output,
+    evidence: result.evidence,
+    receipt_ids: result.receiptIds,
     latency_ms: Date.now() - started,
   });
   await recordResearchToolResult({

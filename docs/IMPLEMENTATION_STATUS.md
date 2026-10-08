@@ -132,7 +132,7 @@ Branch: `phase/4-security-research-agent`
 
 Base: `main` = `7282efd` (Phase 3 merge)
 
-Status: **IMPLEMENTATION_IN_PROGRESS — STUB_CALLBACK_LOOP_COMPLETE**
+Status: **IMPLEMENTATION_IN_PROGRESS — CORE_SOURCE_ADAPTERS_COMPLETE**
 
 Implementation contract: `docs/00-sentinelintel/05-Phase4-Security-Research-Plan.md`.
 
@@ -192,6 +192,32 @@ Docker-network end-to-end check pass. The end-to-end result recorded `status=com
 Next implementation gate: no-cost NVD and CISA KEV adapters through the same TypeScript gateway, with
 fixture-first tests and live development checks separately guarded by `AGENT_RESEARCH_NETWORK_ENABLED`.
 Vendor discovery, generic search, real models, paid calls, and benchmark construction remain later gates.
+
+### Phase 4 implementation checkpoint 3 — NVD and CISA KEV
+
+Implemented and verified on 2026-10-08:
+
+- NVD CVE API 2.0 adapter with strict CVE-id validation and normalized status, English description,
+  timestamps, metrics, CWEs, and bounded references;
+- CISA KEV JSON adapter with normalized vendor/product, date added, remediation deadline/action,
+  ransomware-use marker, notes, and CWEs;
+- guarded HTTP, size/time limits, zero paid receipts, authoritative provenance, and content hashes;
+- deterministic Python CVE detection that selects `nvd_lookup` then `kev_lookup` within the backend-owned
+  tool limit and emits only Evidence-supported critical claims;
+- explicit negative semantics: NVD/KEV misses remain misses/unknowns and are not converted into claims
+  that a vulnerability does not exist or has not been exploited.
+
+Verification after checkpoint 3: Python 13/13, adapter fixtures 5/5, TypeScript Agent client 10/10,
+persistence/gateway source flow 6/6, internal gateway 4/4, `npm run typecheck`, `git diff --check`, and
+the isolated no-network callback replay pass. A live no-cost development check with the network switch
+explicitly enabled returned CISA KEV `found=true`, one Evidence item, and zero receipts for
+`CVE-2021-44228`. The NVD endpoint connection timed out (`UND_ERR_CONNECT_TIMEOUT`) before any HTTP
+response in this Windows environment, both with and without the project's environment file; no success
+is claimed. Fixture parsing and bounded gateway execution for NVD pass.
+
+Next implementation gate: fixture-first vendor advisory registry/search and official advisory fetch.
+Generic search, real models, paid calls, benchmark construction, holdout freeze, and final evaluation
+remain later gates.
 
 ## Phase 3 — completed history
 

@@ -259,3 +259,62 @@ def test_critical_claim_rejects_secondary_only_evidence() -> None:
             "summary": "Unsupported",
             "terminal_status": "completed",
         })
+
+
+@pytest.mark.anyio
+async def test_cve_research_selects_nvd_then_kev_and_builds_supported_claims(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    trace_id, run_id = str(uuid4()), str(uuid4())
+    calls: list[str] = []
+
+    async def source_invoke(task: object, tool: str, input_data: dict[str, object]) -> ResearchToolResponse:
+        del task
+        calls.append(tool)
+        assert input_data == {"cve_id": "CVE-2021-44228"}
+        evidence_id = str(uuid4())
+        return ResearchToolResponse.model_validate({
+            "trace_id": trace_id,
+            "run_id": run_id,
+            "tool": tool,
+            "status": "ok",
+            "output": {"found": True, "cve_id": "CVE-2021-44228"},
+            "evidence": [{
+                "evidence_id": evidence_id,
+                "source_type": "nvd" if tool == "nvd_lookup" else "cisa_kev",
+                "source_name": "Official fixture",
+                "canonical_url": "https://nvd.nist.gov/vuln/detail/CVE-2021-44228" if tool == "nvd_lookup" else "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+                "title": "Official fixture evidence",
+                "excerpt": "Fixture",
+                "normalized": {"cve_id": "CVE-2021-44228"},
+                "content_hash": ("d" if tool == "nvd_lookup" else "e") * 64,
+                "authority_level": "authoritative",
+                "published_at": None,
+                "source_updated_at": None,
+                "retrieved_at": "2026-10-08T00:00:00Z",
+                "provenance": {"external_network": False},
+            }],
+            "receipt_ids": [],
+            "latency_ms": 0,
+        })
+
+    monkeypatch.setattr(research_gateway, "invoke", source_invoke)
+    body = research_body(trace_id, run_id)
+    body["snapshot"]["title"] = "CVE-2021-44228 investigation"  # type: ignore[index]
+    old_token, old_enabled = settings.internal_token, settings.research_enabled
+    settings.internal_token, settings.research_enabled = SecretStr("test-token"), True
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
+            response = await client.post(
+                "/v1/research/story/7",
+                headers={"authorization": "Bearer test-token", "x-trace-id": trace_id},
+                json=body,
+            )
+    finally:
+        settings.internal_token, settings.research_enabled = old_token, old_enabled
+    assert response.status_code == 200
+    proposal = response.json()["proposal"]
+    assert calls == ["nvd_lookup", "kev_lookup"]
+    assert len(proposal["claims"]) == 2
+    assert len(proposal["evidence"]) == 2
+    assert all(claim["evidence_ids"] for claim in proposal["claims"])

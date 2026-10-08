@@ -16,6 +16,13 @@ TypeScript → Python → TypeScript callback/persistence loop are implemented. 
 explicitly marked secondary test evidence, creates no receipt, makes no external request, and never
 pretends to resolve the security question. Live research adapters remain outside this checkpoint.
 
+Checkpoint 3 completed on 2026-10-08: fixture-first NVD CVE API 2.0 and CISA KEV JSON adapters are
+implemented behind the independent network switch. Deterministic CVE detection selects NVD then KEV;
+confirmed claims cite authoritative Evidence, and a KEV miss never becomes a claim of no exploitation.
+CISA live development connectivity passed without receipts. NVD live connectivity from this Windows
+environment timed out before an HTTP response; fixture and gateway coverage passed, so this remains an
+explicit environment observation rather than a fabricated live success.
+
 ## 1. Objective
 
 Phase 4 proves that one bounded Security Research Agent can identify missing questions in an existing

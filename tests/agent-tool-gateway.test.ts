@@ -79,6 +79,23 @@ test("internal tool route rejects a trace mismatch without consuming a tool call
   assert.equal(response.json().error.code, "trace_mismatch");
 });
 
+test("live NVD adapter is blocked while the independent network switch is off", async () => {
+  const response = await app.inject({
+    method: "POST",
+    url: "/api/internal/agent/tools/nvd_lookup",
+    headers: {
+      authorization: `Bearer ${process.env.AGENT_INTERNAL_TOKEN}`,
+      "x-run-capability": run.capability,
+      "x-trace-id": traceId,
+    },
+    payload: { trace_id: traceId, run_id: run.publicId, input: { cve_id: "CVE-2021-44228" } },
+  });
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.json().error.code, "tool_rejected");
+  const [stored] = await sql<{ calls: number }[]>`SELECT tool_calls_used AS calls FROM agent_research_runs WHERE id = ${run.id}`;
+  assert.equal(stored!.calls, 0);
+});
+
 test("authenticated stub callback is bounded, receipt-free, and deterministic", async () => {
   const request = {
     method: "POST" as const,

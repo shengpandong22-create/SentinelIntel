@@ -1,9 +1,10 @@
+import re
 from typing import TypedDict
 from uuid import UUID
 
 from langgraph.graph import END, START, StateGraph
 
-from app.schemas.research import ResearchProposal, ResearchTaskRequest, ResearchToolTrace, ResearchUnknown
+from app.schemas.research import ResearchClaim, ResearchProposal, ResearchTaskRequest, ResearchToolTrace, ResearchUnknown
 from app.tools.research_gateway import ResearchGatewayError, research_gateway
 
 
@@ -17,30 +18,57 @@ async def identify_gaps(state: ResearchState) -> dict[str, ResearchProposal]:
     task = state["task"]
     questions = task.snapshot.missing_questions or [task.objective]
     evidence = []
+    claims = []
     tool_trace = []
     attempted_sources: list[str] = []
-    if task.limits.max_tool_calls > 0:
+    research_text = "\n".join(filter(None, [
+        task.objective,
+        task.snapshot.title,
+        task.snapshot.digest,
+        *(fact.title for fact in task.snapshot.facts),
+    ]))
+    cve_match = re.search(r"\bCVE-\d{4}-\d{4,}\b", research_text, re.IGNORECASE)
+    cve_id = cve_match.group(0).upper() if cve_match else None
+    planned = [
+        ("nvd_lookup", {"cve_id": cve_id}),
+        ("kev_lookup", {"cve_id": cve_id}),
+    ] if cve_id else [("stub", {"question": questions[0]})]
+    for sequence, (tool, input_data) in enumerate(planned[:task.limits.max_tool_calls], start=1):
         try:
-            result = await research_gateway.invoke(task, "stub", {"question": questions[0]})
+            result = await research_gateway.invoke(task, tool, input_data)
             evidence.extend(result.evidence)
-            attempted_sources.append("stub")
+            attempted_sources.append(tool)
             tool_trace.append(ResearchToolTrace(
-                sequence=1,
-                tool="stub",
+                sequence=sequence,
+                tool=tool,
                 status="ok",
-                input_summary={"question": questions[0]},
+                input_summary=input_data,
                 evidence_ids=[item.evidence_id for item in result.evidence],
                 receipt_ids=result.receipt_ids,
                 latency_ms=result.latency_ms,
                 error_code=None,
             ))
+            if result.output.get("found") is True and result.evidence and cve_id is not None:
+                text = (
+                    f"CISA KEV lists {cve_id} as a known exploited vulnerability."
+                    if tool == "kev_lookup"
+                    else f"NVD has an authoritative vulnerability record for {cve_id}."
+                )
+                claims.append(ResearchClaim(
+                    claim_id=f"{tool}:{cve_id}",
+                    text=text,
+                    criticality="critical",
+                    status="confirmed",
+                    confidence=1.0,
+                    evidence_ids=[item.evidence_id for item in result.evidence],
+                ))
         except ResearchGatewayError:
-            attempted_sources.append("stub")
+            attempted_sources.append(tool)
             tool_trace.append(ResearchToolTrace(
-                sequence=1,
-                tool="stub",
+                sequence=sequence,
+                tool=tool,
                 status="error",
-                input_summary={"question": questions[0]},
+                input_summary=input_data,
                 evidence_ids=[],
                 receipt_ids=[],
                 latency_ms=0,
@@ -56,12 +84,12 @@ async def identify_gaps(state: ResearchState) -> dict[str, ResearchProposal]:
     ]
     return {
         "proposal": ResearchProposal(
-            claims=[],
+            claims=claims,
             unknowns=unknowns,
             evidence=evidence,
             conflicts=[],
             tool_trace=tool_trace,
-            summary="Only deterministic fixture research was attempted; all requested questions remain unknown.",
+            summary="Deterministic research adapters ran; unresolved semantic questions remain explicit.",
             terminal_status="insufficient_evidence",
         )
     }

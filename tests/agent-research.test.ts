@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { after, before, test } from "node:test";
 import { closeDb, sql } from "@aihot/backend/db";
 import { DEFAULT_RESEARCH_LIMITS, ResearchProposalSchema } from "@aihot/backend/agents/research-contract";
+import { executeResearchTool } from "@aihot/backend/agents/tool-gateway";
 import {
   authorizeResearchToolCall,
   assertResearchPaidServiceBudget,
@@ -180,4 +182,40 @@ test("Phase 4 paid services fail closed when their budget row is absent or stopp
     VALUES (${`stopped-${T}`}, 0, 0, 0, 'test')`;
   await assert.rejects(assertResearchPaidServiceBudget(`stopped-${T}`), /stopped by budget/);
   await sql`DELETE FROM budgets WHERE service = ${`stopped-${T}`}`;
+});
+
+test("NVD and KEV fixtures pass through the bounded gateway and consume two free tool calls", async () => {
+  const traceId = randomUUID();
+  const run = await startResearchRun({
+    storyId,
+    traceId,
+    objective: "Research CVE-2021-44228",
+    graphVersion: "phase4-sources-v1",
+    snapshot: snapshot(),
+    limits: { ...DEFAULT_RESEARCH_LIMITS, max_tool_calls: 2 },
+  });
+  const fetchJson = async (url: string) => JSON.parse(await readFile(
+    new URL(url.includes("nvd.nist.gov") ? "./fixtures/research/nvd-cve.json" : "./fixtures/research/cisa-kev.json", import.meta.url),
+    "utf8",
+  )) as unknown;
+  const base = { trace_id: traceId, run_id: run.publicId };
+  const nvd = await executeResearchTool(
+    { ...base, tool: "nvd_lookup", input: { cve_id: "CVE-2021-44228" } },
+    run.capability,
+    { networkEnabled: true, fetchJson },
+  );
+  const kev = await executeResearchTool(
+    { ...base, tool: "kev_lookup", input: { cve_id: "CVE-2021-44228" } },
+    run.capability,
+    { networkEnabled: true, fetchJson },
+  );
+  assert.equal(nvd.evidence[0]!.source_type, "nvd");
+  assert.equal(kev.evidence[0]!.source_type, "cisa_kev");
+  assert.deepEqual(nvd.receipt_ids, []);
+  assert.deepEqual(kev.receipt_ids, []);
+  const [stored] = await sql<{ calls: number; documents: number }[]>`
+    SELECT tool_calls_used AS calls, evidence_documents_used AS documents
+    FROM agent_research_runs WHERE id = ${run.id}`;
+  assert.deepEqual(stored, { calls: 2, documents: 2 });
+  await failResearchRun(run.id, "fixture_done", "source adapter test complete");
 });
