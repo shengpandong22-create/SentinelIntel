@@ -126,6 +126,32 @@ Deliberately not modified: `tests/analyze-shutdown.test.ts` and `tests/translate
 
 ## Current Phase
 
+Phase: **Phase 3 — Python Agent Foundation**
+
+Branch: `phase/3-python-agent-foundation`
+
+Base: `main` = `694973c` (Phase 2 squash merge)
+
+Status: **COMPLETE**
+
+Implementation contract: `docs/00-sentinelintel/04-Phase3-Agent-Runtime-Plan.md`.
+
+The contract was written before implementation. Phase 3 is limited to an internal FastAPI/LangGraph
+runtime, typed model/tool seams, a deterministic test graph, structured trace/error propagation, a
+bounded TypeScript HTTP client, Docker integration, and no-network tests. It adds no database table,
+real model call, research tool, scheduler, or Phase 4 business logic.
+
+Verified locally on Windows on 2026-10-08: Python tests 7/7, TypeScript client tests 7/7,
+`npm run typecheck`, `docker compose config --quiet`, native TypeScript-to-Python contract check, Agent
+Docker image build/health, isolated-container dependency check, the in-network TypeScript-to-Python
+contract check, the production web build, and web tests 16/16 all pass. The GitHub workflow now repeats
+the Python, TypeScript, cross-runtime, Docker-health and in-network checks without credentials or external
+service calls. Canonical Linux GitHub Actions run `37755597908` passed both jobs: `check` in 1m33s and
+`docker` in 1m00s. All contract acceptance items are satisfied. Phase 3 is complete; Phase 4 has not
+started.
+
+## Phase 2 — completed history
+
 Phase: **Phase 2 — Security Event Grouping Benchmark**
 
 Branch: `phase/2-security-event-grouping`
@@ -1140,7 +1166,7 @@ one), and the concrete distractor count and seed per case.
 
 **The 180-case development benchmark and 60-case `MODEL_REVIEWED` holdout are frozen, and the authorized
 paid baseline has run. No production grouping behaviour, threshold or prompt changed.**
-Phase 3 has not started.
+Phase 3 has started under the owner-approved implementation contract described in `## Current Phase`.
 
 Still open as **deferred work, not blockers**: the seeded source pack has no procurement source and no
 physical-security vendor feed, and the Phase 1 benchmark's 50 `web` rows are not URL-traceable.

@@ -12,6 +12,7 @@ x-app: &app
     DATABASE_URL: postgres://aihot:${POSTGRES_PASSWORD:-aihot}@db:5432/aihot
     AIHOT_DATA_DIR: /data
     API_BASE_URL: http://api:3001
+    AGENT_RUNTIME_URL: http://agent:8000
     LOCAL_ROUTER_URL: http://web:3000
   volumes:
     - data:/data
@@ -20,6 +21,17 @@ x-app: &app
       condition: service_healthy
 
 services:
+  agent:
+    build:
+      context: ./agent-runtime
+    image: sentinelintel-agent-runtime
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   db:
     image: postgres:17-alpine
     restart: unless-stopped

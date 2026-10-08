@@ -38,6 +38,9 @@ export const config = {
   apiPort: int("API_PORT", 3001),
   webPort: int("WEB_PORT", 3000),
   apiBaseUrl: str("API_BASE_URL", "http://127.0.0.1:3001"),
+  agentRuntimeUrl: str("AGENT_RUNTIME_URL", "http://127.0.0.1:8000"),
+  agentRuntimeTimeoutMs: int("AGENT_RUNTIME_TIMEOUT_MS", 5_000),
+  agentRuntimeRetries: int("AGENT_RUNTIME_RETRIES", 1),
   // Every generated absolute link uses this address, whatever Host a request arrives with.
   siteUrl: str("SITE_URL", SITE.defaultUrl).replace(/\/+$/, ""),
   selectedVisibleAfterSeconds: int("SELECTED_VISIBLE_AFTER_SECONDS", 180),
