@@ -3,12 +3,12 @@
 > Purpose: this file is the durable restart point for SentinelIntel.  
 > When resuming after switching projects, a new long-running session, or a different coding agent, read this file first instead of reconstructing state from chat history.
 
-> **Current-state override (2026-10-08):** Phase 2 was accepted and squash-merged to `main` at
-> `694973c`. Phase 3 is complete on `phase/3-python-agent-foundation`; canonical Linux run `37755597908`
-> passed both jobs. Sections 4–14
-> below preserve the earlier Phase 2 design snapshot and are historical where they conflict with this
-> override. The active Phase 3 contract is
-> `docs/00-sentinelintel/04-Phase3-Agent-Runtime-Plan.md`.
+> **Current-state override (2026-10-08):** Phase 3 was merged to `main` at `7282efd`; canonical Linux
+> run `37755597908` passed both jobs. Phase 4 planning is complete on
+> `phase/4-security-research-planning`; no Phase 4 implementation or paid call has started. Sections
+> 4–14 below preserve the earlier Phase 2 design snapshot and are historical where they conflict with
+> this override. The active Phase 4 contract is
+> `docs/00-sentinelintel/05-Phase4-Security-Research-Plan.md`.
 
 ## 0. How to use this handoff
 
@@ -16,12 +16,12 @@ Before changing code:
 
 1. Verify the repository and branch:
    - repository: `shengpandong22-create/SentinelIntel`
-   - current Phase 3 branch: `phase/3-python-agent-foundation`
-   - Phase 3 base: `main` at or after `694973c`
+   - current planning branch: `phase/4-security-research-planning`
+   - Phase 4 planning base: `main` at or after `7282efd`
 2. Read, in order:
    - `SENTINELINTEL_HANDOFF.md`
    - `docs/IMPLEMENTATION_STATUS.md`
-   - `docs/00-sentinelintel/04-Phase3-Agent-Runtime-Plan.md`
+   - `docs/00-sentinelintel/05-Phase4-Security-Research-Plan.md`
 3. Verify the current branch head instead of assuming the SHA in an old conversation is still current.
 4. Classify evidence explicitly:
    - `REPO_VERIFIED`: directly supported by repository code/history/tests.
@@ -85,13 +85,14 @@ The planned project phases are:
 | 1 | Security Verticalization | ACCEPTED_WITH_LIMITATIONS |
 | 2 | Security Event Grouping Benchmark | COMPLETE_WITH_MODEL_REVIEWED_HOLDOUT_AND_BASELINE_LIMITATIONS |
 | 3 | Python Agent Foundation | COMPLETE |
-| 4 | Security Research Agent | NOT STARTED |
+| 4 | Security Research Agent | READY_FOR_IMPLEMENTATION_REVIEW |
 | 5 | Event Tracking Agent | NOT STARTED |
 | 6 | Product Impact Agent | NOT STARTED |
 | 7 | UI / Admin / MCP | NOT STARTED |
 | 8 | Final Eval & Resume Package | NOT STARTED |
 
-**Hard gate satisfied:** Phase 2 was accepted and merged before Phase 3 began.
+**Hard gates satisfied:** Phase 2 was accepted before Phase 3 began, and Phase 3 was accepted and merged
+before Phase 4 planning began.
 
 ---
 
@@ -614,11 +615,11 @@ When returning to SentinelIntel after working on another project:
 3. compare phase/3-python-agent-foundation against main
 4. read SENTINELINTEL_HANDOFF.md
 5. read docs/IMPLEMENTATION_STATUS.md
-6. read docs/00-sentinelintel/04-Phase3-Agent-Runtime-Plan.md
-7. confirm the latest Phase 3 implementation and acceptance state
+6. read docs/00-sentinelintel/05-Phase4-Security-Research-Plan.md
+7. confirm the latest Phase 4 planning and authorization state
 8. run/inspect the relevant tests before changing code
 9. preserve the deterministic/Agent boundary and no-external-network test gate
-10. continue from the smallest currently authorized implementation slice
+10. do not implement Phase 4 until its contract is explicitly approved
 ```
 
 If the branch has advanced, update this handoff as part of the next accepted checkpoint.
@@ -627,7 +628,8 @@ If the branch has advanced, update this handoff as part of the next accepted che
 
 ## 17. Immediate next action at this snapshot
 
-Current action after Phase 3 merge:
+Current action after Phase 4 planning:
 
-> **Review and explicitly authorize the separately scoped Phase 4 Security Research Agent before adding
-> real model calls, research tools, persistence, or business logic.**
+> **Review and explicitly authorize `05-Phase4-Security-Research-Plan.md` before adding migrations,
+> research tools, persistence, model calls, or Security Research Agent business logic. Paid development
+> calls, holdout freeze, and the final paid evaluation remain later independent gates.**

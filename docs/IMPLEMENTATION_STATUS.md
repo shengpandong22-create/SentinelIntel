@@ -126,6 +126,28 @@ Deliberately not modified: `tests/analyze-shutdown.test.ts` and `tests/translate
 
 ## Current Phase
 
+Phase: **Phase 4 — Security Research Agent planning**
+
+Branch: `phase/4-security-research-planning`
+
+Base: `main` = `7282efd` (Phase 3 merge)
+
+Status: **READY_FOR_IMPLEMENTATION_REVIEW**
+
+Implementation contract: `docs/00-sentinelintel/05-Phase4-Security-Research-Plan.md`.
+
+Planning was explicitly authorized on 2026-10-08. The contract was written before implementation and
+limits Phase 4 to one bounded Security Research Agent. Python owns reasoning; the TypeScript backend
+retains database writes, credentials, outbound-network controls, receipts, budgets, validation, and
+persistence. The Agent returns an auditable proposal and cannot modify core Story/Fact state.
+
+No Phase 4 code, migration, benchmark data, external research call, or paid model run was produced by
+this planning checkpoint. Implementation, development paid calls, holdout freeze, and final paid
+evaluation remain separate gates. See the contract for the ordered implementation and acceptance
+checklists.
+
+## Phase 3 — completed history
+
 Phase: **Phase 3 — Python Agent Foundation**
 
 Branch: `phase/3-python-agent-foundation`
@@ -147,8 +169,7 @@ Docker image build/health, isolated-container dependency check, the in-network T
 contract check, the production web build, and web tests 16/16 all pass. The GitHub workflow now repeats
 the Python, TypeScript, cross-runtime, Docker-health and in-network checks without credentials or external
 service calls. Canonical Linux GitHub Actions run `37755597908` passed both jobs: `check` in 1m33s and
-`docker` in 1m00s. All contract acceptance items are satisfied. Phase 3 is complete; Phase 4 has not
-started.
+`docker` in 1m00s. All contract acceptance items are satisfied. Phase 3 is complete.
 
 ## Phase 2 — completed history
 
