@@ -5,8 +5,8 @@
 
 > **Current-state override (2026-10-08):** Phase 3 was merged to `main` at `7282efd`; canonical Linux
 > run `37755597908` passed both jobs. Phase 4 implementation is active on
-> `phase/4-security-research-agent`; deterministic evaluation-harness pilot checkpoint 5a is complete,
-> but no generic search, model call, paid call, frozen benchmark, or holdout case has started. Sections
+> `phase/4-security-research-agent`; the 24-case formal development benchmark checkpoint 5b is complete,
+> but no Phase 4 model call, paid pilot, holdout case, or final evaluation has started. Sections
 > 4–14 below preserve the earlier Phase 2 design snapshot and are historical where they conflict with
 > this override. The active Phase 4 contract is
 > `docs/00-sentinelintel/05-Phase4-Security-Research-Plan.md`.
@@ -86,7 +86,7 @@ The planned project phases are:
 | 1 | Security Verticalization | ACCEPTED_WITH_LIMITATIONS |
 | 2 | Security Event Grouping Benchmark | COMPLETE_WITH_MODEL_REVIEWED_HOLDOUT_AND_BASELINE_LIMITATIONS |
 | 3 | Python Agent Foundation | COMPLETE |
-| 4 | Security Research Agent | IMPLEMENTATION_IN_PROGRESS — EVALUATION_HARNESS_PILOT_COMPLETE |
+| 4 | Security Research Agent | IMPLEMENTATION_IN_PROGRESS — DEVELOPMENT_BENCHMARK_COMPLETE |
 | 5 | Event Tracking Agent | NOT STARTED |
 | 6 | Product Impact Agent | NOT STARTED |
 | 7 | UI / Admin / MCP | NOT STARTED |
@@ -629,8 +629,8 @@ If the branch has advanced, update this handoff as part of the next accepted che
 
 ## 17. Immediate next action at this snapshot
 
-Current action after Phase 4 evaluation-harness pilot checkpoint 5a:
+Current action after Phase 4 development-benchmark checkpoint 5b:
 
-> **Expand the six-case schema pilot into the canonical 20–50 case evidence-backed development benchmark.
-> After it validates, run a small budgeted real-model development pilot and pre-register thresholds.
-> Keep holdout construction/freeze and final B0/B1 disabled until those gates pass.**
+> **Run a small budgeted real-model development pilot on the validated 24-case benchmark, inspect every
+> safety error, and pre-register numeric thresholds. Keep holdout construction/freeze and final B0/B1
+> disabled until the pilot passes.**

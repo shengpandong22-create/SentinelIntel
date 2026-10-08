@@ -132,7 +132,7 @@ Branch: `phase/4-security-research-agent`
 
 Base: `main` = `7282efd` (Phase 3 merge)
 
-Status: **IMPLEMENTATION_IN_PROGRESS — EVALUATION_HARNESS_PILOT_COMPLETE**
+Status: **IMPLEMENTATION_IN_PROGRESS — DEVELOPMENT_BENCHMARK_COMPLETE**
 
 Implementation contract: `docs/00-sentinelintel/05-Phase4-Security-Research-Plan.md`.
 
@@ -275,6 +275,26 @@ Next implementation gate: collect, verify, and adjudicate the remaining evidence
 cases until the canonical `development.jsonl` contains 20–50 valid cases, then execute a small explicitly
 budgeted real-model development pilot and pre-register thresholds. Holdout construction/freeze and final
 B0/B1 remain later gates.
+
+### Phase 4 evaluation checkpoint 5b — formal development benchmark
+
+Completed on 2026-10-08:
+
+- `datasets/security-research/development.jsonl` contains 24 `SOURCE_VERIFIED` development cases;
+- all six required strata contain exactly four cases;
+- every case freezes a complete versioned Story snapshot, expected claims/unknowns, forbidden conclusions,
+  source URLs, collection time, and construction note;
+- construction is deterministic from `datasets/event-relations/dev.jsonl` and explicitly reuses source
+  evidence only, not Phase 2 relation labels;
+- NVD/KEV and vendor claims retain exact admissible official identities, while PoC, source-comparison,
+  and cross-CVE remediation questions preserve unknowns where the allowlisted evidence is insufficient;
+- the formal validator now requires 20–50 cases and at least three cases in every development stratum.
+
+Verification: deterministic reconstruction produced 24 cases; canonical validation passed with 6 strata;
+the committed benchmark balance test passed; `npm run typecheck` passed.
+
+Next gate: execute a small, budget-capped real-model development pilot on a representative subset, then
+pre-register numeric quality thresholds before any holdout is constructed.
 
 ## Phase 3 — completed history
 

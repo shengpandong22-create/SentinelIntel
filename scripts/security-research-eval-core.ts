@@ -92,7 +92,11 @@ export function validateResearchCases(cases: ResearchEvalCase[], opts: { pilot?:
   }
   if (!opts.pilot && (cases.length < 20 || cases.length > 50)) errors.push(`benchmark must contain 20-50 cases, got ${cases.length}`);
   if (opts.pilot && cases.length < RESEARCH_STRATA.length) errors.push(`pilot must cover all ${RESEARCH_STRATA.length} strata`);
-  for (const stratum of RESEARCH_STRATA) if (!cases.some((row) => row.stratum === stratum)) errors.push(`missing stratum: ${stratum}`);
+  for (const stratum of RESEARCH_STRATA) {
+    const count = cases.filter((row) => row.stratum === stratum).length;
+    if (!count) errors.push(`missing stratum: ${stratum}`);
+    else if (!opts.pilot && !opts.holdout && count < 3) errors.push(`${stratum}: formal development benchmark requires at least 3 cases, got ${count}`);
+  }
   if (opts.holdout && cases.some((row) => row.split !== "holdout")) errors.push("holdout file contains non-holdout case");
   if (errors.length) throw new Error(errors.join("\n"));
 }

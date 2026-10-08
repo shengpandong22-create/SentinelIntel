@@ -5,7 +5,12 @@ once, but it is **not** the 20–50 case benchmark, is not frozen, and must not 
 baseline. Its purpose is to stabilize the schema, validator, B0/B1 result contract, and safety metrics
 before broader collection or any paid model run.
 
-The canonical development benchmark will be `development.jsonl`. A later holdout must be stored
+The canonical development benchmark is `development.jsonl`: 24 source-backed cases, balanced at four
+cases across each of the six required strata. It is deterministically constructed from the frozen
+Phase 2 development source material by `scripts/construct-security-research-development.ts`; only the
+source documents are reused, never the Phase 2 relation labels.
+
+A later holdout must be stored
 separately, frozen before final evaluation, and labelled `HUMAN_ADJUDICATED` or explicitly
 `MODEL_REVIEWED`; source verification alone is insufficient for holdout labels.
 

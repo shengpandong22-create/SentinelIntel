@@ -41,6 +41,13 @@ the required 20–50 case benchmark and has not been used for a real-model basel
 require two distinct Evidence ids in both runtimes. The harness refuses missing or duplicate B0/B1
 results and never fabricates run output.
 
+Evaluation checkpoint 5b completed on 2026-10-08: the canonical development benchmark contains 24
+source-backed cases, balanced at four cases in each required stratum. Construction deterministically
+reuses only source documents from the frozen Phase 2 development corpus, never its relation labels.
+Cases with insufficient primary evidence retain expected unknowns. The formal validator requires 20–50
+cases, every stratum, at least three development cases per stratum, valid source provenance, and complete
+versioned Story snapshots.
+
 ## 1. Objective
 
 Phase 4 proves that one bounded Security Research Agent can identify missing questions in an existing

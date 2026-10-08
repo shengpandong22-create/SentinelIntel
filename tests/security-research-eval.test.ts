@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   evaluateResearchVariant,
   RESEARCH_STRATA,
   ResearchEvalCaseSchema,
   ResearchEvalResultSchema,
+  parseResearchJsonl,
   validateResearchCases,
   type ResearchEvalCase,
   type ResearchEvalResult,
@@ -176,4 +178,19 @@ test("scoring fails on missing and duplicate results", () => {
   assert.throws(() => evaluateResearchVariant(cases, [], "B0"), /missing result/);
   const first = result(cases[0]!, "B0");
   assert.throws(() => evaluateResearchVariant(cases, [first, first], "B0"), /duplicate result/);
+});
+
+test("committed development benchmark has 24 source-backed cases balanced across all strata", () => {
+  const cases = parseResearchJsonl(
+    readFileSync(new URL("../datasets/security-research/development.jsonl", import.meta.url), "utf8"),
+    ResearchEvalCaseSchema,
+  );
+  validateResearchCases(cases);
+  assert.equal(cases.length, 24);
+  assert.equal(cases.every((row) => row.split === "development"), true);
+  assert.deepEqual(
+    Object.fromEntries(RESEARCH_STRATA.map((stratum) => [stratum, cases.filter((row) => row.stratum === stratum).length])),
+    Object.fromEntries(RESEARCH_STRATA.map((stratum) => [stratum, 4])),
+  );
+  assert.equal(cases.every((row) => row.provenance.source_urls.every((url) => url.startsWith("https://"))), true);
 });
