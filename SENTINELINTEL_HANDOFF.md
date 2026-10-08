@@ -5,7 +5,8 @@
 
 > **Current-state override (2026-10-08):** Phase 3 was merged to `main` at `7282efd`; canonical Linux
 > run `37755597908` passed both jobs. Phase 4 planning is complete on
-> `phase/4-security-research-planning`; no Phase 4 implementation or paid call has started. Sections
+> `phase/4-security-research-planning`; its audited contract is approved for implementation, but no
+> Phase 4 implementation or paid call has started. Sections
 > 4–14 below preserve the earlier Phase 2 design snapshot and are historical where they conflict with
 > this override. The active Phase 4 contract is
 > `docs/00-sentinelintel/05-Phase4-Security-Research-Plan.md`.
@@ -85,7 +86,7 @@ The planned project phases are:
 | 1 | Security Verticalization | ACCEPTED_WITH_LIMITATIONS |
 | 2 | Security Event Grouping Benchmark | COMPLETE_WITH_MODEL_REVIEWED_HOLDOUT_AND_BASELINE_LIMITATIONS |
 | 3 | Python Agent Foundation | COMPLETE |
-| 4 | Security Research Agent | READY_FOR_IMPLEMENTATION_REVIEW |
+| 4 | Security Research Agent | APPROVED_FOR_IMPLEMENTATION |
 | 5 | Event Tracking Agent | NOT STARTED |
 | 6 | Product Impact Agent | NOT STARTED |
 | 7 | UI / Admin / MCP | NOT STARTED |
@@ -619,7 +620,7 @@ When returning to SentinelIntel after working on another project:
 7. confirm the latest Phase 4 planning and authorization state
 8. run/inspect the relevant tests before changing code
 9. preserve the deterministic/Agent boundary and no-external-network test gate
-10. do not implement Phase 4 until its contract is explicitly approved
+10. continue only from the smallest Phase 4 slice authorized by the approved contract
 ```
 
 If the branch has advanced, update this handoff as part of the next accepted checkpoint.
@@ -628,8 +629,8 @@ If the branch has advanced, update this handoff as part of the next accepted che
 
 ## 17. Immediate next action at this snapshot
 
-Current action after Phase 4 planning:
+Current action after Phase 4 contract approval:
 
-> **Review and explicitly authorize `05-Phase4-Security-Research-Plan.md` before adding migrations,
-> research tools, persistence, model calls, or Security Research Agent business logic. Paid development
-> calls, holdout freeze, and the final paid evaluation remain later independent gates.**
+> **Begin the deterministic Phase 4 foundation: migration/schema validation, fail-closed switches,
+> internal authentication/capabilities, typed stubs, and no-network tests. Do not enable paid calls,
+> freeze holdout data, or run the final evaluation without their later independent gates.**

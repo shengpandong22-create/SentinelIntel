@@ -1,6 +1,10 @@
 # Phase 4 — Security Research Agent implementation contract
 
-Status: `READY_FOR_IMPLEMENTATION_REVIEW`
+Status: `APPROVED_FOR_IMPLEMENTATION`
+
+Approval: contract self-audited against the repository and approved on 2026-10-08. This approval covers
+implementation through deterministic tests and no-cost development adapters. It does not enable paid
+calls, freeze a holdout, or authorize the final paid evaluation.
 
 ## 1. Objective
 
@@ -74,6 +78,17 @@ Internal endpoints use a dedicated secret such as `AGENT_INTERNAL_TOKEN`, consta
 private Docker networking, sanitized logs, and fail-closed authentication. The token is never returned
 in a trace, receipt, persisted input, or error.
 
+Authentication alone is not authorization. TypeScript creates the run and enforces the run's deadline,
+tool allowlist, call counts, byte limits, and budget on every gateway request. Python cannot expand a
+limit by changing its payload, reusing a trace id, or opening a second request. A run-scoped opaque
+capability is bound to the run/trace, expires with the run, and is stored only as a hash if persistence
+is necessary.
+
+Phase 4 also introduces fail-closed `AGENT_RESEARCH_ENABLED` and
+`AGENT_RESEARCH_NETWORK_ENABLED` switches. Both default to false in every environment and must be
+deliberately enabled by the operator. The network switch gates all live research adapters independently of
+`MODEL_CALLS_ENABLED`; enabling model calls must not silently enable research egress.
+
 ## 5. Research contract
 
 ### 5.1 Input snapshot
@@ -146,6 +161,11 @@ Default run bounds, configurable only toward stricter values in ordinary calls:
 - existing receipt and budget circuit breakers remain authoritative.
 
 Any relaxation of these limits is a reviewed configuration change, not an Agent decision.
+
+Every paid service introduced or reused by Phase 4 must have an explicit budget row before a call is
+accepted. Although the inherited receipt implementation treats a missing budget row as unlimited,
+Phase 4's gateway must fail closed on a missing row. New Phase 4 budget rows are seeded with zero limits
+and require an operator to raise them deliberately.
 
 ## 7. Persistence
 
@@ -270,20 +290,24 @@ Phase 4 may be called complete only when all applicable items below are recorded
    malformed traces, and limit overflows.
 4. Internal authentication fails closed; secrets are absent from logs, errors, traces, fixtures, and
    committed files.
-5. URL/redirect/DNS/content controls block SSRF and arbitrary fetches; prompt-injection fixtures cannot
+5. TypeScript, not Python, enforces each run's tool allowlist, counters, deadline, byte limits, and
+   budgets; expired/replayed capabilities and missing paid-service budget rows fail closed.
+6. `AGENT_RESEARCH_ENABLED` and `AGENT_RESEARCH_NETWORK_ENABLED` default off and independently prevent
+   execution and external egress even when `MODEL_CALLS_ENABLED` is on.
+7. URL/redirect/DNS/content controls block SSRF and arbitrary fetches; prompt-injection fixtures cannot
    alter system rules or invoke unapproved tools.
-6. Ordinary unit, integration, and CI tests make no external calls and require no real credentials.
-7. Stubbed end-to-end tests prove success, conflict, unknown, retryable failure, permanent failure,
+8. Ordinary unit, integration, and CI tests make no external calls and require no real credentials.
+9. Stubbed end-to-end tests prove success, conflict, unknown, retryable failure, permanent failure,
    timeout, budget exhaustion, and trace/receipt correlation.
-8. A scratch-database replay proves that a validated proposal persists evidence and run records but
+10. A scratch-database replay proves that a validated proposal persists evidence and run records but
    does not modify core Story, Fact, grouping, or publication state.
-9. Real development adapters demonstrate NVD, KEV, and vendor evidence with recorded provenance;
+11. Real development adapters demonstrate NVD, KEV, and vendor evidence with recorded provenance;
    generic search remains optional and discovery-only.
-10. The validated benchmark contains 20–50 evidence-backed cases, reports all required strata and
+12. The validated benchmark contains 20–50 evidence-backed cases, reports all required strata and
     label provenance, and freezes its holdout before the final run.
-11. The final authorized B0/B1 evaluation reproduces all safety gates and reports every quality, cost,
+13. The final authorized B0/B1 evaluation reproduces all safety gates and reports every quality, cost,
     latency, receipt, false-support, missed-evidence, unresolved, and conflict case.
-12. Existing TypeScript checks, web build/tests, Phase 3 runtime checks, Docker health/network checks,
+14. Existing TypeScript checks, web build/tests, Phase 3 runtime checks, Docker health/network checks,
     and canonical Linux CI remain green.
 
 If any safety gate fails, Phase 4 is not complete even if average quality metrics improve.

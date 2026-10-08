@@ -132,7 +132,7 @@ Branch: `phase/4-security-research-planning`
 
 Base: `main` = `7282efd` (Phase 3 merge)
 
-Status: **READY_FOR_IMPLEMENTATION_REVIEW**
+Status: **APPROVED_FOR_IMPLEMENTATION**
 
 Implementation contract: `docs/00-sentinelintel/05-Phase4-Security-Research-Plan.md`.
 
@@ -142,9 +142,11 @@ retains database writes, credentials, outbound-network controls, receipts, budge
 persistence. The Agent returns an auditable proposal and cannot modify core Story/Fact state.
 
 No Phase 4 code, migration, benchmark data, external research call, or paid model run was produced by
-this planning checkpoint. Implementation, development paid calls, holdout freeze, and final paid
-evaluation remain separate gates. See the contract for the ordered implementation and acceptance
-checklists.
+this planning checkpoint. A repository-grounded contract audit on 2026-10-08 added independent research
+execution/network switches, TypeScript-enforced per-run capabilities and limits, and fail-closed paid
+service budgets. The contract is approved for deterministic implementation and no-cost development
+adapters. Development paid calls, holdout freeze, and final paid evaluation remain separate gates. See
+the contract for the ordered implementation and acceptance checklists.
 
 ## Phase 3 — completed history
 
