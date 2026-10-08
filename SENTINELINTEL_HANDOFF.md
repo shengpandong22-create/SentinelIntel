@@ -5,8 +5,8 @@
 
 > **Current-state override (2026-10-08):** Phase 3 was merged to `main` at `7282efd`; canonical Linux
 > run `37755597908` passed both jobs. Phase 4 implementation is active on
-> `phase/4-security-research-agent`; core NVD/KEV adapter checkpoint 3 is complete, but no vendor/search
-> adapter, model call, paid call, or benchmark case has started. Sections
+> `phase/4-security-research-agent`; controlled vendor advisory checkpoint 4 is complete, but no generic
+> search, model call, paid call, or benchmark case has started. Sections
 > 4–14 below preserve the earlier Phase 2 design snapshot and are historical where they conflict with
 > this override. The active Phase 4 contract is
 > `docs/00-sentinelintel/05-Phase4-Security-Research-Plan.md`.
@@ -86,7 +86,7 @@ The planned project phases are:
 | 1 | Security Verticalization | ACCEPTED_WITH_LIMITATIONS |
 | 2 | Security Event Grouping Benchmark | COMPLETE_WITH_MODEL_REVIEWED_HOLDOUT_AND_BASELINE_LIMITATIONS |
 | 3 | Python Agent Foundation | COMPLETE |
-| 4 | Security Research Agent | IMPLEMENTATION_IN_PROGRESS — CORE_SOURCE_ADAPTERS_COMPLETE |
+| 4 | Security Research Agent | IMPLEMENTATION_IN_PROGRESS — VENDOR_ADVISORY_ADAPTERS_COMPLETE |
 | 5 | Event Tracking Agent | NOT STARTED |
 | 6 | Product Impact Agent | NOT STARTED |
 | 7 | UI / Admin / MCP | NOT STARTED |
@@ -629,8 +629,7 @@ If the branch has advanced, update this handoff as part of the next accepted che
 
 ## 17. Immediate next action at this snapshot
 
-Current action after Phase 4 core-source checkpoint 3:
+Current action after Phase 4 vendor-advisory checkpoint 4:
 
-> **Add a fixture-first vendor advisory registry/search and official advisory fetch through the existing
-> gateway. Keep live requests behind `AGENT_RESEARCH_NETWORK_ENABLED`; do not begin generic search, real
-> models, paid calls, benchmark construction, holdout freeze, or final evaluation yet.**
+> **Construct the evidence-backed Phase 4 development benchmark and deterministic B0/B1 evaluation
+> harness. Keep generic search, real models, paid calls, holdout freeze, and final evaluation disabled.**

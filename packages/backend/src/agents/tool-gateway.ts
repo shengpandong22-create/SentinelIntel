@@ -3,7 +3,17 @@ import { z } from "zod";
 import { sha256 } from "../lib/ids.ts";
 import { authorizeResearchToolCall, recordResearchToolResult } from "./research-store.ts";
 import { ResearchEvidenceSchema } from "./research-contract.ts";
-import { lookupKev, lookupNvd, parseCveId, type ResearchFetchJson } from "./research-adapters.ts";
+import {
+  assertVendorAdvisoryUrl,
+  fetchVendorAdvisory,
+  lookupKev,
+  lookupNvd,
+  parseCveId,
+  parseVendorKey,
+  searchVendorAdvisories,
+  type ResearchFetchDocument,
+  type ResearchFetchJson,
+} from "./research-adapters.ts";
 
 export const ResearchToolRequestSchema = z.object({
   trace_id: z.uuid(),
@@ -29,13 +39,25 @@ export type ResearchToolResponse = z.infer<typeof ResearchToolResponseSchema>;
 export async function executeResearchTool(
   request: ResearchToolRequest,
   capability: string,
-  deps: { networkEnabled?: boolean; fetchJson?: ResearchFetchJson } = {},
+  deps: { networkEnabled?: boolean; fetchJson?: ResearchFetchJson; fetchDocument?: ResearchFetchDocument } = {},
 ): Promise<ResearchToolResponse> {
   const parsed = ResearchToolRequestSchema.parse(request);
   let question: string | null = null;
   let cveId: string | null = null;
+  let vendor: ReturnType<typeof parseVendorKey> | null = null;
+  let query: string | null = null;
+  let advisoryUrl: string | null = null;
+  let candidateUrls: string[] = [];
   if (parsed.tool === "stub") question = z.string().min(1).max(2_000).parse(parsed.input.question);
   else if (parsed.tool === "nvd_lookup" || parsed.tool === "kev_lookup") cveId = parseCveId(parsed.input.cve_id);
+  else if (parsed.tool === "vendor_advisory_search") {
+    vendor = parseVendorKey(parsed.input.vendor);
+    query = z.string().trim().min(3).max(200).parse(parsed.input.query);
+    candidateUrls = z.array(z.string().url()).max(20).default([]).parse(parsed.input.candidate_urls);
+  } else if (parsed.tool === "evidence_fetch") {
+    vendor = parseVendorKey(parsed.input.vendor);
+    advisoryUrl = assertVendorAdvisoryUrl(vendor, parsed.input.url).toString();
+  }
   else throw new Error("research tool is not implemented");
   await authorizeResearchToolCall({
     runPublicId: parsed.run_id,
@@ -72,9 +94,15 @@ export async function executeResearchTool(
   } else if (parsed.tool === "nvd_lookup") {
     if (cveId === null) throw new Error("CVE id is missing");
     result = await lookupNvd(cveId, deps.fetchJson);
-  } else {
+  } else if (parsed.tool === "kev_lookup") {
     if (cveId === null) throw new Error("CVE id is missing");
     result = await lookupKev(cveId, deps.fetchJson);
+  } else if (parsed.tool === "vendor_advisory_search") {
+    if (vendor === null || query === null) throw new Error("vendor advisory search input is missing");
+    result = await searchVendorAdvisories(vendor, query, deps.fetchDocument, candidateUrls);
+  } else {
+    if (vendor === null || advisoryUrl === null) throw new Error("vendor advisory fetch input is missing");
+    result = await fetchVendorAdvisory(vendor, advisoryUrl, deps.fetchDocument);
   }
   const response = ResearchToolResponseSchema.parse({
     trace_id: parsed.trace_id,

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { load } from "cheerio";
 import { z } from "zod";
 import { guardedFetch } from "../lib/http-fetch.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
@@ -43,6 +44,57 @@ const KevResponseSchema = z.object({
 }).passthrough();
 
 export type ResearchFetchJson = (url: string, maxBytes: number) => Promise<unknown>;
+export interface ResearchFetchedDocument {
+  url: string;
+  status: number;
+  contentType: string;
+  text: string;
+}
+export type ResearchFetchDocument = (url: string, maxBytes: number) => Promise<ResearchFetchedDocument>;
+
+const VendorKeySchema = z.enum(["cisco", "fortinet", "hikvision", "microsoft"]);
+export type VendorKey = z.infer<typeof VendorKeySchema>;
+
+interface VendorAdvisorySource {
+  name: string;
+  aliases: string[];
+  hosts: string[];
+  allowedPaths: RegExp[];
+  searchUrl(query: string): string;
+  directCveUrl?(cveId: string): string;
+}
+
+export const VENDOR_ADVISORY_SOURCES: Record<VendorKey, VendorAdvisorySource> = {
+  cisco: {
+    name: "Cisco",
+    aliases: ["cisco"],
+    hosts: ["sec.cloudapps.cisco.com"],
+    allowedPaths: [/^\/security\/center\/content\/CiscoSecurityAdvisory\//],
+    searchUrl: (query) => `https://sec.cloudapps.cisco.com/security/center/publicationListing.x?search=${encodeURIComponent(query)}`,
+  },
+  fortinet: {
+    name: "Fortinet",
+    aliases: ["fortinet", "fortigate", "fortios"],
+    hosts: ["www.fortiguard.com"],
+    allowedPaths: [/^\/psirt\/FG-IR-/],
+    searchUrl: (query) => `https://www.fortiguard.com/psirt?filter=1&search=${encodeURIComponent(query)}`,
+  },
+  hikvision: {
+    name: "Hikvision",
+    aliases: ["hikvision", "海康威视"],
+    hosts: ["www.hikvision.com"],
+    allowedPaths: [/^\/en\/support\/cybersecurity\/security-advisory\//],
+    searchUrl: (query) => `https://www.hikvision.com/en/support/cybersecurity/security-advisory/?q=${encodeURIComponent(query)}`,
+  },
+  microsoft: {
+    name: "Microsoft",
+    aliases: ["microsoft", "windows"],
+    hosts: ["msrc.microsoft.com"],
+    allowedPaths: [/^\/update-guide\/vulnerability\//],
+    searchUrl: (query) => `https://msrc.microsoft.com/update-guide/vulnerability/${encodeURIComponent(query)}`,
+    directCveUrl: (cveId) => `https://msrc.microsoft.com/update-guide/vulnerability/${encodeURIComponent(cveId)}`,
+  },
+};
 
 async function defaultFetchJson(url: string, maxBytes: number): Promise<unknown> {
   const response = await guardedFetch(url, {
@@ -52,6 +104,21 @@ async function defaultFetchJson(url: string, maxBytes: number): Promise<unknown>
   });
   if (response.status !== 200) throw new Error(`research source returned HTTP ${response.status}`);
   return JSON.parse(response.text()) as unknown;
+}
+
+async function defaultFetchDocument(url: string, maxBytes: number): Promise<ResearchFetchedDocument> {
+  const response = await guardedFetch(url, {
+    timeoutMs: 20_000,
+    maxBytes,
+    maxRedirects: 3,
+    headers: { accept: "text/html,application/xhtml+xml;q=0.9" },
+  });
+  return {
+    url: response.url,
+    status: response.status,
+    contentType: response.headers.get("content-type") ?? "",
+    text: response.text(),
+  };
 }
 
 export interface AdapterResult {
@@ -150,4 +217,136 @@ export async function lookupKev(cveInput: string, fetchJson: ResearchFetchJson =
 
 export function parseCveId(value: unknown): string {
   return CveIdSchema.parse(value);
+}
+
+export function parseVendorKey(value: unknown): VendorKey {
+  return VendorKeySchema.parse(typeof value === "string" ? value.trim().toLowerCase() : value);
+}
+
+function sourceFor(vendorInput: unknown): [VendorKey, VendorAdvisorySource] {
+  const key = parseVendorKey(vendorInput);
+  return [key, VENDOR_ADVISORY_SOURCES[key]];
+}
+
+function assertVendorHost(source: VendorAdvisorySource, urlInput: string): URL {
+  const url = new URL(urlInput);
+  if (url.protocol !== "https:" || url.username || url.password || url.port || !source.hosts.includes(url.hostname.toLowerCase())) {
+    throw new Error("vendor source redirected outside the configured registry");
+  }
+  return url;
+}
+
+export function assertVendorAdvisoryUrl(vendorInput: unknown, urlInput: unknown): URL {
+  const [, source] = sourceFor(vendorInput);
+  const url = new URL(z.string().url().parse(urlInput));
+  const host = url.hostname.toLowerCase();
+  if (url.protocol !== "https:" || url.username || url.password || url.port) throw new Error("vendor advisory URL must be credential-free HTTPS");
+  if (!source.hosts.includes(host) || !source.allowedPaths.some((pattern) => pattern.test(url.pathname))) {
+    throw new Error("vendor advisory URL is outside the configured registry");
+  }
+  url.hash = "";
+  return url;
+}
+
+function cleanText(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+export async function searchVendorAdvisories(
+  vendorInput: unknown,
+  queryInput: unknown,
+  fetchDocument: ResearchFetchDocument = defaultFetchDocument,
+  candidateUrlsInput: unknown = [],
+): Promise<AdapterResult> {
+  const [vendor, source] = sourceFor(vendorInput);
+  const query = z.string().trim().min(3).max(200).parse(queryInput);
+  const candidateUrls = z.array(z.string().url()).max(20).parse(candidateUrlsInput);
+  const hintedCandidates = candidateUrls.flatMap((candidate) => {
+    try {
+      return [{ title: `${source.name} advisory candidate for ${query}`, url: assertVendorAdvisoryUrl(vendor, candidate).toString() }];
+    } catch {
+      return [];
+    }
+  }).filter((candidate, index, all) => all.findIndex((item) => item.url === candidate.url) === index).slice(0, 10);
+  if (hintedCandidates.length) {
+    return {
+      output: { vendor, source_name: source.name, query, candidates: hintedCandidates, found: true, discovery: "validated_candidate_url" },
+      evidence: [],
+      receiptIds: [],
+    };
+  }
+  const cve = /^CVE-\d{4}-\d{4,}$/i.test(query) ? query.toUpperCase() : null;
+  if (cve && source.directCveUrl) {
+    const url = assertVendorAdvisoryUrl(vendor, source.directCveUrl(cve)).toString();
+    return {
+      output: { vendor, source_name: source.name, query, candidates: [{ title: `${source.name} advisory for ${cve}`, url }], found: true },
+      evidence: [],
+      receiptIds: [],
+    };
+  }
+  const searchUrl = source.searchUrl(query);
+  const response = await fetchDocument(searchUrl, 2 * 1024 * 1024);
+  assertVendorHost(source, response.url);
+  if (response.status !== 200) throw new Error(`vendor advisory search returned HTTP ${response.status}`);
+  if (!/text\/html|application\/xhtml\+xml/i.test(response.contentType)) throw new Error("vendor advisory search returned unsupported content type");
+  const $ = load(response.text);
+  const candidates: Array<{ title: string; url: string }> = [];
+  $("a[href]").each((_index, element) => {
+    if (candidates.length >= 10) return;
+    const href = $(element).attr("href");
+    const title = cleanText($(element).text());
+    if (!href || !title) return;
+    try {
+      const url = assertVendorAdvisoryUrl(vendor, new URL(href, response.url).toString());
+      const needle = query.toLowerCase();
+      const container = $(element).closest("article,tr,li,.row,.card,[class*='item']");
+      const containerNode = container.get(0);
+      const containerTag = containerNode && "tagName" in containerNode ? containerNode.tagName.toLowerCase() : undefined;
+      const context = container.length && containerTag !== "body" && containerTag !== "html" ? cleanText(container.text()) : "";
+      if (!`${title} ${url.pathname} ${context}`.toLowerCase().includes(needle)) return;
+      if (!candidates.some((item) => item.url === url.toString())) candidates.push({ title: title.slice(0, 1_000), url: url.toString() });
+    } catch {
+      // Search pages commonly contain unrelated navigation links; only registered advisory URLs survive.
+    }
+  });
+  return {
+    output: { vendor, source_name: source.name, query, candidates, found: candidates.length > 0 },
+    evidence: [],
+    receiptIds: [],
+  };
+}
+
+export async function fetchVendorAdvisory(
+  vendorInput: unknown,
+  urlInput: unknown,
+  fetchDocument: ResearchFetchDocument = defaultFetchDocument,
+): Promise<AdapterResult> {
+  const [vendor, source] = sourceFor(vendorInput);
+  const requested = assertVendorAdvisoryUrl(vendor, urlInput);
+  const response = await fetchDocument(requested.toString(), 4 * 1024 * 1024);
+  if (response.status !== 200) throw new Error(`vendor advisory returned HTTP ${response.status}`);
+  if (!/text\/html|application\/xhtml\+xml/i.test(response.contentType)) throw new Error("vendor advisory returned unsupported content type");
+  const canonical = assertVendorAdvisoryUrl(vendor, response.url);
+  const $ = load(response.text);
+  $("script,style,noscript,svg,nav,footer,header").remove();
+  const title = cleanText($("h1").first().text() || $("meta[property='og:title']").attr("content") || $("title").first().text());
+  const body = cleanText($("main,article,[role='main']").first().text() || $("body").text());
+  if (!title || body.length < 20) throw new Error("vendor advisory did not contain usable document text");
+  const cves = [...new Set((`${title} ${body}`.match(/\bCVE-\d{4}-\d{4,}\b/gi) ?? []).map((item) => item.toUpperCase()))].slice(0, 50);
+  const evidence = ResearchEvidenceSchema.parse({
+    evidence_id: randomUUID(),
+    source_type: "vendor_advisory",
+    source_name: `${source.name} Security Advisory`,
+    canonical_url: canonical.toString(),
+    title: title.slice(0, 1_000),
+    excerpt: body.slice(0, 20_000),
+    normalized: { vendor, cves },
+    content_hash: sha256(response.text),
+    authority_level: "authoritative",
+    published_at: null,
+    source_updated_at: null,
+    retrieved_at: new Date().toISOString(),
+    provenance: { adapter: "vendor-advisory-html-v1", retrieved_from: requested.toString(), external_network: true, untrusted_content: true },
+  });
+  return { output: { found: true, vendor, cves }, evidence: [evidence], receiptIds: [] };
 }

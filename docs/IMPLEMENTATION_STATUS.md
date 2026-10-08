@@ -132,7 +132,7 @@ Branch: `phase/4-security-research-agent`
 
 Base: `main` = `7282efd` (Phase 3 merge)
 
-Status: **IMPLEMENTATION_IN_PROGRESS — CORE_SOURCE_ADAPTERS_COMPLETE**
+Status: **IMPLEMENTATION_IN_PROGRESS — VENDOR_ADVISORY_ADAPTERS_COMPLETE**
 
 Implementation contract: `docs/00-sentinelintel/05-Phase4-Security-Research-Plan.md`.
 
@@ -218,6 +218,36 @@ is claimed. Fixture parsing and bounded gateway execution for NVD pass.
 Next implementation gate: fixture-first vendor advisory registry/search and official advisory fetch.
 Generic search, real models, paid calls, benchmark construction, holdout freeze, and final evaluation
 remain later gates.
+
+### Phase 4 implementation checkpoint 4 — vendor advisories
+
+Implemented and verified on 2026-10-08:
+
+- a fixed Cisco, Fortinet, Hikvision, and Microsoft advisory registry with explicit official hosts and
+  advisory path patterns;
+- `vendor_advisory_search` as discovery-only output and `evidence_fetch` as the separate authoritative
+  document boundary;
+- deterministic Microsoft CVE URL location and NVD-reference candidate hints, with every hint
+  independently revalidated against the registry before use;
+- guarded official-document fetching with redirect destination validation, HTTPS/credential/port checks,
+  content-type and byte limits, sanitized text extraction, content hashes, CVE extraction, and zero
+  receipts;
+- deterministic Python vendor detection and the bounded NVD → KEV → vendor discovery → official fetch
+  callback path;
+- hostile-host, misleading-subdomain, credential, wrong-path, off-registry redirect, unsupported-content,
+  and prompt-injection fixtures.
+
+Verification after checkpoint 4: Python 14/14, adapter/client 21/21, scratch-database persistence flow
+7/7, internal gateway 4/4, and `npm run typecheck`. A no-cost live fetch of Fortinet advisory
+`FG-IR-25-254` returned authoritative vendor Evidence for `CVE-2025-32756` with zero receipts. The tested
+Fortinet listing page did not return a CVE-filtered candidate, so real Fortinet location uses a validated
+structured-source candidate such as an NVD reference. Microsoft CVE URLs are deterministically located,
+but the raw client-rendered page did not contain usable advisory text and was correctly rejected; no live
+Microsoft evidence success is claimed.
+
+Next implementation gate: construct the Phase 4 development benchmark and deterministic evaluation
+harness from evidence-backed cases. Generic search, real models, paid calls, holdout freeze, and final
+evaluation remain later gates.
 
 ## Phase 3 — completed history
 

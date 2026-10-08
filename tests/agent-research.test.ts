@@ -219,3 +219,45 @@ test("NVD and KEV fixtures pass through the bounded gateway and consume two free
   assert.deepEqual(stored, { calls: 2, documents: 2 });
   await failResearchRun(run.id, "fixture_done", "source adapter test complete");
 });
+
+test("vendor discovery and official fetch pass through the bounded gateway without receipts", async () => {
+  const traceId = randomUUID();
+  const run = await startResearchRun({
+    storyId,
+    traceId,
+    objective: "Find the Cisco advisory for CVE-2024-20399",
+    graphVersion: "phase4-vendor-sources-v1",
+    snapshot: snapshot(),
+    limits: { ...DEFAULT_RESEARCH_LIMITS, max_tool_calls: 2 },
+  });
+  const advisoryUrl = "https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-example-CVE-2024-20399";
+  const fetchDocument = async (url: string) => ({
+    url,
+    status: 200,
+    contentType: "text/html; charset=utf-8",
+    text: await readFile(new URL(
+      url.includes("publicationListing") ? "./fixtures/research/cisco-search.html" : "./fixtures/research/cisco-advisory.html",
+      import.meta.url,
+    ), "utf8"),
+  });
+  const base = { trace_id: traceId, run_id: run.publicId };
+  const search = await executeResearchTool(
+    { ...base, tool: "vendor_advisory_search", input: { vendor: "cisco", query: "CVE-2024-20399" } },
+    run.capability,
+    { networkEnabled: true, fetchDocument },
+  );
+  assert.deepEqual(search.evidence, []);
+  assert.deepEqual(search.output.candidates, [{ title: "CVE-2024-20399 Cisco Security Advisory", url: advisoryUrl }]);
+  const fetched = await executeResearchTool(
+    { ...base, tool: "evidence_fetch", input: { vendor: "cisco", url: advisoryUrl } },
+    run.capability,
+    { networkEnabled: true, fetchDocument },
+  );
+  assert.equal(fetched.evidence[0]!.source_type, "vendor_advisory");
+  assert.deepEqual(fetched.receipt_ids, []);
+  const [stored] = await sql<{ calls: number; documents: number }[]>`
+    SELECT tool_calls_used AS calls, evidence_documents_used AS documents
+    FROM agent_research_runs WHERE id = ${run.id}`;
+  assert.deepEqual(stored, { calls: 2, documents: 1 });
+  await failResearchRun(run.id, "fixture_done", "vendor adapter test complete");
+});

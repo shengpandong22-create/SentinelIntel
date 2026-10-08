@@ -23,6 +23,17 @@ CISA live development connectivity passed without receipts. NVD live connectivit
 environment timed out before an HTTP response; fixture and gateway coverage passed, so this remains an
 explicit environment observation rather than a fabricated live success.
 
+Checkpoint 4 completed on 2026-10-08: a controlled Cisco, Fortinet, Hikvision, and Microsoft advisory
+registry now bounds vendor discovery and official-document fetches. Search results remain discovery
+material; only a separately fetched, revalidated official document becomes Evidence. The gateway rejects
+unregistered vendors, hosts, paths, credentials, non-HTTPS URLs, off-registry redirects, unsupported
+content types, oversized responses, and unusable bodies. NVD reference URLs may be used only as candidate
+hints and must independently pass the same registry validation. Fixture, scratch-database, and Python
+callback tests cover the complete discovery-to-Evidence path. A no-cost live Fortinet advisory fetch
+produced authoritative Evidence with zero receipts. Microsoft CVE URLs can be located deterministically,
+but their client-rendered response currently fails the usable-body gate; no live Microsoft fetch success
+is claimed.
+
 ## 1. Objective
 
 Phase 4 proves that one bounded Security Research Agent can identify missing questions in an existing
