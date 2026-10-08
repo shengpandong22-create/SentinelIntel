@@ -126,7 +126,238 @@ Deliberately not modified: `tests/analyze-shutdown.test.ts` and `tests/translate
 
 ## Current Phase
 
-Phase: **Phase 1 — Security Verticalization**
+Phase: **Phase 2 — Security Event Grouping Benchmark**
+
+Branch: `phase/2-security-event-grouping`
+
+Base: `main` = `225e0f6473de8ac2b827c1ce34d4888a2111ac54` (tag `sentinelintel-phase1`)
+
+Status: **COMPLETE_WITH_MODEL_REVIEWED_HOLDOUT_AND_BASELINE_LIMITATIONS**
+
+Scope: establish a security event-relation benchmark, measure the current AIHOT grouping baseline with
+it, and name the security hard cases the current system fails on. **Measure first** — Migration Spec §11
+permits a grouping prompt or recall change only after that report shows a problem
+(*只有此报告证明有问题，才允许改 grouping prompt/recall*).
+
+Design and audit for owner review: `docs/evaluation/event-grouping-plan.md`. The design was **revised
+after an independent Phase 2 design audit** — see `### Phase 2 design revision` below.
+
+The three design rounds changed documentation only. Implementation began after owner approval on
+2026-10-05 and completed on 2026-10-08; see `### Phase 2 implementation checkpoint` and the final
+baseline below. No grouping prompt, threshold or production routing changed. Phase 1's frozen artifacts
+are unchanged.
+
+### Phase 2 baseline audit — verdicts
+
+| question | verdict |
+|---|---|
+| Is the "370 labelled pairs" measurement reproducible? | **NOT_REPRODUCIBLE** — `git log --all -S "370"` / `-S "labelled pairs"` / `-S "170 real root pairs"` return only the upstream AIHOT import `877d6d5` and the Phase 0 audit that quotes the comment; `git log --all -- packages/backend/src/events/relate.ts` returns only `877d6d5`. No dataset in the repo, nothing in `.data/`, no schema/provenance doc. **Not usable as a Phase 2 baseline, and not to be rebuilt by guesswork.** |
+| Does an event/grouping eval harness already exist? | **No** — classification (c): nothing anywhere. `scripts/eval-selection.ts` is binary select/reject and unrelated; `scripts/regroup-events.ts` is an operational tool that writes real membership and calls paid models even with `--dry-run`; `tests/events.test.ts` hardcodes every relation answer. |
+| Which recall constants does production use? | All **module-private** in `group.ts`: `RECALL_DAYS 14`, `RECALL_MIN_COSINE 0.6`, `RECALL_TOP_FACTS 10`, `CONFIRM_BELOW_COSINE 0.85`, `SIGNAL_MIN_COSINE 0.72`, `SIGNAL_AUTO_COSINE 0.92`, `SIGNAL_TOP_FACTS 4`, `RELATED_MIN_REPORTS 2`, `REMATCH_HOURS 6`, `WAIT_HOURS 48`, lexical floor `0.25`. |
+| Which recall branch runs here? | **Lexical fallback** — `embeddingsAvailable()` needs `MODEL_CALLS_ENABLED` **and** an embedding key, and this `.env` has no `EMBEDDING_*` and no `DASHSCOPE_API_KEY`. **The repository does not prove which branch any deployment runs**; the earlier statement here that "production runs the embedding path" was an inference from this local observation and is withdrawn. A recall number measured here is a lexical-branch number and must be reported as one. |
+
+### Phase 2 baseline evidence (Windows, actual output)
+
+```text
+git diff --check                    → clean, exit 0
+npm run typecheck                   → pass, exit 0
+node --test tests/events.test.ts    → tests 10 / pass 10 / fail 0 / cancelled 0, exit 0, 4.5 s
+node --test tests/signals.test.ts   → tests 3 / pass 3 / fail 0 / cancelled 0, exit 0, 1.9 s
+```
+
+Fresh throwaway database `p2_grouping_ci` (35 migrations) in the `sentinelintel-p1-pg` container. Both
+suites stand local HTTP stubs in for every provider (`tests/setup.ts`), so they make no paid call and no
+network request. They prove the grouping **invariants** (manual override races, revision keeps
+membership, regroup, story root, two-model merge, related-story links) — and they say **nothing** about
+relation accuracy, because every relation answer in them is hardcoded by the stub.
+
+### Phase 2 design revision
+
+An independent Phase 2 **design** audit raised ten findings. All ten are addressed in
+`docs/evaluation/event-grouping-plan.md`; none of them required code:
+
+| # | finding | resolution |
+|---|---|---|
+| 1 | The primary classifier was wrongly the pair path | The primary is now the production **batch** judge (`BATCH_SYSTEM`, `modelFor("group")`, `BatchSchema`) — the call that actually decides in production. `PAIR_SYSTEM` / the review model is a **confirmation/review diagnostic**, reported in a separate table and never averaged into the primary matrix |
+| 2 | The schema lacked stable report identity, conflated the anti-leakage key with the event identity, and left the end-to-end direction/order/time fields implicit | Every report has a dataset-unique `reportId`; `splitGroupId` (anti-leakage only) is separated from `identity.eventKey`/`identity.storyKey`; each case states its query and candidate roles; `publishedAt` and `ingestedAt` are both recorded, with the query asserted to be the later arrival inside `RECALL_DAYS` |
+| 3 | The quotas could not all hold at once | The band/rate quotas are withdrawn with the arithmetic shown, and replaced by a fixed, mechanically checkable allocation (240 = 180 + 60 over 16 strata and 4 classes — see the contract table below), which the validator must re-derive and fail on if it drifts |
+| 4 | `multiple-cves-in-one-advisory` was labelled `SAME_OCCURRENCE` | **Corrected to `UNRELATED`**, aligned with `group-definitions.md`: several products *inside one advisory* are one happening (line 1), but two different **CVE identifiers** are two things (line 14) |
+| 5 | The same-CVE cross-source case and the literal same-URL shortcut were conflated | Split: the cross-source case became stratum 9 (`same-cve-cross-source-different-url`, the judge decides), and the same-URL shortcut became a separate track. That track was then **demoted out of the primary set entirely** in the contract round below — it is now a deterministic diagnostic test, not a stratum |
+| 6 | `AMBIGUOUS` was proposed as a fifth `gold.relation` | Removed. The vocabulary is exactly the four production relations; unsettled cases use `annotation.status` (`decisive` / `disputed` / `insufficient`) and are excluded from decisive metrics with their counts printed |
+| 7 | SelectBench was described as unable to store multiple classes | Corrected: the text columns **could** store another label, but the importer's summary contract and the admin's hardcoded `fp/fn/tp/tn` outcome semantics are binary selection-specific — so reuse would need new columns *and* new semantics |
+| 8 | The production embedding path was asserted as a repo fact | Downgraded to `LOCAL_OBSERVED`; the document now states that the repository does not prove which branch a deployment runs, and requires the recall stage to report the branch it used |
+| 9 | The recorded HEAD could be confused with the documentation commit | §1 now records the **audit starting HEAD** (`225e0f6`) as the audited tree and lists the documentation commits separately |
+| 10 | Phase 1's text still said "Phase 2 has not started" | Rewritten in the historical tense — it had not started **when Phase 1 closed**; it has since begun |
+
+Owner decisions that were open in the first revision are now **settled** and recorded as constraints in
+the plan's §12.1: 240/180/60; signals out of the primary benchmark; a minimal **non-runtime** evaluation
+seam allowed, targeting the production batch judge; final paid Stage B/C authorized; and an
+owner-approved replacement of human holdout adjudication with at least three independent model reviews.
+Only unanimous high-confidence sufficient labels may freeze, they are recorded `MODEL_REVIEWED`, and
+neither split may be described as human gold.
+
+### Phase 2 benchmark contract correction
+
+A follow-up review raised eight **contract** issues (as opposed to design issues). All eight are addressed
+in `docs/evaluation/event-grouping-plan.md`; none required code:
+
+| # | issue | resolution |
+|---|---|---|
+| 1 | Annotation provenance was case-level, while the gold relation is per candidate | `gold.relation` and the whole `annotation` block moved **onto each candidate** (`status`, `labelSource`, `labeller`, `confidence`, `humanAdjudicated`, `adjudicator`, `sourceUrls`, `note`). A case-level `humanAdjudicated` flag no longer exists. This originally required per-candidate human holdout adjudication; the later owner-approved three-model deviation supersedes that requirement while retaining candidate-level provenance. |
+| 2 | Event/story identity was case-level, and Stage C had no mapping to it | `identity.eventKey` / `identity.storyKey` moved **onto each report** (query and every candidate). Stage C now reads: `SAME_OCCURRENCE` = same event + same story; `SAME_STORY` = **different** event + same story; `UNRELATED` = different story; `ROUNDUP` = **unconstrained**, explicitly not auto-treated as one story. A new §7.3.1 makes relation↔identity consistency a validator assertion |
+| 3 | The per-stratum greedy split algorithm could not always satisfy the fixed table | Withdrawn: a `splitGroupId` may span strata, so taking groups whole stratum-by-stratum can miss the quota. The split is now assigned **globally at `splitGroupId` level, once, during construction**, recorded explicitly in the frozen file, and never re-decided by the harness — which only validates (no `splitGroupId` or `reportId` crossing the split, every case's reports on one side, every `caseId` once, the frozen totals and the frozen class/stratum counts). If the global allocation cannot reach the table, case selection is adjusted **before freeze**; a `splitGroupId` is never split to meet a quota |
+| 4 | No time-rebasing contract, so the benchmark would expire | Added §7.8. The dataset keeps real `publishedAt`/`ingestedAt`; the **fixture** shifts both by one common `discoveryTimeShift` onto an `evaluationTimeAnchor` chosen relative to run time, preserving ingestion order and every real interval, and reports both in `meta`. Fixture rows use `backfill = false`, and the fixture asserts `discovered_at - published_at` equals the dataset's — without which `isHistorical()` (`materials.ts:91–93`, `STALE_ON_DISCOVERY_MS = 48 h`) would return `verdict: "historical"` (`group.ts:625–629`) for every case and silently empty Stage C. Stage A/C may not read wall-clock time directly |
+| 5 | `literal-same-url-duplicate` did not deserve 16 of 240 primary cases | **Removed from the primary set.** The repo folds an identical normalised URL into one article before grouping: `identityKeyFor(m)` → `identityKeyForUrl(m.url)` (`materials.ts:114–120`, `lib/url.ts:48–55`), `articles.identity_key text NOT NULL UNIQUE` (`database/migrations/0001_core.sql:63`), and `upsertMaterial` inserts `ON CONFLICT (identity_key) DO NOTHING` (`materials.ts:141–149`). It becomes a **deterministic diagnostic / integration test** in the harness track. Its 16 cases went to two new security-relevant strata — `procurement-correction-or-cancellation` and `policy-amendment-or-implementation-date` (`group-definitions.md:9` and `:10`) — keeping 240/180/60. "Advisory scope/status revision" was not added because stratum 11 already is that case (`group-definitions.md:8`); "same procurement project different lot" was declined because the definitions do not settle it |
+| 6 | Non-decisive labels were still allowed inside the formal cases | The frozen files are now **decisive-only**: `dev.jsonl` / `holdout.jsonl` may contain only candidates with `annotation.status === "decisive"`. A `disputed` or `insufficient` candidate may not sit in a case even uncounted, because `judgeBatch` answers the whole candidate list in one prompt, so an unsettled entry can change the answers for its neighbours. Unsettled material goes to a separate review pool / annotation queue. Removes the run-time exclusion step entirely |
+| 7 | Blocker wording overstated what the open owner items block | Corrected at that revision. Both items were subsequently resolved by the owner: paid Stage B/C is authorized and the human holdout gate is superseded by the explicit unanimous three-model deviation. |
+| 8 | Do not regress the already-corrected design | Verified in place: primary classifier = production `judgeBatch`/`BATCH_SYSTEM`/`modelFor("group")`; `PAIR_SYSTEM`/`groupReview` diagnostic only; exactly four production relation labels; signals out of the primary benchmark; SelectBench described by its actual binary summary/outcome semantics; `REPO_VERIFIED` kept distinct from `LOCAL_OBSERVED`; no prompt/threshold/algorithm change; no paid eval; no Phase 3 |
+
+On 2026-10-07 the owner approved one final **pre-freeze semantic correction** after independent review:
+a synchronous official/vendor confirmation and synchronous cross-vendor reporting of one disclosure are
+`SAME_OCCURRENCE`; only a later confirmation, patch, revision, KEV/exploitation or status change is
+`SAME_STORY`. This is an annotation-contract correction before freeze and before Stage B/C, not
+result-driven production tuning. No production prompt, threshold or grouping behavior changed.
+
+The current primary allocation is 16 strata: per class `SAME_STORY` 66 (dev 45 / holdout 21),
+`SAME_OCCURRENCE` 76 (58 / 18), `UNRELATED` 64 (52 / 12), `ROUNDUP` 34 (25 / 9) — **240 (180 / 60)**.
+The per-stratum table is in the plan's §7.5.
+
+### Phase 2 implementation checkpoint
+
+Implementation started from clean commit `41656ae` after explicit owner approval. The first checkpoint
+adds only evaluation infrastructure:
+
+- `scripts/event-grouping-eval-core.ts` implements the candidate-level JSONL schema/parser, the frozen
+  16-stratum allocation, structural and anti-leakage validation, relation↔identity validation, the
+  candidate-level holdout provenance gate (human adjudication or the approved unanimous three-model
+  review), fixture time rebasing, and relation metrics with
+  distractors reported separately;
+- `scripts/eval-event-grouping.ts` validates the complete frozen dataset before running, uses the
+  production batch judge for the relation stage, and requires both `MODEL_CALLS_ENABLED=true` and the
+  explicit `--allow-paid` flag before making any model call. Its free `recall` stage now drives the
+  production recall seam against temporary scratch-database fixtures and writes recall@K, missed cases,
+  per-stratum results and the actual recall-branch distribution. `end-to-end` performs the real
+  scratch-database replay; the `all` convenience stage remains fail closed so paid stages are explicit;
+- `packages/backend/src/events/group.ts` exports the existing production `judgeBatch`, `confirmMerge`
+  and four already-existing recall constants, plus a read-only `recallForEvaluation` wrapper over the
+  existing `recallFacts`, for the non-runtime harness. Their prompts, models, temperatures, token limits,
+  thresholds and production call sites are unchanged;
+- `scripts/event-grouping-eval-fixture.ts` creates and cleans one rebased case at a time in an enforced
+  `*_test`/`*_ci` database. It also runs the same-URL diagnostic through normal ingestion, proving that
+  two normalized forms fold to one article before grouping;
+- the pure core now includes Stage C pairwise story precision/recall plus attributable false-merge and
+  false-split lists. The end-to-end stage now seeds prior reports into Fact/Story identities, runs the
+  reports globally by `ingestedAt`, sends every unique report through the real `groupArticle()` path,
+  follows `merged_into` to live stories, reports verdict distribution and story metrics, and cleans the
+  scratch fixture. The earlier per-case replay remains only a fixture unit test, not the Stage C metric;
+- the pair-confirmation diagnostic first obtains real recall scores, runs the production batch judge,
+  and calls `confirmMerge` only for the production subset (`SAME_OCCURRENCE` below `0.85`); it remains
+  behind the same explicit paid-call gate;
+- receipt reporting deduplicates logical receipt ids and aggregates every `receipt_attempts` row,
+  including retries, failures, tokens and latency. A WeakMap-backed evaluation seam captures reused
+  report, confirmation and consolidation receipt ids without changing `GroupResult` or production output;
+- `scripts/build-event-relation-development.ts` routes any whole case containing a non-decisive candidate
+  to `.data` review storage and writes `dev.jsonl` only with `--freeze` after the exact 180-case,
+  per-stratum development allocation validates. It refuses holdout input and never auto-resolves labels;
+- owner-authorized development annotation now has a two-family path:
+  `scripts/annotate-event-relation-development.ts` batches DeepSeek V4.1 Flash proposals and independent
+  CodeBuddy GLM-5.3-Flash reviews. CodeBuddy runs for one turn with an empty tool whitelist, strict empty
+  MCP configuration, no session persistence and JSON-Schema output. `providers/codebuddy.ts` places the
+  subprocess behind the existing receipt lifecycle, and migration `0039_codebuddy_budget.sql` gives the
+  service an explicit 5/minute, 50/hour, 300/day circuit breaker. Agreement becomes `model-reviewed`;
+  missing evidence, model disagreement, and disputed or low-confidence SAME_OCCURRENCE/SAME_STORY
+  boundaries remain outside the formal dataset in the review pool;
+- owner-authorized holdout annotation now has a three-model path:
+  `scripts/annotate-event-relation-holdout.ts` independently invokes CodeBuddy models
+  `deepseek-v4.1-flash`, `glm-5.3-flash` and `kimi-k3-2` through the same receipt/budget controls. It
+  freezes only unanimous, high-confidence, sufficient decisions; every other case is written to the
+  review pool. Frozen candidates record the three model ids in `annotation.reviewers`, remain
+  `humanAdjudicated: false`, and must be reported as `MODEL_REVIEWED`, never human gold;
+- `tests/event-grouping-eval.test.ts`, `tests/event-grouping-fixture.test.ts`,
+  `tests/codebuddy-provider.test.ts` and `tests/event-grouping-development-annotation.test.ts` cover schema parsing,
+  frozen allocation, decisive-only and identity rejection, holdout adjudication, split leakage,
+  relation/recall/story metrics, interval-preserving time rebasing, real lexical recall and URL folding,
+  CodeBuddy envelope/command safety, complete batch coverage and deterministic dual-review merging.
+
+Verification at this checkpoint (Windows, no provider/network calls):
+
+```text
+npm run typecheck                                  → pass, exit 0
+node --test tests/codebuddy-provider.test.ts tests/event-grouping-development-annotation.test.ts tests/event-grouping-eval.test.ts
+                                                   → tests 18 / pass 18 / fail 0, exit 0
+node --test tests/event-grouping-eval.test.ts tests/event-grouping-fixture.test.ts tests/events.test.ts
+                                                   → tests 25 / pass 25 / fail 0, exit 0
+node --test tests/event-grouping-fixture.test.ts tests/events.test.ts
+                                                   → tests 14 / pass 14 / fail 0, exit 0 (local HTTP model stubs)
+node --test tests/events.test.ts tests/materials.test.ts
+                                                   → tests 19 / pass 19 / fail 0, exit 0
+git diff --check                                   → clean, exit 0
+```
+
+The database-backed suites used a fresh migrated `p2_impl_verify_ci` database. An earlier run against
+the reused `p2_grouping_ci` database had one recall-pollution failure (`same-fact` instead of the
+fixture's expected `new-story`); the same test passed on the clean database, so that run is recorded as
+an environment/fixture-isolation issue rather than a code regression.
+
+The initial development evidence-collection checkpoint used `scripts/collect-event-relation-evidence.ts` to read
+the public GitHub Advisory, NVD 2.0 and CISA KEV feeds into a gitignored provenance pool. Its bounded,
+incremental 0-30 and 30-60 day NVD passes currently retain 29,720 unique evidence rows and 118 CVEs
+represented by more than one source. The direct-reference collector retained 2,266 bounded NVD
+reference pages through the repository's SSRF guard without Jina/model fallback; 1,081 have an
+attributable title, body and publication date. The assemblers now produce the complete 180 pending development cases:
+21 same-CVE cross-source, 11 same-model/different-vulnerability, 11 same-product/different-CVE, 19
+same-vendor/different-CVE, 25 roundup, 11 multi-CVE advisory, 11 disclosure-to-patch, 13 vendor
+confirmation, 13 CERT republication, 7 PoC-to-disclosure, 11 same-CVE/multi-vendor-product, 5 exact-title
+proposed/direct-final Federal Register pairs, 7 correction/effective-date Federal Register follow-ups,
+5 TED procurement corrections, 7 TED competition-to-result transitions and 3 GitHub Advisory Database
+revision-history pairs. At that checkpoint all 180 were `disputed`/`pending-dual-review`; the construction
+gate routed them to `.data` review storage and froze zero cases. No model call was made during collection
+or assembly. The later review and freeze outcome is recorded immediately below.
+
+The evidence-backed development construction allocation is complete at 180 / 180 across all 16 strata.
+On 2026-10-07 `scripts/finalize-event-relation-development.ts` mechanically froze
+`datasets/event-relations/dev.jsonl`: exactly 180 decisive, independently dual-model-reviewed cases with
+the exact 16-stratum allocation. It changes no review label; 31 disputed, relation-mismatched, duplicate
+or surplus rows remain in `.data/event-relations/rejected-development.jsonl`. The two strata covered by
+the approved semantic correction had only their derived event/story identity metadata migrated to match
+their already-reviewed `SAME_OCCURRENCE` labels. On 2026-10-08 the holdout was frozen at exactly 60
+unanimous high-confidence three-model-reviewed cases across the same 16 strata; the combined 240-case
+validator passed. Final holdout scoring then completed against unchanged production behavior. Stage A
+found 60/60 candidates on the lexical branch, Stage B produced accuracy 0.750 and macro-F1 0.629, and
+Stage C produced pairwise precision 1.000, recall 0.095 and F1 0.174 (0 false merges, 38 false splits).
+The independent pair-confirmation diagnostic admitted all 18 invoked low-similarity occurrence pairs.
+The full baseline and security-specific error taxonomy are in
+`docs/evaluation/event-grouping-baseline.md`; detailed receipt-backed reports remain under `.data/eval/`.
+Phase 2 is therefore **COMPLETE_WITH_MODEL_REVIEWED_HOLDOUT_AND_BASELINE_LIMITATIONS**. The
+owner authorized paid calls for development and holdout annotation, verified CodeBuddy CLI access, and
+authorized final Stage B/C scoring. On 2026-10-06 the owner also accepted an explicit Phase 2 contract
+deviation: the 60-case holdout may be frozen from unanimous high-confidence three-model review and is
+recorded `MODEL_REVIEWED`, not human gold. The
+`all` convenience stage also remains fail-closed; each implemented stage must be invoked explicitly.
+
+The initial paid annotation wrapper exposed a CodeBuddy CLI exit-path issue rather than a model failure:
+trace files showed successful model completion while `--output-format json` did not return control to the
+caller. Those attempts remain `unknown` receipts and were never converted into labels. The provider now
+uses `stream-json`, validates the terminal JSON with the same Zod schema, and terminates the child after
+capturing the result event. A one-case receipt-backed probe then completed with DeepSeek V4.1 Flash plus
+GLM-5.3-Flash (receipts 7 and 8): both independently returned `SAME_OCCURRENCE/high`, producing one
+`decisive`, `model-reviewed` case in the gitignored probe output. The provider now consumes
+`stream-json`; the complete 180-case development pool was subsequently reviewed by DeepSeek V4.1 Flash
+and GLM-5.3-Flash through 30 completed receipts. Raw agreement produced 174 decisive and 6 disputed
+rows, but a stricter relation-to-stratum audit rejected 35 additional decisive rows whose model label
+did not match the frozen allocation. The resulting 41 replacement requirements are: 11 multi-CVE
+advisory, 4 disclosure-to-patch, 13 vendor confirmation, 2 policy draft/final and 11 same-CVE
+multi-vendor-product. This exposed construction hypotheses that paired same-occurrence coverage or
+unrelated same-title policy documents rather than a real lifecycle transition. None of those rows is
+frozen. A corrected multi-CVE collector now pairs two distinct CVE reports referenced by one real
+advisory; its first four replacement probes were unanimously `UNRELATED/high`. Strict replacements
+ultimately supplied all 11 accepted multi-CVE pairs, 4 disclosure-to-patch lifecycle pairs and the 2
+missing policy draft/final transitions. Together with the 2026-10-07 owner-approved occurrence/story
+boundary correction, these closed every development quota; the frozen result is recorded above.
+
+## Phase 1 — accepted and frozen
+
+Phase: Phase 1 — Security Verticalization
 
 Branch: `phase/1-security-verticalization`
 
@@ -160,8 +391,9 @@ claim that the original `150–250 human-labelled gold` requirement was satisfie
 The phase is implementation-complete, development-calibration-complete, tier-calibration-complete, and
 the final holdout has been executed.
 
-It does not implement any Agent, runtime, retrieval or event-grouping change: Phase 2 (security event
-grouping benchmark) and Phase 3 (Python Agent Runtime) have not started.
+It implemented no Agent, runtime, retrieval or event-grouping change, and **at the time Phase 1 closed**
+Phase 2 (the security event grouping benchmark) and Phase 3 (the Python Agent Runtime) **had not
+started**. Phase 2 has since begun — see `## Current Phase`.
 
 This Phase verticalizes the industry pack (`industry/`) from the AI demo domain to the security domain,
 and produced the security selection benchmark and its evaluation. Full evaluation record:
@@ -871,20 +1103,47 @@ be accepted as complete.
 Phase 0 is accepted and frozen at tag `sentinelintel-phase0` (`1deb090`). The Post-Phase-0 Baseline
 Portability Fix is accepted and merged into `main` at `2938249`.
 
-**Phase 1 — Security Verticalization is accepted with limitations** (`ACCEPTED_WITH_LIMITATIONS`) on
-`phase/1-security-verticalization`. The owner decision that was outstanding is now recorded in
-`## Phase 1 acceptance-criterion deviation (explicit)` → `### Owner decision (final)`.
+**Phase 1 was merged.** `main` = `225e0f6473de8ac2b827c1ce34d4888a2111ac54`, tagged
+`sentinelintel-phase1`. The merge is a **squash** (one parent, `2938249`) and its tree is **identical** to
+the Phase 1 branch tip `c483efb` — `git rev-parse '225e0f6^{tree}'` equals `c483efb^{tree}`
+(`8cc023ed957ff367d8d79dc5ddd9d91178105c7a`) — so no Phase 1 content was lost, and `main`'s tree carries
+this document's Phase 1 acceptance record, which was the merge condition recorded here before the merge.
 
-- **Pull request #3 is ready for the owner to merge**, once this acceptance-status commit passes the
-  canonical Linux CI.
-- **Phase 2 may begin only after Phase 1 is merged into `main` and the merged state is recorded here** —
-  that is, the merge commit, plus confirmation that `main`'s tree now carries this acceptance record. The
-  acceptance travels with this file, so the merge must keep it.
-- Nothing in this document authorizes further Phase 1 selection tuning or a holdout re-run.
+**Phase 2 — Security Event Grouping Benchmark is complete** on `phase/2-security-event-grouping`, status
+`COMPLETE_WITH_MODEL_REVIEWED_HOLDOUT_AND_BASELINE_LIMITATIONS`. The design was revised after an independent design audit
+(`### Phase 2 design revision` above) and then corrected for contract consistency
+(`### Phase 2 benchmark contract correction` above). The plan now reports
+`READY_FOR_PHASE2_BENCHMARK_IMPLEMENTATION_REVIEW`.
 
-Still open as **deferred work, not Phase 1 merge blockers**: the seeded source pack has no procurement
-source and no physical-security vendor feed, and the benchmark's 50 `web` rows are not URL-traceable.
-**Future benchmark hardening — independent human adjudication of a representative sample or of the full
-benchmark — remains the item that would turn the accepted deviation into a satisfied requirement.**
+The decisions are **settled by the owner** and recorded in
+`docs/evaluation/event-grouping-plan.md` §12.1: 240 / 180 / 60; signals out of the primary benchmark;
+a minimal non-runtime evaluation seam targeting the **production batch judge**; final paid Stage B/C
+authorization; and the 2026-10-06 acceptance deviation allowing the 60-case holdout to use independent
+three-model review. Only unanimous high-confidence sufficient labels may freeze. They must be recorded
+`MODEL_REVIEWED` with all reviewer ids, and must never be described as human gold.
 
-**Phase 2 implementation has not started.**
+There is no remaining owner-decision blocker. Dataset construction, independent review, freeze validation
+and authorized evaluation execution are complete.
+
+Benchmark implementation began before paid authorization. The owner first authorized development
+construction/annotation and confirmed CodeBuddy `glm-5.3-flash` access, then on 2026-10-06 explicitly
+authorized the final paid Stage B/C baseline runs. The schema/validator, minimal evaluation
+seams, relation-stage harness, free Stage A recall fixture/metrics, deterministic same-URL diagnostic,
+Stage C scratch replay, pair diagnostic, receipt aggregation and development construction gate are
+present, together with receipt-backed development dual-review and holdout three-model-review commands.
+Development and holdout are frozen. Stage A/B/C and the pair diagnostic have completed; the baseline and
+error taxonomy are recorded in `docs/evaluation/event-grouping-baseline.md`.
+
+Two further items are implementation-time choices the design constrains but deliberately does not
+pre-empt: which recall branch the recall stage targets (this environment can only measure the lexical
+one), and the concrete distractor count and seed per case.
+
+**The 180-case development benchmark and 60-case `MODEL_REVIEWED` holdout are frozen, and the authorized
+paid baseline has run. No production grouping behaviour, threshold or prompt changed.**
+Phase 3 has not started.
+
+Still open as **deferred work, not blockers**: the seeded source pack has no procurement source and no
+physical-security vendor feed, and the Phase 1 benchmark's 50 `web` rows are not URL-traceable.
+**Future Phase 1 benchmark hardening — independent human adjudication of a representative sample or of the
+full benchmark — remains the item that would turn Phase 1's accepted deviation into a satisfied
+requirement.**

@@ -32,11 +32,11 @@ import {
 
 export const GROUP_PROMPT_VERSION = RELATE_PROMPT_VERSION;
 /** Reports discovered this recently are candidates (keyed on discovery, so an old page found today still meets its peers). */
-const RECALL_DAYS = 14;
-const RECALL_MIN_COSINE = 0.6;
-const RECALL_TOP_FACTS = 10;
+export const RECALL_DAYS = 14;
+export const RECALL_MIN_COSINE = 0.6;
+export const RECALL_TOP_FACTS = 10;
 /** A merge with a candidate less similar than this is confirmed by the review model before it is written. */
-const CONFIRM_BELOW_COSINE = 0.85;
+export const CONFIRM_BELOW_COSINE = 0.85;
 /** Discussion posts are judged only against clear candidates, and attach without a call when nearly identical. */
 const SIGNAL_MIN_COSINE = 0.72;
 const SIGNAL_AUTO_COSINE = 0.92;
@@ -72,6 +72,11 @@ interface Recalled {
   storyId: number;
   factTitle: string;
   score: number;
+}
+
+export interface EvaluationRecallResult {
+  branch: "embedding" | "lexical";
+  candidates: Array<{ factId: number; storyId: number; factTitle: string; score: number }>;
 }
 
 export function participantKey(source: { id: string; signal_group_id: string | null }): string {
@@ -233,6 +238,13 @@ async function recallFacts(queryId: string, queryText: string, minScore: number,
   return [...best.values()].sort((a, b) => b.score - a.score).slice(0, top);
 }
 
+/** Read-only production recall seam for Stage A of the offline grouping benchmark. */
+export async function recallForEvaluation(queryId: string, queryText: string): Promise<EvaluationRecallResult> {
+  const branch = embeddingsAvailable() ? "embedding" : "lexical";
+  const candidates = await recallFacts(queryId, queryText, RECALL_MIN_COSINE, RECALL_TOP_FACTS);
+  return { branch, candidates };
+}
+
 /**
  * What the judge sees of a candidate fact: its representative report (first-party first, else the
  * earliest), its size, and whether it started its story (rootFactOf).
@@ -276,7 +288,11 @@ async function candidateViews(recalled: Recalled[]): Promise<CandidateView[]> {
 // Judgement
 // ---------------------------------------------------------------------------
 
-async function judgeBatch(articleId: string, query: ReportView, cands: CandidateView[]): Promise<{ verdicts: Map<number, Verdict>; receiptId: number }> {
+/** Production batch judge, exported unchanged for the offline grouping evaluation harness. */
+export async function judgeBatch(articleId: string, query: ReportView, cands: CandidateView[]): Promise<{
+  verdicts: Map<number, Verdict>;
+  receiptId: number;
+}> {
   const res = await chatJson({
     model: await modelFor("group"), purpose: "group_article", subject: `article:${articleId}`, promptVersion: RELATE_PROMPT_VERSION,
     system: BATCH_SYSTEM, user: batchUser(query, cands), schema: BatchSchema, temperature: 0, maxTokens: 200 + 90 * cands.length,
@@ -285,7 +301,8 @@ async function judgeBatch(articleId: string, query: ReportView, cands: Candidate
 }
 
 /** The review model reads both reports on their own; a merge stands only when it agrees. */
-async function confirmMerge(articleId: string, query: ReportView, cand: CandidateView): Promise<{ relation: Relation; receiptId: number }> {
+// Production pair confirmation, exported only for the benchmark's separate diagnostic track.
+export async function confirmMerge(articleId: string, query: ReportView, cand: CandidateView): Promise<{ relation: Relation; receiptId: number }> {
   const res = await chatJson({
     model: await modelFor("groupReview"), purpose: "group_review", subject: `article:${articleId}:fact:${cand.factId}`, promptVersion: RELATE_PROMPT_VERSION,
     system: PAIR_SYSTEM, user: pairUser(query, cand.report), schema: PairSchema, temperature: 0, maxTokens: 400,
@@ -481,6 +498,8 @@ export interface Consolidation {
   difference: string;
 }
 
+const evaluationReceipts = new WeakMap<object, number[]>();
+
 /**
  * Stories a report is firmly tied to may be one story that grew two roots. Their roots are compared
  * directly, the earliest against each of the others, and a story merges into the earliest only when
@@ -504,7 +523,9 @@ export async function consolidate(storyIds: number[], opts: { dryRun?: boolean }
     const first = await judgeStories("group", anchor, other);
     await completeReceipt(sql, first.receiptId);
     if (!firmlyTied(first.relation, first.confidence)) {
-      out.push({ ...base, merge: false, first: first.relation, second: null, difference: first.difference });
+      const item = { ...base, merge: false, first: first.relation, second: null, difference: first.difference };
+      evaluationReceipts.set(item, [first.receiptId]);
+      out.push(item);
       continue;
     }
     // The review model reads the pair the other way round.
@@ -514,7 +535,9 @@ export async function consolidate(storyIds: number[], opts: { dryRun?: boolean }
     if (merge && !opts.dryRun) {
       await mergeStoryInto(other.storyId, anchor.storyId, `同一事件（${first.relation}，复核 ${second.relation}）：${other.report.title}｜${anchor.report.title}`, "grouping");
     }
-    out.push({ ...base, merge, first: first.relation, second: second.relation, difference: first.difference || second.difference });
+    const item = { ...base, merge, first: first.relation, second: second.relation, difference: first.difference || second.difference };
+    evaluationReceipts.set(item, [first.receiptId, second.receiptId]);
+    out.push(item);
   }
   return out;
 }
@@ -585,6 +608,11 @@ export interface GroupResult {
   reclaimed?: number;
   reclaimError?: string;
   rematchError?: string;
+}
+
+/** Receipts used by one completed grouping result, including consolidation; offline evaluation only. */
+export function receiptsForEvaluation(result: GroupResult): number[] {
+  return [...new Set([...(evaluationReceipts.get(result) ?? []), ...(result.consolidated ?? []).flatMap((item) => evaluationReceipts.get(item) ?? [])])];
 }
 
 export interface GroupOptions {
@@ -736,6 +764,7 @@ async function decide(articleId: string, opts: GroupOptions): Promise<GroupResul
   await publishArticle(articleId);
   if (written.manual) return { verdict: "manual", factId: written.manual.factId };
   const result: GroupResult = { verdict, factId: written.factId!, storyId: written.storyId! };
+  evaluationReceipts.set(result, receipts);
 
   // Other stories this report is firmly tied to: one story may have grown two roots. Best effort:
   // the report's own decision is written; a failed comparison is reported in the job's result.
