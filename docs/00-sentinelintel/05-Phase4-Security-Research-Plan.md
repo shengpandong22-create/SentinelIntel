@@ -2,9 +2,9 @@
 
 Status: `IMPLEMENTATION_IN_PROGRESS`
 
-Approval: contract self-audited against the repository and approved on 2026-10-08. This approval covers
-implementation through deterministic tests and no-cost development adapters. It does not enable paid
-calls, freeze a holdout, or authorize the final paid evaluation.
+Approval: contract self-audited against the repository and approved on 2026-10-08. The owner later
+authorized the bounded real-model development pilot, the explicit `MODEL_REVIEWED` holdout route, and
+the final paid B0/B1 evaluation. Every call remains subject to receipts and a scratch-database budget.
 
 Checkpoint 1 completed on 2026-10-08: migration `0040`, cross-runtime schemas, fail-closed switches,
 internal endpoint authentication, backend-owned run capabilities/limits, deterministic unknown-preserving
@@ -47,6 +47,21 @@ reuses only source documents from the frozen Phase 2 development corpus, never i
 Cases with insufficient primary evidence retain expected unknowns. The formal validator requires 20–50
 cases, every stratum, at least three development cases per stratum, valid source provenance, and complete
 versioned Story snapshots.
+
+Evaluation checkpoint 6 completed on 2026-10-08: a six-stratum real-model development pilot ran through
+the direct OpenAI-compatible provider with receipts. B1 produced zero failures in every hard safety gate;
+expected-claim recall was `1.0`, authoritative-evidence recall `0.8889`, supported-claim precision
+`0.6923`, expected-unknown preservation `1.0`, conflict preservation `1.0`, and tool error rate
+`0.0769`. `datasets/security-research/thresholds.json` pre-registers the final gates from that evidence
+before holdout construction.
+
+Evaluation checkpoint 7 is in progress. A deterministic constructor produced 20 independent holdout
+candidates across all six strata from the frozen Phase 2 holdout source material. `deepseek-flash`
+accepted 20/20 at high confidence; `deepseek-v4-pro` accepted 20/20 (17 high, three medium revision
+unknowns). The required third independent model review is not complete: the configured direct endpoint
+advertises only those two model names, while CodeBuddy/GLM has not returned usable non-interactive output
+and no `CODEBUDDY_API_KEY` is visible to this workspace process. The candidate file remains under
+`.data`; no holdout has been frozen or observed by B0/B1.
 
 ## 1. Objective
 

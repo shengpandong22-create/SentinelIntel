@@ -14,6 +14,11 @@ A later holdout must be stored
 separately, frozen before final evaluation, and labelled `HUMAN_ADJUDICATED` or explicitly
 `MODEL_REVIEWED`; source verification alone is insufficient for holdout labels.
 
+`thresholds.json` is the pre-registered Phase 4 acceptance contract. It records the six-stratum
+development pilot observed on 2026-10-08 and fixes the final B1 safety and quality gates before any
+holdout construction or observation. The quality floors are deliberately below the measured pilot
+point estimates; the safety gates remain exact zero-tolerance gates.
+
 Validate and score a pilot result file with:
 
 ```text

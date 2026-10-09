@@ -132,7 +132,7 @@ Branch: `phase/4-security-research-agent`
 
 Base: `main` = `7282efd` (Phase 3 merge)
 
-Status: **IMPLEMENTATION_IN_PROGRESS — DEVELOPMENT_BENCHMARK_COMPLETE**
+Status: **IMPLEMENTATION_IN_PROGRESS — THRESHOLDS_PREREGISTERED / HOLDOUT_REVIEW_BLOCKED**
 
 Implementation contract: `docs/00-sentinelintel/05-Phase4-Security-Research-Plan.md`.
 
@@ -143,10 +143,10 @@ persistence. The Agent returns an auditable proposal and cannot modify core Stor
 
 A repository-grounded contract audit on 2026-10-08 added independent research execution/network
 switches, TypeScript-enforced per-run capabilities and limits, and fail-closed paid service budgets.
-The deterministic foundation described below is now implemented. Benchmark data, external research
-calls, and paid model runs have not started; development paid calls, holdout freeze, and final paid
-evaluation remain separate gates. See the contract for the ordered implementation and acceptance
-checklists.
+The deterministic foundation and 24-case development benchmark are implemented. The owner authorized
+the bounded paid pilot, `MODEL_REVIEWED` holdout route, and final paid B0/B1 evaluation. The pilot is
+complete and thresholds are pre-registered. Holdout construction is complete but freeze is blocked on
+the third independent reviewer; final evaluation has not started.
 
 ### Phase 4 implementation checkpoint 1 — deterministic foundation
 
@@ -295,6 +295,30 @@ the committed benchmark balance test passed; `npm run typecheck` passed.
 
 Next gate: execute a small, budget-capped real-model development pilot on a representative subset, then
 pre-register numeric quality thresholds before any holdout is constructed.
+
+### Phase 4 evaluation checkpoint 6 — paid pilot and threshold pre-registration
+
+Completed on 2026-10-08 against one representative from each of the six development strata. The direct
+`deepseek-flash` provider returned usable evidence-bound B1 proposals through receipts. Every B1 hard
+safety count was zero. Quality results were expected-claim recall `1.0`, authoritative-evidence recall
+`0.8889`, supported-claim precision `0.6923`, expected-unknown preservation `1.0`, conflict preservation
+`1.0`, and tool error rate `0.0769`.
+
+`datasets/security-research/thresholds.json` was written from this development evidence before holdout
+construction and must not be changed in response to holdout results.
+
+### Phase 4 evaluation checkpoint 7 — holdout review blocker
+
+The deterministic constructor produced 20 candidates across all six strata from the independent Phase 2
+holdout source corpus. Two independent reviews completed: `deepseek-flash` accepted 20/20 at high
+confidence, and `deepseek-v4-pro` accepted 20/20 with 17 high and three medium-confidence
+revision/unknown labels. The candidate is not frozen because the approved route requires a third model.
+
+The direct endpoint explicitly rejects every model except `deepseek-flash` and `deepseek-v4-pro`.
+CodeBuddy/GLM attempts are retained as failure evidence: native structured stdin timed out, bounded
+argument modes did not return captured output, and this workspace process has no visible
+`CODEBUDDY_API_KEY`. No failed or empty response was used as a label. Candidate/review artifacts remain
+ignored under `.data`; final B0/B1 has not observed the holdout.
 
 ## Phase 3 — completed history
 

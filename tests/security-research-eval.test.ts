@@ -4,9 +4,11 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   evaluateResearchVariant,
+  normalizePilotDecisionOutput,
   RESEARCH_STRATA,
   ResearchEvalCaseSchema,
   ResearchEvalResultSchema,
+  ResearchThresholdsSchema,
   parseResearchJsonl,
   validateResearchCases,
   type ResearchEvalCase,
@@ -193,4 +195,30 @@ test("committed development benchmark has 24 source-backed cases balanced across
     Object.fromEntries(RESEARCH_STRATA.map((stratum) => [stratum, 4])),
   );
   assert.equal(cases.every((row) => row.provenance.source_urls.every((url) => url.startsWith("https://"))), true);
+});
+
+test("pilot representatives select the first case in every stratum", () => {
+  const allCases = RESEARCH_STRATA.flatMap((_stratum, index) => [evalCase(index), {
+    ...evalCase(index),
+    case_id: `SRA-PILOT-SECOND-${index + 1}`,
+  }]);
+  const representatives = [...new Set(allCases.map((row) => row.stratum))]
+    .map((stratum) => allCases.find((row) => row.stratum === stratum)!);
+  validateResearchCases(representatives, { pilot: true });
+  assert.equal(representatives.length, RESEARCH_STRATA.length);
+  assert.equal(representatives.every((row) => !row.case_id.includes("SECOND")), true);
+});
+
+test("pilot provider compatibility normalizes only known terminal status aliases", () => {
+  assert.deepEqual(normalizePilotDecisionOutput('{"decisions":[{"terminal_status":"confirmed"},{"terminal_status":"unresolved"},{"terminal_status":"completed"}]}'), {
+    decisions: [{ terminal_status: "completed" }, { terminal_status: "insufficient_evidence" }, { terminal_status: "completed" }],
+  });
+  assert.throws(() => normalizePilotDecisionOutput("not json"), /no JSON object/);
+});
+
+test("Phase 4 thresholds are valid and frozen before holdout", () => {
+  const thresholds = ResearchThresholdsSchema.parse(JSON.parse(readFileSync(new URL("../datasets/security-research/thresholds.json", import.meta.url), "utf8")));
+  assert.equal(thresholds.development_pilot.cases, 6);
+  assert.equal(thresholds.hard_safety_gates.unsupported_critical_claims_max, 0);
+  assert.equal(thresholds.quality_gates.expected_unknown_preservation_min, 1);
 });

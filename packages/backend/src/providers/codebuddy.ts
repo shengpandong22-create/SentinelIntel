@@ -6,7 +6,7 @@ import { config, credential } from "../config.ts";
 import { sha256 } from "../lib/ids.ts";
 import { paidRequest, rejectReceivedResponse } from "./receipts.ts";
 
-async function runCodeBuddyStream(args: string[], env: NodeJS.ProcessEnv, timeoutMs: number): Promise<CodeBuddyEnvelope> {
+async function runCodeBuddyStream(args: string[], prompt: string | null, env: NodeJS.ProcessEnv, timeoutMs: number): Promise<CodeBuddyEnvelope> {
   return new Promise((resolve, reject) => {
     const child = spawn("codebuddy", args, { env, windowsHide: true });
     let stdout = "", stderr = "", settled = false;
@@ -34,11 +34,13 @@ async function runCodeBuddyStream(args: string[], env: NodeJS.ProcessEnv, timeou
       } catch { /* the current line is still incomplete */ }
     });
     child.stderr.on("data", (chunk: string) => { stderr = (stderr + chunk).slice(-4000); });
+    child.stdin.on("error", (error) => finish(error));
+    child.stdin.end(prompt ?? undefined);
     child.on("error", (error) => finish(error));
     child.on("exit", (code) => {
       if (settled) return;
-      try { finish(undefined, parseCodeBuddyStream(stdout)); }
-      catch { finish(new Error(`CodeBuddy exited ${code ?? "without a code"}: ${stderr || "missing result event"}`)); }
+      try { finish(undefined, parseCodeBuddyOutput(stdout)); }
+      catch { finish(new Error(`CodeBuddy exited ${code ?? "without a code"}: ${stderr || `unusable output ${stdout.slice(0, 1000)}`}`)); }
     });
   });
 }
@@ -84,7 +86,30 @@ export function parseCodeBuddyStream(stdout: string): CodeBuddyEnvelope {
   return parseCodeBuddyEnvelope(JSON.stringify({ ...result, structured_output: structuredOutput }));
 }
 
-export function codeBuddyArgs(input: { model: string; system: string; prompt: string; jsonSchema: Record<string, unknown> }): string[] {
+export function parseCodeBuddyOutput(stdout: string): CodeBuddyEnvelope {
+  try {
+    const envelope = JSON.parse(stdout) as CodeBuddyEnvelope;
+    if (envelope.structured_output !== undefined) return parseCodeBuddyEnvelope(stdout);
+    const raw = String(envelope.result ?? "").trim();
+    const fenced = raw.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i)?.[1]
+      ?? raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)?.[1];
+    const candidate = fenced ?? raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1);
+    return parseCodeBuddyEnvelope(JSON.stringify({ ...envelope, structured_output: JSON.parse(candidate) }));
+  } catch {
+    try {
+      const raw = stdout.trim();
+      const fenced = raw.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i)?.[1]
+        ?? raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)?.[1];
+      const candidate = fenced ?? raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1);
+      return parseCodeBuddyEnvelope(JSON.stringify({ subtype: "success", structured_output: JSON.parse(candidate) }));
+    } catch {
+      return parseCodeBuddyStream(stdout);
+    }
+  }
+}
+
+export function codeBuddyArgs(input: { model: string; system: string; prompt: string; jsonSchema: Record<string, unknown>; promptInArgument?: boolean; useJsonSchema?: boolean }): string[] {
+  const useJsonSchema = input.useJsonSchema !== false;
   return [
     "--model", input.model,
     "--agent", "minimal",
@@ -93,8 +118,9 @@ export function codeBuddyArgs(input: { model: string; system: string; prompt: st
     "--no-session-persistence",
     "--system-prompt", input.system,
     "-p", "--max-turns", "1",
-    "--output-format", "stream-json",
-    input.prompt,
+    "--output-format", useJsonSchema ? "stream-json" : "text",
+    ...(useJsonSchema ? ["--input-format", "text", "--json-schema", JSON.stringify(input.jsonSchema)] : []),
+    ...(input.promptInArgument ? [input.prompt] : []),
   ];
 }
 
@@ -109,6 +135,8 @@ export interface CodeBuddyStructuredOptions<S extends z.ZodType> {
   schema: S;
   attemptTag?: string;
   timeoutMs?: number;
+  promptInArgument?: boolean;
+  useJsonSchema?: boolean;
 }
 
 export async function codeBuddyStructured<S extends z.ZodType>(opts: CodeBuddyStructuredOptions<S>): Promise<{
@@ -123,8 +151,8 @@ export async function codeBuddyStructured<S extends z.ZodType>(opts: CodeBuddySt
     requestSummary: { promptVersion: opts.promptVersion, systemHash: sha256(opts.system), promptHash: sha256(opts.prompt), promptChars: opts.prompt.length },
     attemptTag: opts.attemptTag,
   }, async () => {
-    const envelope = await runCodeBuddyStream(args,
-      { ...process.env, ...(apiKey ? { CODEBUDDY_API_KEY: apiKey } : {}), CODEBUDDY_CODE_DISABLE_BACKGROUND_TASKS: "1" },
+    const envelope = await runCodeBuddyStream(args, opts.promptInArgument ? null : opts.prompt,
+      { ...process.env, ...(apiKey ? { CODEBUDDY_API_KEY: apiKey } : {}) },
       opts.timeoutMs ?? 180_000);
     return {
       response: envelope,

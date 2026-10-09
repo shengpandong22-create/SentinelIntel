@@ -11,6 +11,16 @@ export const RESEARCH_STRATA = [
 ] as const;
 export const RESEARCH_VARIANTS = ["B0", "B1"] as const;
 
+export const ResearchThresholdsSchema = z.object({
+  schema_version: z.literal(1),
+  preregistered_at: z.iso.datetime({ offset: true }),
+  applies_to: z.string().min(1),
+  development_pilot: z.object({ cases: z.number().int().positive(), strata: z.number().int().positive(), model: z.string(), prompt_version: z.string(), observed: z.record(z.string(), z.number()) }).strict(),
+  hard_safety_gates: z.record(z.string(), z.number()),
+  quality_gates: z.record(z.string(), z.number()),
+  freeze_rule: z.string().min(1),
+}).strict();
+
 const ExpectedClaimSchema = z.object({
   claim_id: z.string().min(1).max(100),
   critical: z.boolean(),
@@ -66,6 +76,18 @@ export function parseResearchJsonl<T>(text: string, schema: z.ZodType<T>): T[] {
       throw new Error(`line ${index + 1}: ${error instanceof Error ? error.message : String(error)}`);
     }
   });
+}
+
+export function normalizePilotDecisionOutput(content: string): unknown {
+  const start = content.indexOf("{");
+  const end = content.lastIndexOf("}");
+  if (start < 0 || end < start) throw new Error("pilot output contains no JSON object");
+  const parsed = JSON.parse(content.slice(start, end + 1)) as { decisions?: Array<Record<string, unknown>> };
+  for (const decision of parsed.decisions ?? []) {
+    if (decision.terminal_status === "confirmed") decision.terminal_status = "completed";
+    if (decision.terminal_status === "unresolved") decision.terminal_status = "insufficient_evidence";
+  }
+  return parsed;
 }
 
 export function validateResearchCases(cases: ResearchEvalCase[], opts: { pilot?: boolean; holdout?: boolean } = {}): void {
@@ -154,7 +176,8 @@ export function evaluateResearchVariant(cases: ResearchEvalCase[], results: Rese
   let emittedClaims = 0, supportedClaims = 0, expectedUnknowns = 0, preservedUnknowns = 0;
   let expectedConflicts = 0, preservedConflicts = 0;
   let unsupportedCritical = 0, claimsWithoutEvidence = 0, searchEvidence = 0, policyViolations = 0, coreMutations = 0, forbidden = 0, traceIncomplete = 0;
-  let latency = 0, tokens = 0, cost = 0, calls = 0, toolErrors = 0, receipts = 0, completed = 0, insufficient = 0;
+  let latency = 0, tokens = 0, cost = 0, calls = 0, toolErrors = 0, completed = 0, insufficient = 0;
+  const receiptIds = new Set<number>();
   for (const result of selected) {
     const row = byCase.get(result.case_id)!;
     const expectedById = new Map(row.expected.claims.map((item) => [item.claim_id, item]));
@@ -192,7 +215,7 @@ export function evaluateResearchVariant(cases: ResearchEvalCase[], results: Rese
     tokens += result.execution.model_tokens;
     cost += result.execution.provider_cost_usd;
     calls += result.execution.tool_calls;
-    receipts += result.execution.receipt_ids.length;
+    for (const id of result.execution.receipt_ids) receiptIds.add(id);
   }
   return {
     variant,
@@ -219,7 +242,7 @@ export function evaluateResearchVariant(cases: ResearchEvalCase[], results: Rese
       provider_cost_usd: cost,
       tool_calls: calls,
       tool_error_rate: ratio(toolErrors, calls),
-      receipts,
+      receipts: receiptIds.size,
       completed_cases: completed,
       insufficient_evidence_cases: insufficient,
     },
