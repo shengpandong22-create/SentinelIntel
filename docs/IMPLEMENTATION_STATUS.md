@@ -449,6 +449,13 @@ three new source rows were collected from the official CISA KEV feed and paired 
 NVD retrievals. The resulting 20-case candidate excludes 84 prior source rows and 92 prior CVEs and
 covers all six required strata. It remains an unfrozen candidate until three independent reviews agree.
 
+### Phase 4 evaluation checkpoint 18 — fourth independent holdout frozen
+
+Completed on 2026-10-10. `deepseek-flash`, `deepseek-v4-pro`, and `glm-5.3-flash` independently accepted
+all 20 cases. Seventeen GLM decisions were high confidence and three were medium; the two direct reviewers
+marked all cases high confidence. The dataset is frozen as `MODEL_REVIEWED`, not human gold, with its
+holdout and v4 threshold hashes recorded in `holdout-v4-manifest.json` before final execution.
+
 ## Phase 3 — completed history
 
 Phase: **Phase 3 — Python Agent Foundation**
