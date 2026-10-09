@@ -6,7 +6,8 @@ import { parseArgs } from "node:util";
 import { z } from "zod";
 import { REPO_ROOT } from "@aihot/backend/config";
 import { sql, closeDb } from "@aihot/backend/db";
-import { fetchVendorAdvisory, lookupKev, lookupNvd, type AdapterResult } from "@aihot/backend/agents/research-adapters";
+import { fetchVendorAdvisory, lookupKev, type AdapterResult } from "@aihot/backend/agents/research-adapters";
+import { lookupNvdPersistent } from "@aihot/backend/agents/research-source-cache";
 import { ResearchProposalSchema, type ResearchEvidence } from "@aihot/backend/agents/research-contract";
 import { codeBuddyStructured } from "@aihot/backend/providers/codebuddy";
 import { chatJson, markReceiptsCompleted } from "@aihot/backend/providers/llm";
@@ -18,6 +19,7 @@ import {
   expectedClaimIds,
   normalizePilotDecisionOutput,
   projectDecisionClaimsToAllowlist,
+  preserveSourceAppropriateUnknowns,
   validateResearchCases,
   type ResearchEvalCase,
   type ResearchEvalResult,
@@ -91,7 +93,7 @@ for (const row of cases) {
     const delay = sourceThrottleDelay(Date.now(), nextNvdAllowedAt);
     if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
     nextNvdAllowedAt = Date.now() + 6_100;
-    await invoke(item, "nvd_lookup", { cve_id: cve }, () => lookupNvd(cve));
+    await invoke(item, "nvd_lookup", { cve_id: cve }, () => lookupNvdPersistent(cve));
     await invoke(item, "kev_lookup", { cve_id: cve }, () => lookupKev(cve));
   }
   const vendorClaim = row.expected.claims.find((claim) => claim.claim_id.startsWith("vendor_advisory:"));
@@ -160,7 +162,12 @@ try {
   const [receipt] = await sql<{ cost: number | null; usage: Record<string, unknown> | null }[]>`
     SELECT cost, usage FROM receipts WHERE id = ${modelResult.receiptId}`;
   const tokens = Number(receipt?.usage?.total_tokens ?? receipt?.usage?.totalTokens ?? 0);
-  const projected = DecisionBatchSchema.parse(projectDecisionClaimsToAllowlist(modelResult.data, allowedClaimIds));
+  const projectedRaw = projectDecisionClaimsToAllowlist(modelResult.data, allowedClaimIds) as z.infer<typeof DecisionBatchSchema>;
+  for (const item of collected) {
+    const decision = projectedRaw.decisions.find((candidate) => candidate.case_id === item.row.case_id);
+    if (decision) preserveSourceAppropriateUnknowns(decision, item.row, item.evidence.map((evidence) => evidence.source_type));
+  }
+  const projected = DecisionBatchSchema.parse(projectedRaw);
   const decisions = new Map(projected.decisions.map((decision) => [decision.case_id, decision]));
   if (decisions.size !== cases.length) throw new Error("model pilot returned duplicate or missing case ids");
   const results: ResearchEvalResult[] = [];

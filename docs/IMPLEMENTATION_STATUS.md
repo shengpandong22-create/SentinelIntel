@@ -404,6 +404,24 @@ The third holdout is consumed and immutable. Phase 4 remains incomplete. No four
 constructed until development evidence demonstrates both durable NVD retrieval and source-appropriate
 unknown preservation.
 
+### Phase 4 evaluation checkpoint 14 — durable-source development remediation
+
+Completed on 2026-10-10 without constructing a fourth holdout:
+
+- migration `0041` adds a story-independent cache for successful structured NVD Evidence;
+- live success atomically refreshes the cache, while a transient live failure may reuse only a prior
+  successful authoritative record and marks provenance with `cache_hit`, cache time, and live error;
+- misses and failures are never cached as negative facts, and each reuse receives a new Evidence id;
+- the real TypeScript tool gateway and evaluation runner both use the same persistent NVD path;
+- source-appropriate unknown preservation keeps vendor, PoC, insufficient-evidence, and unresolved
+  revision questions open unless the required Evidence class exists;
+- an empty-database migration and a forced live-failure cache test passed;
+- the six-stratum paid development replay again passed every safety gate with claim recall `1.0`,
+  authoritative-evidence recall `0.8889`, precision `1.0`, unknown/conflict preservation `1.0`, and
+  tool error rate `0.0769`; six successful NVD records were persisted.
+
+This is development evidence only. Phase 4 remains incomplete and no fourth holdout exists.
+
 ## Phase 3 — completed history
 
 Phase: **Phase 3 — Python Agent Foundation**

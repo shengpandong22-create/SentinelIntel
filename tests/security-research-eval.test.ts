@@ -7,6 +7,7 @@ import {
   expectedClaimIds,
   normalizePilotDecisionOutput,
   projectDecisionClaimsToAllowlist,
+  preserveSourceAppropriateUnknowns,
   RESEARCH_STRATA,
   ResearchEvalCaseSchema,
   ResearchEvalResultSchema,
@@ -308,6 +309,21 @@ test("scoring rejects duplicate emitted claim ids instead of reporting recall ab
   const duplicate = result(row, "B1");
   duplicate.proposal.claims.push({ ...duplicate.proposal.claims[0]! });
   assert.throws(() => evaluateResearchVariant([row], [duplicate], "B1"), /duplicate emitted claim id/);
+});
+
+test("vendor questions remain unknown without vendor advisory Evidence", () => {
+  const row = { ...evalCase(0), stratum: "vendor-remediation" as const };
+  const decision: { claims: Array<{ claim_id: string }>; unknowns: Array<{ question: string; attempted_sources: string[]; reason: string }>; conflicts: unknown[]; terminal_status: "completed" | "insufficient_evidence" } = { claims: [{ claim_id: "nvd_lookup:CVE-2021-44228" }], unknowns: [], conflicts: [], terminal_status: "completed" };
+  preserveSourceAppropriateUnknowns(decision, row, ["nvd"]);
+  assert.equal(decision.unknowns[0]?.question, "What is confirmed?");
+  assert.equal(decision.terminal_status, "insufficient_evidence");
+});
+
+test("vendor questions may resolve only with vendor advisory Evidence", () => {
+  const row = { ...evalCase(0), stratum: "vendor-remediation" as const };
+  const decision: { claims: Array<{ claim_id: string }>; unknowns: Array<{ question: string; attempted_sources: string[]; reason: string }>; conflicts: unknown[]; terminal_status: "completed" | "insufficient_evidence" } = { claims: [], unknowns: [], conflicts: [], terminal_status: "completed" };
+  preserveSourceAppropriateUnknowns(decision, row, ["vendor_advisory"]);
+  assert.deepEqual(decision.unknowns, []);
 });
 
 test("public-source throttling waits only until the next allowed request", () => {

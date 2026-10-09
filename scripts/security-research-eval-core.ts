@@ -125,6 +125,36 @@ export function projectDecisionClaimsToAllowlist<T>(value: T, allowedByCase: Rec
   return value;
 }
 
+export function preserveSourceAppropriateUnknowns<T extends {
+  unknowns: Array<{ question: string; attempted_sources: string[]; reason: string }>;
+  claims: Array<{ claim_id: string }>;
+  conflicts: unknown[];
+  terminal_status: "completed" | "insufficient_evidence";
+}>(decision: T, row: ResearchEvalCase, evidenceSourceTypes: string[]): T {
+  const sourceTypes = new Set(evidenceSourceTypes);
+  const claimIds = new Set(decision.claims.map((claim) => claim.claim_id));
+  const sourceAppropriateResolution = row.stratum === "cve-details"
+    ? [...claimIds].some((id) => id.startsWith("nvd_lookup:"))
+    : row.stratum === "kev-exploitation-status"
+      ? [...claimIds].some((id) => id.startsWith("kev_lookup:"))
+      : row.stratum === "vendor-remediation"
+        ? sourceTypes.has("vendor_advisory")
+        : row.stratum === "official-source-conflict-or-revision"
+          ? decision.conflicts.length > 0
+          : false;
+  if (sourceAppropriateResolution) return decision;
+  const present = new Set(decision.unknowns.map((unknown) => unknown.question));
+  for (const question of row.input.snapshot.missing_questions) {
+    if (!present.has(question)) decision.unknowns.push({
+      question,
+      attempted_sources: [...sourceTypes],
+      reason: "No source-appropriate Evidence resolves the original research question.",
+    });
+  }
+  if (decision.unknowns.length) decision.terminal_status = "insufficient_evidence";
+  return decision;
+}
+
 export function sourceThrottleDelay(nowMs: number, nextAllowedAtMs: number): number {
   return Math.max(0, nextAllowedAtMs - nowMs);
 }

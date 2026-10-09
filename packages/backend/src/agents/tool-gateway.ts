@@ -14,6 +14,7 @@ import {
   type ResearchFetchDocument,
   type ResearchFetchJson,
 } from "./research-adapters.ts";
+import { lookupNvdPersistent } from "./research-source-cache.ts";
 
 export const ResearchToolRequestSchema = z.object({
   trace_id: z.uuid(),
@@ -93,7 +94,7 @@ export async function executeResearchTool(
     };
   } else if (parsed.tool === "nvd_lookup") {
     if (cveId === null) throw new Error("CVE id is missing");
-    result = await lookupNvd(cveId, deps.fetchJson);
+    result = deps.fetchJson ? await lookupNvd(cveId, deps.fetchJson) : await lookupNvdPersistent(cveId);
   } else if (parsed.tool === "kev_lookup") {
     if (cveId === null) throw new Error("CVE id is missing");
     result = await lookupKev(cveId, deps.fetchJson);
