@@ -441,6 +441,14 @@ Completed on 2026-10-10 before constructing or reviewing a fourth holdout. `thre
 the complete 24-case development result while retaining the existing safety and quality gates. The
 threshold contract is now immutable for the next final attempt.
 
+### Phase 4 evaluation checkpoint 17 — fourth independent candidate constructed
+
+Completed on 2026-10-10. Existing frozen relation corpora had no unused KEV cases after excluding
+development and the first three holdouts. The constructor therefore did not recycle a consumed CVE:
+three new source rows were collected from the official CISA KEV feed and paired with successful official
+NVD retrievals. The resulting 20-case candidate excludes 84 prior source rows and 92 prior CVEs and
+covers all six required strata. It remains an unfrozen candidate until three independent reviews agree.
+
 ## Phase 3 — completed history
 
 Phase: **Phase 3 — Python Agent Foundation**
