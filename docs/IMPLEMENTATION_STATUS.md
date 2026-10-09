@@ -422,6 +422,19 @@ Completed on 2026-10-10 without constructing a fourth holdout:
 
 This is development evidence only. Phase 4 remains incomplete and no fourth holdout exists.
 
+### Phase 4 evaluation checkpoint 15 — full development replay passed
+
+Completed on 2026-10-10. All 24 development cases ran in four receipt-backed shards against a fresh
+database. Every safety gate passed. B1 reached claim recall `0.9444`, authoritative-evidence recall
+`0.9444`, supported-claim precision `1.0`, unknown/conflict preservation `1.0`, and tool error rate
+`0.0385`; all satisfy the frozen v3 quality gates. Five strata scored `1.0` across all quality metrics.
+Vendor remediation scored `0.8333` claim/evidence recall because two official-advisory fetches failed,
+while precision and unknown preservation stayed `1.0`. The source cache persisted 23 NVD records.
+
+The canonical development report is `docs/evaluation/security-research-development-full.md`. This
+clears the development-evidence prerequisite only; Phase 4 remains incomplete and no fourth holdout has
+been constructed.
+
 ## Phase 3 — completed history
 
 Phase: **Phase 3 — Python Agent Foundation**
