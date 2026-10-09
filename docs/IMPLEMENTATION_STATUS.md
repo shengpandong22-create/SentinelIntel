@@ -383,6 +383,14 @@ with claim recall `1.0`, authoritative-evidence recall `0.8889`, precision `1.0`
 preservation `1.0`, and tool error rate `0.0769`. `thresholds-v3.json` was frozen from these results
 before the third holdout was constructed.
 
+### Phase 4 evaluation checkpoint 12 — third independent holdout frozen
+
+Completed on 2026-10-10. The 20-case candidate excludes 64 previously used source rows and 72 CVEs,
+covers all six strata, and was independently accepted by `deepseek-flash`, `deepseek-v4-pro`, and
+`glm-5.3-flash`. All reviewers accepted 20/20; two GLM decisions used medium rather than high
+confidence. The dataset is explicitly `MODEL_REVIEWED`, not human gold. Its holdout and v3 threshold
+hashes are recorded in `holdout-v3-manifest.json`. No final result had been observed when it was frozen.
+
 ## Phase 3 — completed history
 
 Phase: **Phase 3 — Python Agent Foundation**
