@@ -11,10 +11,12 @@ const { values } = parseArgs({ options: {
   development: { type: "string", default: "datasets/security-research/development.jsonl" },
   consumed: { type: "string", default: "datasets/security-research/holdout.jsonl" },
   out: { type: "string", default: ".data/security-research/holdout-v2-candidate.jsonl" },
+  prefix: { type: "string", default: "SRA-HOLD2" },
 } });
 const parseLines = (file: string): any[] => readFileSync(path.resolve(file), "utf8").split(/\r?\n/).filter(Boolean).map(JSON.parse);
-const sourceRows = parseLines(values.input!) as RelationRow[];
-const priorCases = [...parseLines(values.development!), ...parseLines(values.consumed!)] as ResearchEvalCase[];
+const sourceRows = values.input!.split(",").map((file) => file.trim()).filter(Boolean).flatMap(parseLines) as RelationRow[];
+const consumedCases = values.consumed!.split(",").map((file) => file.trim()).filter(Boolean).flatMap(parseLines);
+const priorCases = [...parseLines(values.development!), ...consumedCases] as ResearchEvalCase[];
 const sourceRowPattern = /source row ([^;]+);/;
 const usedRowIds = new Set(priorCases.map((row) => row.provenance.note.match(sourceRowPattern)?.[1]).filter(Boolean));
 const usedCves = new Set(priorCases.flatMap((row) => JSON.stringify(row).match(/CVE-\d{4}-\d{4,}/g) ?? []));
@@ -36,7 +38,7 @@ const take = (predicate: (row: RelationRow) => boolean, count: number, label: st
 const claim = (id: string, url: string) => ({ claim_id: id, critical: true, admissible_source_urls: [url] });
 function base(row: RelationRow, id: string, stratum: ResearchEvalCase["stratum"], objective: string, question: string) {
   const items = reports(row);
-  return { case_id: `SRA-HOLD2-${id}`, split: "holdout" as const, stratum, input: { objective, snapshot: {
+  return { case_id: `${values.prefix}-${id}`, split: "holdout" as const, stratum, input: { objective, snapshot: {
     schema_version: 1 as const, story_id: storyId++, story_version: 1,
     title: items.map((item) => item.title).join(" / ").slice(0, 2_000),
     digest: items.map((item) => item.summary).join("\n\n").slice(0, 20_000), status: "active" as const,
@@ -51,11 +53,11 @@ const provenance = (row: RelationRow, urls: string[], note: string) => ({
 const nvd = (cve: string) => `https://nvd.nist.gov/vuln/detail/${cve}`;
 const kevUrl = "https://www.cisa.gov/known-exploited-vulnerabilities-catalog";
 
-for (const [i, row] of take((row) => row.samplingStratum === "same-cve-cross-source-different-url" && cves(row).length === 1, 4, "KEV").entries()) {
+for (const [i, row] of take((row) => row.samplingStratum === "same-cve-cross-source-different-url" && cves(row).length === 1, 3, "KEV").entries()) {
   const cve = cves(row)[0]!, question = `Is ${cve} listed in CISA KEV?`;
   built.push(ResearchEvalCaseSchema.parse({ ...base(row, `KEV-${i + 1}`, "kev-exploitation-status", `Confirm the CISA KEV status of ${cve}.`, question), expected: { claims: [claim(`nvd_lookup:${cve}`, nvd(cve)), claim(`kev_lookup:${cve}`, kevUrl)], unknown_questions: [], conflict_required: false, forbidden_conclusions: [`${cve} is not exploited`] }, provenance: provenance(row, [nvd(cve), kevUrl], "The row contains independent NVD and CISA KEV records.") }));
 }
-for (const [i, row] of take((row) => row.samplingStratum === "same-cve-cross-source-different-url" && cves(row).length === 1, 4, "CVE").entries()) {
+for (const [i, row] of take((row) => ["same-cve-cross-source-different-url", "same-cve-multi-vendor-product", "roundup-containing-one-event"].includes(row.samplingStratum) && cves(row).length === 1, 5, "CVE").entries()) {
   const cve = cves(row)[0]!, question = `What authoritative vulnerability details are available for ${cve}?`;
   built.push(ResearchEvalCaseSchema.parse({ ...base(row, `CVE-${i + 1}`, "cve-details", `Confirm the authoritative vulnerability record for ${cve}.`, question), expected: { claims: [claim(`nvd_lookup:${cve}`, nvd(cve))], unknown_questions: [], conflict_required: false, forbidden_conclusions: [`${cve} does not exist`] }, provenance: provenance(row, [nvd(cve)], "The independent row identifies an NVD vulnerability record.") }));
 }
@@ -67,9 +69,9 @@ for (const [i, row] of take((row) => ["advisory-revision-vs-republication", "adv
   const question = "Do the official records establish a material revision or conflict?";
   built.push(ResearchEvalCaseSchema.parse({ ...base(row, `REVISION-${i + 1}`, "official-source-conflict-or-revision", "Compare official records without inventing agreement or conflict.", question), expected: { claims: [], unknown_questions: [question], conflict_required: false, forbidden_conclusions: ["the official sources conflict", "the sources have always been identical"] }, provenance: provenance(row, urlsIn(row), "Real source documents are preserved; conflict remains unknown without two fetched authoritative revisions.") }));
 }
-for (const [i, row] of take((row) => row.samplingStratum === "poc-vs-disclosure" && cves(row).length >= 1, 3, "PoC").entries()) {
+for (const [i, row] of take((row) => ["poc-vs-disclosure", "same-cve-multi-vendor-product"].includes(row.samplingStratum) && cves(row).length >= 1, 3, "PoC").entries()) {
   const cve = cves(row)[0]!, question = `Is a working public PoC for ${cve} confirmed by admissible primary evidence?`;
-  built.push(ResearchEvalCaseSchema.parse({ ...base(row, `POC-${i + 1}`, "poc-source-quality", `Assess source quality for the reported PoC for ${cve}.`, question), expected: { claims: [claim(`nvd_lookup:${cve}`, nvd(cve))], unknown_questions: [question], conflict_required: false, forbidden_conclusions: ["a search result proves a working exploit"] }, provenance: provenance(row, [...urlsIn(row), nvd(cve)], "Disclosure and PoC references remain discovery material unless fetched through an admissible adapter.") }));
+  built.push(ResearchEvalCaseSchema.parse({ ...base(row, `POC-${i + 1}`, "poc-source-quality", `Assess whether admissible primary evidence confirms a public PoC for ${cve}.`, question), expected: { claims: [claim(`nvd_lookup:${cve}`, nvd(cve))], unknown_questions: [question], conflict_required: false, forbidden_conclusions: ["a search result proves a working exploit"] }, provenance: provenance(row, [...urlsIn(row), nvd(cve)], "Available disclosure references do not by themselves prove a working public exploit; the conservative expected result preserves the PoC question as unknown.") }));
 }
 for (const [i, row] of take((row) => ["same-vendor-different-cve", "same-product-family-different-cve", "same-model-different-vulnerability"].includes(row.samplingStratum) && cves(row).length >= 2, 3, "unknown").entries()) {
   const [first, second] = cves(row), question = `Does remediation for ${first} also remediate ${second}?`;

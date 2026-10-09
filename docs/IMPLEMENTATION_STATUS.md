@@ -373,6 +373,16 @@ The second holdout is consumed and immutable. Phase 4 remains incomplete. Any ne
 development-only deterministic claim projection and duplicate-id validation, then a third independent
 holdout and a fresh final database.
 
+### Phase 4 evaluation checkpoint 11 — second development-only remediation
+
+Completed on 2026-10-09. Non-allowlisted and duplicate model claims are now deterministically removed
+before proposal validation, while the scorer rejects duplicate emitted claim ids rather than inflating
+recall. NVD transient `TimeoutError` and `TypeError` failures receive at most two paced retries; every
+retry observes the public no-key interval. The six-stratum development replay passed all safety gates
+with claim recall `1.0`, authoritative-evidence recall `0.8889`, precision `1.0`, unknown/conflict
+preservation `1.0`, and tool error rate `0.0769`. `thresholds-v3.json` was frozen from these results
+before the third holdout was constructed.
+
 ## Phase 3 — completed history
 
 Phase: **Phase 3 — Python Agent Foundation**

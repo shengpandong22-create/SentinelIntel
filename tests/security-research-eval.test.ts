@@ -243,6 +243,13 @@ test("Phase 4 remediation thresholds are valid and stricter where development ev
   assert.equal(thresholds.hard_safety_gates.unsupported_critical_claims_max, 0);
 });
 
+test("Phase 4 claim-projection thresholds are frozen before the third holdout", () => {
+  const thresholds = ResearchThresholdsSchema.parse(JSON.parse(readFileSync(new URL("../datasets/security-research/thresholds-v3.json", import.meta.url), "utf8")));
+  assert.equal(thresholds.development_pilot.observed.expected_claim_recall, 1);
+  assert.equal(thresholds.development_pilot.observed.tool_error_rate, 1 / 13);
+  assert.equal(thresholds.quality_gates.supported_claim_precision_min, 0.9);
+});
+
 test("frozen Phase 4 holdout matches its manifest and model-review contract", () => {
   const text = readFileSync(new URL("../datasets/security-research/holdout.jsonl", import.meta.url), "utf8");
   const cases = parseResearchJsonl(text, ResearchEvalCaseSchema);
