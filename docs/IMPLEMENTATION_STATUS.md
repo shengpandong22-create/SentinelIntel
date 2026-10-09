@@ -360,6 +360,19 @@ Phase 4 remains incomplete until this candidate receives three independent model
 `MODEL_REVIEWED`, and passes a fresh receipt-backed B0/B1 final run. The first holdout and its failure
 report remain immutable evidence.
 
+### Phase 4 evaluation checkpoint 10 — second frozen holdout failed
+
+Completed on 2026-10-09 with a non-passing result. Three independent models unanimously accepted the
+new 20-case holdout at high confidence, and it was frozen before execution. Three shards produced 15
+valid result pairs; another shard was rejected because the model emitted NVD claims outside three
+revision cases' empty allowlists. No rejected output was repaired or retried. A subset diagnostic also
+exposed a scorer defect that can count duplicate expected claim ids more than once and report recall
+above `1.0`. See `docs/evaluation/security-research-baseline-v2.md`.
+
+The second holdout is consumed and immutable. Phase 4 remains incomplete. Any next attempt requires
+development-only deterministic claim projection and duplicate-id validation, then a third independent
+holdout and a fresh final database.
+
 ## Phase 3 — completed history
 
 Phase: **Phase 3 — Python Agent Foundation**
