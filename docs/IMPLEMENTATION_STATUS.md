@@ -391,6 +391,19 @@ covers all six strata, and was independently accepted by `deepseek-flash`, `deep
 confidence. The dataset is explicitly `MODEL_REVIEWED`, not human gold. Its holdout and v3 threshold
 hashes are recorded in `holdout-v3-manifest.json`. No final result had been observed when it was frozen.
 
+### Phase 4 evaluation checkpoint 13 — third final gate failed on quality
+
+Completed on 2026-10-10. All four final shards completed once with 20/20 coverage and four completed
+receipts. Every hard safety metric is zero; supported-claim precision and conflict preservation are
+`1.0`, and tool error rate is `0.15`. The run still failed pre-registered quality gates: expected-claim
+recall `0.70` versus `0.80`, authoritative-evidence recall `0.70` versus `0.75`, and expected-unknown
+preservation `0.8333` versus `1.0`. Six cases lost NVD Evidence and two vendor-remediation cases omitted
+the frozen unknown. See `docs/evaluation/security-research-baseline-v3.md`.
+
+The third holdout is consumed and immutable. Phase 4 remains incomplete. No fourth holdout should be
+constructed until development evidence demonstrates both durable NVD retrieval and source-appropriate
+unknown preservation.
+
 ## Phase 3 — completed history
 
 Phase: **Phase 3 — Python Agent Foundation**
