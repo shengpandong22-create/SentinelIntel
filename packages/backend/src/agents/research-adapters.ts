@@ -135,7 +135,19 @@ function nvdTimestamp(value: string | undefined): string | null {
 export async function lookupNvd(cveInput: string, fetchJson: ResearchFetchJson = defaultFetchJson): Promise<AdapterResult> {
   const cveId = CveIdSchema.parse(cveInput);
   const apiUrl = `https://services.nvd.nist.gov/rest/json/cves/2.0?cveId=${encodeURIComponent(cveId)}`;
-  const parsed = NvdResponseSchema.parse(await fetchJson(apiUrl, 2 * 1024 * 1024));
+  let raw: unknown;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      raw = await fetchJson(apiUrl, 2 * 1024 * 1024);
+      break;
+    } catch (error) {
+      const retryable = error instanceof Error && ["TimeoutError", "TypeError"].includes(error.name);
+      if (fetchJson !== defaultFetchJson || !retryable || attempt >= 3) throw error;
+      // NVD's no-key public limit is five requests per 30 seconds. A retry is a real request too.
+      await new Promise((resolve) => setTimeout(resolve, 6_100));
+    }
+  }
+  const parsed = NvdResponseSchema.parse(raw);
   const record = parsed.vulnerabilities.find((item) => item.cve.id.toUpperCase() === cveId)?.cve;
   if (!record) return { output: { found: false, cve_id: cveId }, evidence: [], receiptIds: [] };
   const description = record.descriptions.find((item) => item.lang === "en")?.value

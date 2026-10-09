@@ -6,6 +6,7 @@ import {
   evaluateResearchVariant,
   expectedClaimIds,
   normalizePilotDecisionOutput,
+  projectDecisionClaimsToAllowlist,
   RESEARCH_STRATA,
   ResearchEvalCaseSchema,
   ResearchEvalResultSchema,
@@ -271,6 +272,22 @@ test("remediation holdout is independently frozen against the v2 threshold contr
 test("model claim allowlists come only from the frozen expected contract", () => {
   const row = evalCase(0);
   assert.deepEqual(expectedClaimIds(row), ["nvd_lookup:CVE-2021-44228"]);
+});
+
+test("model decisions are projected to unique allowlisted claims before proposal validation", () => {
+  const value = { decisions: [{ case_id: "case-1", claims: [
+    { claim_id: "allowed" }, { claim_id: "outside" }, { claim_id: "allowed" },
+  ] }] };
+  assert.deepEqual(projectDecisionClaimsToAllowlist(value, { "case-1": ["allowed"] }), {
+    decisions: [{ case_id: "case-1", claims: [{ claim_id: "allowed" }] }],
+  });
+});
+
+test("scoring rejects duplicate emitted claim ids instead of reporting recall above one", () => {
+  const row = evalCase(0);
+  const duplicate = result(row, "B1");
+  duplicate.proposal.claims.push({ ...duplicate.proposal.claims[0]! });
+  assert.throws(() => evaluateResearchVariant([row], [duplicate], "B1"), /duplicate emitted claim id/);
 });
 
 test("public-source throttling waits only until the next allowed request", () => {

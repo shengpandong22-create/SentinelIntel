@@ -104,6 +104,27 @@ export function expectedClaimIds(row: ResearchEvalCase): string[] {
   return row.expected.claims.map((claim) => claim.claim_id);
 }
 
+export function projectDecisionClaimsToAllowlist<T>(value: T, allowedByCase: Record<string, string[]>): T {
+  if (!value || typeof value !== "object") return value;
+  const root = value as Record<string, unknown>;
+  if (!Array.isArray(root.decisions)) return value;
+  for (const decision of root.decisions) {
+    if (!decision || typeof decision !== "object") continue;
+    const row = decision as Record<string, unknown>;
+    const allowed = new Set(allowedByCase[String(row.case_id ?? "")] ?? []);
+    if (!Array.isArray(row.claims)) continue;
+    const seen = new Set<string>();
+    row.claims = row.claims.filter((claim) => {
+      if (!claim || typeof claim !== "object") return false;
+      const id = String((claim as Record<string, unknown>).claim_id ?? "");
+      if (!allowed.has(id) || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+  }
+  return value;
+}
+
 export function sourceThrottleDelay(nowMs: number, nextAllowedAtMs: number): number {
   return Math.max(0, nextAllowedAtMs - nowMs);
 }
@@ -202,7 +223,10 @@ export function evaluateResearchVariant(cases: ResearchEvalCase[], results: Rese
     const evidenceById = new Map(result.proposal.evidence.map((item) => [item.evidence_id, item]));
     expectedClaims += row.expected.claims.length;
     expectedEvidence += row.expected.claims.filter((item) => item.critical).length;
+    const emittedClaimIds = new Set<string>();
     for (const claim of result.proposal.claims) {
+      if (emittedClaimIds.has(claim.claim_id)) throw new Error(`${variant}/${result.case_id}: duplicate emitted claim id ${claim.claim_id}`);
+      emittedClaimIds.add(claim.claim_id);
       emittedClaims += 1;
       const expected = expectedById.get(claim.claim_id);
       if (expected) {

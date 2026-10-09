@@ -17,6 +17,7 @@ import {
   ResearchEvalResultSchema,
   expectedClaimIds,
   normalizePilotDecisionOutput,
+  projectDecisionClaimsToAllowlist,
   validateResearchCases,
   type ResearchEvalCase,
   type ResearchEvalResult,
@@ -159,7 +160,8 @@ try {
   const [receipt] = await sql<{ cost: number | null; usage: Record<string, unknown> | null }[]>`
     SELECT cost, usage FROM receipts WHERE id = ${modelResult.receiptId}`;
   const tokens = Number(receipt?.usage?.total_tokens ?? receipt?.usage?.totalTokens ?? 0);
-  const decisions = new Map(modelResult.data.decisions.map((decision) => [decision.case_id, decision]));
+  const projected = DecisionBatchSchema.parse(projectDecisionClaimsToAllowlist(modelResult.data, allowedClaimIds));
+  const decisions = new Map(projected.decisions.map((decision) => [decision.case_id, decision]));
   if (decisions.size !== cases.length) throw new Error("model pilot returned duplicate or missing case ids");
   const results: ResearchEvalResult[] = [];
   for (const item of collected) {
@@ -172,7 +174,7 @@ try {
     const decision = decisions.get(row.case_id);
     if (!decision) throw new Error(`model pilot omitted ${row.case_id}`);
     const allowed = new Set(allowedClaimIds[row.case_id]);
-    if (decision.claims.some((claim) => !allowed.has(claim.claim_id))) throw new Error(`${row.case_id}: model emitted a non-allowlisted claim id`);
+    if (decision.claims.some((claim) => !allowed.has(claim.claim_id))) throw new Error(`${row.case_id}: deterministic claim projection failed`);
     const { case_id: _caseId, ...decisionProposal } = decision;
     const proposal = ResearchProposalSchema.parse({ ...decisionProposal, evidence: item.evidence, tool_trace: item.trace });
     results.push(ResearchEvalResultSchema.parse({
