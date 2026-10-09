@@ -126,6 +126,366 @@ Deliberately not modified: `tests/analyze-shutdown.test.ts` and `tests/translate
 
 ## Current Phase
 
+Phase: **Phase 4 — Security Research Agent**
+
+Branch: `phase/4-security-research-agent`
+
+Base: `main` = `7282efd` (Phase 3 merge)
+
+Status: **INCOMPLETE — FINAL_HOLDOUT_GATE_FAILED**
+
+Implementation contract: `docs/00-sentinelintel/05-Phase4-Security-Research-Plan.md`.
+
+Planning was explicitly authorized on 2026-10-08. The contract was written before implementation and
+limits Phase 4 to one bounded Security Research Agent. Python owns reasoning; the TypeScript backend
+retains database writes, credentials, outbound-network controls, receipts, budgets, validation, and
+persistence. The Agent returns an auditable proposal and cannot modify core Story/Fact state.
+
+A repository-grounded contract audit on 2026-10-08 added independent research execution/network
+switches, TypeScript-enforced per-run capabilities and limits, and fail-closed paid service budgets.
+The deterministic foundation, development benchmark, paid pilot, pre-registered thresholds, and
+three-model-reviewed holdout are complete. The authorized final B0/B1 evaluation failed its frozen safety
+gate and stopped after the third of four planned requests. Phase 4 is not accepted; see
+`docs/evaluation/security-research-baseline.md`.
+
+### Phase 4 implementation checkpoint 1 — deterministic foundation
+
+Implemented on 2026-10-08 without external or paid calls:
+
+- additive migration `0040_agent_research.sql` for immutable run snapshots, hashed/expiring run
+  capabilities, backend-owned usage counters, and append-oriented external evidence;
+- strict matching Python/TypeScript research schemas, including dangling evidence rejection and the
+  rule that a confirmed critical claim cannot rely only on secondary evidence;
+- `AGENT_RESEARCH_ENABLED` and `AGENT_RESEARCH_NETWORK_ENABLED`, both default false independently of
+  `MODEL_CALLS_ENABLED`;
+- authenticated internal research endpoint and deterministic LangGraph behavior that preserves every
+  unanswered question as an explicit unknown;
+- TypeScript research client, run lifecycle persistence, hashed capability checks, server-side tool and
+  byte/document limits, and fail-closed paid-service budget validation;
+- scratch-database tests proving evidence/run persistence without modifying Story state.
+
+Verification: Python 11/11, TypeScript Agent client 10/10, scratch PostgreSQL persistence 5/5,
+`npm run typecheck`, `docker compose config --quiet`, empty-database migration through `0040`, and
+`git diff --check` pass. The initial scratch migration attempt used the Compose default password against
+an older local Docker volume and failed at PostgreSQL authentication before any migration; verification
+then used a dedicated `sentinelintel_phase4_test` database and test-only role successfully.
+
+### Phase 4 implementation checkpoint 2 — deterministic callback loop
+
+Implemented and verified on 2026-10-08:
+
+- private `/api/internal/agent/tools/:tool` route with constant-time service-token authentication,
+  trace/run/capability correlation, sanitized errors, and no-store responses;
+- Python tool-gateway client carrying the run capability without persisting or returning it;
+- TypeScript-owned `stub` adapter returning explicit fixture evidence with `external_network: false`, no
+  paid receipt, and no claim that the underlying research question was answered;
+- LangGraph tool invocation and trace assembly while preserving the real question as unknown;
+- an isolated full loop: TypeScript run → Python graph → TypeScript tool callback → Python proposal →
+  TypeScript validation/persistence, with one bounded tool call and one Evidence row while Story remains
+  unchanged.
+
+Verification after checkpoint 2: Python 12/12, TypeScript Agent client 10/10, persistence 5/5, internal
+gateway 3/3, `npm run typecheck`, `docker compose config --quiet`, `git diff --check`, and the isolated
+Docker-network end-to-end check pass. The end-to-end result recorded `status=completed`, `toolCalls=1`,
+`evidence=1`, and `externalNetwork=false`. Temporary API/Agent check containers were removed.
+
+Next implementation gate: no-cost NVD and CISA KEV adapters through the same TypeScript gateway, with
+fixture-first tests and live development checks separately guarded by `AGENT_RESEARCH_NETWORK_ENABLED`.
+Vendor discovery, generic search, real models, paid calls, and benchmark construction remain later gates.
+
+### Phase 4 implementation checkpoint 3 — NVD and CISA KEV
+
+Implemented and verified on 2026-10-08:
+
+- NVD CVE API 2.0 adapter with strict CVE-id validation and normalized status, English description,
+  timestamps, metrics, CWEs, and bounded references;
+- CISA KEV JSON adapter with normalized vendor/product, date added, remediation deadline/action,
+  ransomware-use marker, notes, and CWEs;
+- guarded HTTP, size/time limits, zero paid receipts, authoritative provenance, and content hashes;
+- deterministic Python CVE detection that selects `nvd_lookup` then `kev_lookup` within the backend-owned
+  tool limit and emits only Evidence-supported critical claims;
+- explicit negative semantics: NVD/KEV misses remain misses/unknowns and are not converted into claims
+  that a vulnerability does not exist or has not been exploited.
+
+Verification after checkpoint 3: Python 13/13, adapter fixtures 5/5, TypeScript Agent client 10/10,
+persistence/gateway source flow 6/6, internal gateway 4/4, `npm run typecheck`, `git diff --check`, and
+the isolated no-network callback replay pass. A live no-cost development check with the network switch
+explicitly enabled returned CISA KEV `found=true`, one Evidence item, and zero receipts for
+`CVE-2021-44228`. The NVD endpoint connection timed out (`UND_ERR_CONNECT_TIMEOUT`) before any HTTP
+response in this Windows environment, both with and without the project's environment file; no success
+is claimed. Fixture parsing and bounded gateway execution for NVD pass.
+
+Next implementation gate: fixture-first vendor advisory registry/search and official advisory fetch.
+Generic search, real models, paid calls, benchmark construction, holdout freeze, and final evaluation
+remain later gates.
+
+### Phase 4 implementation checkpoint 4 — vendor advisories
+
+Implemented and verified on 2026-10-08:
+
+- a fixed Cisco, Fortinet, Hikvision, and Microsoft advisory registry with explicit official hosts and
+  advisory path patterns;
+- `vendor_advisory_search` as discovery-only output and `evidence_fetch` as the separate authoritative
+  document boundary;
+- deterministic Microsoft CVE URL location and NVD-reference candidate hints, with every hint
+  independently revalidated against the registry before use;
+- guarded official-document fetching with redirect destination validation, HTTPS/credential/port checks,
+  content-type and byte limits, sanitized text extraction, content hashes, CVE extraction, and zero
+  receipts;
+- deterministic Python vendor detection and the bounded NVD → KEV → vendor discovery → official fetch
+  callback path;
+- hostile-host, misleading-subdomain, credential, wrong-path, off-registry redirect, unsupported-content,
+  and prompt-injection fixtures.
+
+Verification after checkpoint 4: Python 14/14, adapter/client 21/21, scratch-database persistence flow
+7/7, internal gateway 4/4, and `npm run typecheck`. A no-cost live fetch of Fortinet advisory
+`FG-IR-25-254` returned authoritative vendor Evidence for `CVE-2025-32756` with zero receipts. The tested
+Fortinet listing page did not return a CVE-filtered candidate, so real Fortinet location uses a validated
+structured-source candidate such as an NVD reference. Microsoft CVE URLs are deterministically located,
+but the raw client-rendered page did not contain usable advisory text and was correctly rejected; no live
+Microsoft evidence success is claimed.
+
+Next implementation gate: construct the Phase 4 development benchmark and deterministic evaluation
+harness from evidence-backed cases. Generic search, real models, paid calls, holdout freeze, and final
+evaluation remain later gates.
+
+### Phase 4 evaluation checkpoint 5a — deterministic harness pilot
+
+Implemented and verified on 2026-10-08:
+
+- a strict JSONL case schema that freezes the existing versioned Story snapshot, objective, expected
+  claims/unknowns/conflicts, forbidden conclusions, source identities, collection time, and label method;
+- holdout provenance gates that reject source-only labels and require at least three distinct reviewers
+  for `MODEL_REVIEWED` cases;
+- a strict result schema for B0 snapshot-only and B1 bounded-tool proposals, including latency, tokens,
+  cost, tool calls, receipts, policy violations, and core mutations;
+- safety scoring for unsupported critical claims, missing Evidence, search snippets used as Evidence,
+  policy violations, Story/Fact mutations, forbidden conclusions, and incomplete tool traces;
+- quality scoring for expected-claim recall, authoritative-evidence recall, supported-claim precision,
+  expected-unknown preservation, conflict preservation, tool errors, terminal status, and operations;
+- a six-case `SOURCE_VERIFIED` development pilot covering all required strata once. It validates the
+  harness but is neither the final benchmark nor a frozen/model-run baseline;
+- cross-runtime rejection of conflicts that repeat one Evidence id instead of citing two distinct
+  documents.
+
+Verification after checkpoint 5a: Python 15/15, evaluation harness 5/5, combined adapter/client/harness
+26/26, `npm run typecheck`, pilot parse/validation 6 cases / 6 strata, and `git diff --check`.
+
+Next implementation gate: collect, verify, and adjudicate the remaining evidence-backed development
+cases until the canonical `development.jsonl` contains 20–50 valid cases, then execute a small explicitly
+budgeted real-model development pilot and pre-register thresholds. Holdout construction/freeze and final
+B0/B1 remain later gates.
+
+### Phase 4 evaluation checkpoint 5b — formal development benchmark
+
+Completed on 2026-10-08:
+
+- `datasets/security-research/development.jsonl` contains 24 `SOURCE_VERIFIED` development cases;
+- all six required strata contain exactly four cases;
+- every case freezes a complete versioned Story snapshot, expected claims/unknowns, forbidden conclusions,
+  source URLs, collection time, and construction note;
+- construction is deterministic from `datasets/event-relations/dev.jsonl` and explicitly reuses source
+  evidence only, not Phase 2 relation labels;
+- NVD/KEV and vendor claims retain exact admissible official identities, while PoC, source-comparison,
+  and cross-CVE remediation questions preserve unknowns where the allowlisted evidence is insufficient;
+- the formal validator now requires 20–50 cases and at least three cases in every development stratum.
+
+Verification: deterministic reconstruction produced 24 cases; canonical validation passed with 6 strata;
+the committed benchmark balance test passed; `npm run typecheck` passed.
+
+Next gate: execute a small, budget-capped real-model development pilot on a representative subset, then
+pre-register numeric quality thresholds before any holdout is constructed.
+
+### Phase 4 evaluation checkpoint 6 — paid pilot and threshold pre-registration
+
+Completed on 2026-10-08 against one representative from each of the six development strata. The direct
+`deepseek-flash` provider returned usable evidence-bound B1 proposals through receipts. Every B1 hard
+safety count was zero. Quality results were expected-claim recall `1.0`, authoritative-evidence recall
+`0.8889`, supported-claim precision `0.6923`, expected-unknown preservation `1.0`, conflict preservation
+`1.0`, and tool error rate `0.0769`.
+
+`datasets/security-research/thresholds.json` was written from this development evidence before holdout
+construction and must not be changed in response to holdout results.
+
+### Phase 4 evaluation checkpoint 7 — holdout review and freeze
+
+The deterministic constructor produced 20 candidates across all six strata from the independent Phase 2
+holdout source corpus. Two independent reviews completed: `deepseek-flash` accepted 20/20 at high
+confidence, and `deepseek-v4-pro` accepted 20/20 with 17 high and three medium-confidence
+revision/unknown labels. `glm-5.3-flash` later accepted 20/20 at high confidence in four shards.
+
+The direct endpoint explicitly rejects every model except `deepseek-flash` and `deepseek-v4-pro`.
+Earlier CodeBuddy/GLM attempts are retained as failure evidence: native structured stdin timed out and
+bounded argument modes without the owner shell's API-key environment did not return captured output.
+No failed or empty response was used as a label. The successful owner-shell shards used receipts
+`69`–`72`; the holdout was then frozen before final B0/B1 observed it.
+
+### Phase 4 evaluation checkpoint 8 — frozen holdout and failed final gate
+
+Completed on 2026-10-09 with a non-passing result:
+
+- the third reviewer, `glm-5.3-flash`, accepted all 20 cases at high confidence in four receipt-backed
+  shards;
+- the 20-case holdout was frozen with three reviewer identities, receipt ids, threshold hash, and
+  holdout hash before final B0/B1 execution;
+- a new scratch database enforced a four-call final budget;
+- two five-case requests completed, the third raw response was persisted but rejected by the strict
+  schema, and the fourth request was not sent;
+- the valid 10-case prefix already contained three unsupported critical claims; the rejected response
+  contained four negative absence claims with empty Evidence references;
+- expected-claim and authoritative-evidence recall on the valid prefix were both `0.4444`, while the
+  tool error rate was `0.4545` due to NVD failures.
+
+The exact-zero safety contract is not met. No retry, output repair, prompt change, or threshold change was
+performed after observing holdout output. This holdout is consumed and frozen. Phase 4 remains incomplete;
+future remediation requires development-only work followed by a new independently reviewed holdout.
+
+### Phase 4 evaluation checkpoint 9 — development-only remediation
+
+Completed on 2026-10-09 without reusing or modifying the consumed holdout:
+
+- model claim ids are now restricted to the case's frozen expected allowlist, so a lookup target alone
+  cannot authorize a positive or negative claim;
+- the prompt forbids every zero-Evidence claim and preserves negative lookup results as unknowns;
+- NVD requests are deterministically spaced by 6.1 seconds to stay below the public no-key limit;
+- exact frozen unknown questions may be restored only when a provider appends a case-specific suffix;
+- a six-stratum development-only paid replay passed every hard safety gate with expected-claim recall
+  `1.0`, authoritative-evidence recall `0.8889`, supported-claim precision `1.0`, expected-unknown and
+  conflict preservation `1.0`, and tool error rate `0.1538`;
+- `thresholds-v2.json` was pre-registered from that replay before constructing the second holdout;
+- the second 20-case candidate excludes all source rows and CVEs used by Phase 4 development or the
+  consumed holdout and covers all six strata.
+
+Phase 4 remains incomplete until this candidate receives three independent model reviews, is frozen as
+`MODEL_REVIEWED`, and passes a fresh receipt-backed B0/B1 final run. The first holdout and its failure
+report remain immutable evidence.
+
+### Phase 4 evaluation checkpoint 10 — second frozen holdout failed
+
+Completed on 2026-10-09 with a non-passing result. Three independent models unanimously accepted the
+new 20-case holdout at high confidence, and it was frozen before execution. Three shards produced 15
+valid result pairs; another shard was rejected because the model emitted NVD claims outside three
+revision cases' empty allowlists. No rejected output was repaired or retried. A subset diagnostic also
+exposed a scorer defect that can count duplicate expected claim ids more than once and report recall
+above `1.0`. See `docs/evaluation/security-research-baseline-v2.md`.
+
+The second holdout is consumed and immutable. Phase 4 remains incomplete. Any next attempt requires
+development-only deterministic claim projection and duplicate-id validation, then a third independent
+holdout and a fresh final database.
+
+### Phase 4 evaluation checkpoint 11 — second development-only remediation
+
+Completed on 2026-10-09. Non-allowlisted and duplicate model claims are now deterministically removed
+before proposal validation, while the scorer rejects duplicate emitted claim ids rather than inflating
+recall. NVD transient `TimeoutError` and `TypeError` failures receive at most two paced retries; every
+retry observes the public no-key interval. The six-stratum development replay passed all safety gates
+with claim recall `1.0`, authoritative-evidence recall `0.8889`, precision `1.0`, unknown/conflict
+preservation `1.0`, and tool error rate `0.0769`. `thresholds-v3.json` was frozen from these results
+before the third holdout was constructed.
+
+### Phase 4 evaluation checkpoint 12 — third independent holdout frozen
+
+Completed on 2026-10-10. The 20-case candidate excludes 64 previously used source rows and 72 CVEs,
+covers all six strata, and was independently accepted by `deepseek-flash`, `deepseek-v4-pro`, and
+`glm-5.3-flash`. All reviewers accepted 20/20; two GLM decisions used medium rather than high
+confidence. The dataset is explicitly `MODEL_REVIEWED`, not human gold. Its holdout and v3 threshold
+hashes are recorded in `holdout-v3-manifest.json`. No final result had been observed when it was frozen.
+
+### Phase 4 evaluation checkpoint 13 — third final gate failed on quality
+
+Completed on 2026-10-10. All four final shards completed once with 20/20 coverage and four completed
+receipts. Every hard safety metric is zero; supported-claim precision and conflict preservation are
+`1.0`, and tool error rate is `0.15`. The run still failed pre-registered quality gates: expected-claim
+recall `0.70` versus `0.80`, authoritative-evidence recall `0.70` versus `0.75`, and expected-unknown
+preservation `0.8333` versus `1.0`. Six cases lost NVD Evidence and two vendor-remediation cases omitted
+the frozen unknown. See `docs/evaluation/security-research-baseline-v3.md`.
+
+The third holdout is consumed and immutable. Phase 4 remains incomplete. No fourth holdout should be
+constructed until development evidence demonstrates both durable NVD retrieval and source-appropriate
+unknown preservation.
+
+### Phase 4 evaluation checkpoint 14 — durable-source development remediation
+
+Completed on 2026-10-10 without constructing a fourth holdout:
+
+- migration `0041` adds a story-independent cache for successful structured NVD Evidence;
+- live success atomically refreshes the cache, while a transient live failure may reuse only a prior
+  successful authoritative record and marks provenance with `cache_hit`, cache time, and live error;
+- misses and failures are never cached as negative facts, and each reuse receives a new Evidence id;
+- the real TypeScript tool gateway and evaluation runner both use the same persistent NVD path;
+- source-appropriate unknown preservation keeps vendor, PoC, insufficient-evidence, and unresolved
+  revision questions open unless the required Evidence class exists;
+- an empty-database migration and a forced live-failure cache test passed;
+- the six-stratum paid development replay again passed every safety gate with claim recall `1.0`,
+  authoritative-evidence recall `0.8889`, precision `1.0`, unknown/conflict preservation `1.0`, and
+  tool error rate `0.0769`; six successful NVD records were persisted.
+
+This is development evidence only. Phase 4 remains incomplete and no fourth holdout exists.
+
+### Phase 4 evaluation checkpoint 15 — full development replay passed
+
+Completed on 2026-10-10. All 24 development cases ran in four receipt-backed shards against a fresh
+database. Every safety gate passed. B1 reached claim recall `0.9444`, authoritative-evidence recall
+`0.9444`, supported-claim precision `1.0`, unknown/conflict preservation `1.0`, and tool error rate
+`0.0385`; all satisfy the frozen v3 quality gates. Five strata scored `1.0` across all quality metrics.
+Vendor remediation scored `0.8333` claim/evidence recall because two official-advisory fetches failed,
+while precision and unknown preservation stayed `1.0`. The source cache persisted 23 NVD records.
+
+The canonical development report is `docs/evaluation/security-research-development-full.md`. This
+clears the development-evidence prerequisite only; Phase 4 remains incomplete and no fourth holdout has
+been constructed.
+
+### Phase 4 evaluation checkpoint 16 — fourth-holdout thresholds pre-registered
+
+Completed on 2026-10-10 before constructing or reviewing a fourth holdout. `thresholds-v4.json` records
+the complete 24-case development result while retaining the existing safety and quality gates. The
+threshold contract is now immutable for the next final attempt.
+
+### Phase 4 evaluation checkpoint 17 — fourth independent candidate constructed
+
+Completed on 2026-10-10. Existing frozen relation corpora had no unused KEV cases after excluding
+development and the first three holdouts. The constructor therefore did not recycle a consumed CVE:
+three new source rows were collected from the official CISA KEV feed and paired with successful official
+NVD retrievals. The resulting 20-case candidate excludes 84 prior source rows and 92 prior CVEs and
+covers all six required strata. It remains an unfrozen candidate until three independent reviews agree.
+
+### Phase 4 evaluation checkpoint 18 — fourth independent holdout frozen
+
+Completed on 2026-10-10. `deepseek-flash`, `deepseek-v4-pro`, and `glm-5.3-flash` independently accepted
+all 20 cases. Seventeen GLM decisions were high confidence and three were medium; the two direct reviewers
+marked all cases high confidence. The dataset is frozen as `MODEL_REVIEWED`, not human gold, with its
+holdout and v4 threshold hashes recorded in `holdout-v4-manifest.json` before final execution.
+
+### Phase 4 evaluation checkpoint 19 — final gate passed
+
+Completed on 2026-10-10. A fresh database applied migrations through `0041`, prewarmed all 18 unique
+holdout CVEs under NVD's public limit, and executed four five-case final shards exactly once. All four
+receipts completed. Every safety metric is zero. B1 expected-claim recall, authoritative-evidence recall,
+supported-claim precision, expected-unknown preservation, and conflict preservation are all `1.0`; tool
+error rate is `0.0`. All frozen v4 thresholds pass. The canonical report is
+`docs/evaluation/security-research-baseline-v4.md`.
+
+Phase: **Phase 4 — Security Research Agent**
+
+Status: **COMPLETE**
+
+The accepted benchmark is explicitly `MODEL_REVIEWED`, not human gold. The first three failed holdouts
+and their reports remain immutable evaluation history.
+
+Final local validation on 2026-10-10:
+
+- Phase 4 adapter/cache/gateway/evaluation tests: 37 passed;
+- Python Agent runtime: 15 passed;
+- TypeScript typecheck: passed;
+- web production build and tests: 16 passed;
+- Docker Compose configuration: passed;
+- empty-database migrations through `0041`: passed;
+- the broad root suite was stopped after two unrelated Windows SIGTERM integration tests each exhausted
+  their 120-second harness timeout; all Phase 4 tests completed before those timeouts and no Phase 4
+  assertion failed. Canonical Linux CI remains the repository-wide merge gate.
+
+## Phase 3 — completed history
+
 Phase: **Phase 3 — Python Agent Foundation**
 
 Branch: `phase/3-python-agent-foundation`
@@ -147,8 +507,7 @@ Docker image build/health, isolated-container dependency check, the in-network T
 contract check, the production web build, and web tests 16/16 all pass. The GitHub workflow now repeats
 the Python, TypeScript, cross-runtime, Docker-health and in-network checks without credentials or external
 service calls. Canonical Linux GitHub Actions run `37755597908` passed both jobs: `check` in 1m33s and
-`docker` in 1m00s. All contract acceptance items are satisfied. Phase 3 is complete; Phase 4 has not
-started.
+`docker` in 1m00s. All contract acceptance items are satisfied. Phase 3 is complete.
 
 ## Phase 2 — completed history
 

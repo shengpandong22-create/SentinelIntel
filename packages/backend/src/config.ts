@@ -41,6 +41,9 @@ export const config = {
   agentRuntimeUrl: str("AGENT_RUNTIME_URL", "http://127.0.0.1:8000"),
   agentRuntimeTimeoutMs: int("AGENT_RUNTIME_TIMEOUT_MS", 5_000),
   agentRuntimeRetries: int("AGENT_RUNTIME_RETRIES", 1),
+  agentInternalToken: env.AGENT_INTERNAL_TOKEN || null,
+  agentResearchEnabled: bool("AGENT_RESEARCH_ENABLED", false),
+  agentResearchNetworkEnabled: bool("AGENT_RESEARCH_NETWORK_ENABLED", false),
   // Every generated absolute link uses this address, whatever Host a request arrives with.
   siteUrl: str("SITE_URL", SITE.defaultUrl).replace(/\/+$/, ""),
   selectedVisibleAfterSeconds: int("SELECTED_VISIBLE_AFTER_SECONDS", 180),

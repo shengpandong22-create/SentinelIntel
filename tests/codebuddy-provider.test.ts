@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { codeBuddyArgs, parseCodeBuddyEnvelope, parseCodeBuddyStream } from "@aihot/backend/providers/codebuddy";
+import { codeBuddyArgs, parseCodeBuddyEnvelope, parseCodeBuddyOutput, parseCodeBuddyStream } from "@aihot/backend/providers/codebuddy";
 
 test("parses CodeBuddy structured output and usage metadata", () => {
   const row = parseCodeBuddyEnvelope(JSON.stringify({
@@ -23,8 +23,22 @@ test("builds a one-turn tool-free non-persistent CodeBuddy command", () => {
   assert.ok(args.includes("--strict-mcp-config"));
   assert.ok(args.includes("--no-session-persistence"));
   assert.equal(args[args.indexOf("--max-turns") + 1], "1");
-  assert.equal(args.at(-1), "pairs");
+  assert.equal(args.includes("pairs"), false, "prompt is sent through stdin to avoid the Windows command-line limit");
   assert.equal(args[args.indexOf("--output-format") + 1], "stream-json");
+  assert.equal(args[args.indexOf("--input-format") + 1], "text");
+  assert.equal(args[args.indexOf("--json-schema") + 1], '{"type":"object"}');
+});
+
+test("can pass a bounded prompt as the final argument for CLI compatibility", () => {
+  const args = codeBuddyArgs({ model: "m", system: "s", prompt: "bounded", jsonSchema: { type: "object" }, promptInArgument: true });
+  assert.equal(args.at(-1), "bounded");
+});
+
+test("can use ordinary text output when the CLI native schema path is unavailable", () => {
+  const args = codeBuddyArgs({ model: "m", system: "s", prompt: "bounded", jsonSchema: { type: "object" }, promptInArgument: true, useJsonSchema: false });
+  assert.equal(args[args.indexOf("--output-format") + 1], "text");
+  assert.equal(args.includes("--json-schema"), false);
+  assert.equal(args.at(-1), "bounded");
 });
 
 test("parses the terminal result from CodeBuddy stream-json", () => {
@@ -40,4 +54,14 @@ test("extracts fenced JSON from a successful CodeBuddy stream result", () => {
   const envelope = parseCodeBuddyStream(JSON.stringify({ type: "result", subtype: "success", is_error: false,
     result: "Here is the result:\n```json\n{\"decisions\":[]}\n```" }));
   assert.deepEqual(envelope.structured_output, { decisions: [] });
+});
+
+test("extracts structured data from ordinary CodeBuddy JSON output", () => {
+  const envelope = parseCodeBuddyOutput(JSON.stringify({ subtype: "success", result: '```json\n{"ok":true}\n```' }));
+  assert.deepEqual(envelope.structured_output, { ok: true });
+});
+
+test("extracts a JSON object from ordinary CodeBuddy text output", () => {
+  const envelope = parseCodeBuddyOutput('{"ok":true}\n');
+  assert.deepEqual(envelope.structured_output, { ok: true });
 });

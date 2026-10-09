@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "frozen_at": "2026-10-09T17:06:37.078Z",
+  "cases": 20,
+  "strata": {
+    "kev-exploitation-status": 3,
+    "cve-details": 5,
+    "vendor-remediation": 3,
+    "official-source-conflict-or-revision": 3,
+    "poc-source-quality": 3,
+    "insufficient-evidence": 3
+  },
+  "label_method": "MODEL_REVIEWED",
+  "reviewers": [
+    "deepseek-flash",
+    "deepseek-v4-pro",
+    "glm-5.3-flash"
+  ],
+  "review_receipts": {
+    "deepseek-flash": [
+      1
+    ],
+    "deepseek-v4-pro": [
+      2
+    ],
+    "glm-5.3-flash": [
+      3,
+      4,
+      5,
+      6
+    ]
+  },
+  "holdout_sha256": "ffb0ebafbb3185ec88c661c53c2275c4889476d6ee56a1f4fa3ebbe9d66a8df2",
+  "thresholds_sha256": "875a943dbe53bcc42a96259f92fb8dc26425ad066cceae619174960864e6642c",
+  "limitation": "Model-reviewed benchmark; not human gold. All cases were unanimously accepted, but confidence was not uniformly high."
+}
