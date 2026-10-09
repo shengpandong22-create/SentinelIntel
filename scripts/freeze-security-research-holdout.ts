@@ -10,6 +10,7 @@ const { values } = parseArgs({ options: {
   reviews: { type: "string" },
   out: { type: "string", default: "datasets/security-research/holdout.jsonl" },
   manifest: { type: "string", default: "datasets/security-research/holdout-manifest.json" },
+  thresholds: { type: "string", default: "datasets/security-research/thresholds.json" },
 } });
 if (!values.reviews) throw new Error("--reviews is required");
 const cases = parseResearchJsonl(readFileSync(path.resolve(values.candidate!), "utf8"), ResearchEvalCaseSchema);
@@ -52,7 +53,7 @@ const body = `${frozen.map((row) => JSON.stringify(row)).join("\n")}\n`;
 const out = path.resolve(values.out!);
 mkdirSync(path.dirname(out), { recursive: true });
 writeFileSync(out, body);
-const thresholdsPath = path.resolve("datasets/security-research/thresholds.json");
+const thresholdsPath = path.resolve(values.thresholds!);
 const manifest = {
   schema_version: 1,
   frozen_at: new Date().toISOString(),

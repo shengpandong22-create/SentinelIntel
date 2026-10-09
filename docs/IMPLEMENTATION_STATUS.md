@@ -340,6 +340,26 @@ The exact-zero safety contract is not met. No retry, output repair, prompt chang
 performed after observing holdout output. This holdout is consumed and frozen. Phase 4 remains incomplete;
 future remediation requires development-only work followed by a new independently reviewed holdout.
 
+### Phase 4 evaluation checkpoint 9 — development-only remediation
+
+Completed on 2026-10-09 without reusing or modifying the consumed holdout:
+
+- model claim ids are now restricted to the case's frozen expected allowlist, so a lookup target alone
+  cannot authorize a positive or negative claim;
+- the prompt forbids every zero-Evidence claim and preserves negative lookup results as unknowns;
+- NVD requests are deterministically spaced by 6.1 seconds to stay below the public no-key limit;
+- exact frozen unknown questions may be restored only when a provider appends a case-specific suffix;
+- a six-stratum development-only paid replay passed every hard safety gate with expected-claim recall
+  `1.0`, authoritative-evidence recall `0.8889`, supported-claim precision `1.0`, expected-unknown and
+  conflict preservation `1.0`, and tool error rate `0.1538`;
+- `thresholds-v2.json` was pre-registered from that replay before constructing the second holdout;
+- the second 20-case candidate excludes all source rows and CVEs used by Phase 4 development or the
+  consumed holdout and covers all six strata.
+
+Phase 4 remains incomplete until this candidate receives three independent model reviews, is frozen as
+`MODEL_REVIEWED`, and passes a fresh receipt-backed B0/B1 final run. The first holdout and its failure
+report remain immutable evidence.
+
 ## Phase 3 — completed history
 
 Phase: **Phase 3 — Python Agent Foundation**

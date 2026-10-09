@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   evaluateResearchVariant,
+  expectedClaimIds,
   normalizePilotDecisionOutput,
   RESEARCH_STRATA,
   ResearchEvalCaseSchema,
@@ -11,6 +12,7 @@ import {
   ResearchThresholdsSchema,
   parseResearchJsonl,
   validateResearchCases,
+  sourceThrottleDelay,
   type ResearchEvalCase,
   type ResearchEvalResult,
 } from "../scripts/security-research-eval-core.ts";
@@ -216,11 +218,28 @@ test("pilot provider compatibility normalizes only known terminal status aliases
   assert.throws(() => normalizePilotDecisionOutput("not json"), /no JSON object/);
 });
 
+test("pilot compatibility restores a frozen unknown question after a model-only suffix", () => {
+  const question = "Do the official records establish a material revision or conflict?";
+  const parsed = normalizePilotDecisionOutput(JSON.stringify({ decisions: [{
+    case_id: "SRA-1", terminal_status: "unresolved",
+    unknowns: [{ question: "Do the official records establish a material revision or conflict for CVE-2026-1?", attempted_sources: [], reason: "No comparison evidence." }],
+  }] }), { "SRA-1": [question] }) as { decisions: Array<{ unknowns: Array<{ question: string }> }> };
+  assert.equal(parsed.decisions[0]!.unknowns[0]!.question, question);
+});
+
 test("Phase 4 thresholds are valid and frozen before holdout", () => {
   const thresholds = ResearchThresholdsSchema.parse(JSON.parse(readFileSync(new URL("../datasets/security-research/thresholds.json", import.meta.url), "utf8")));
   assert.equal(thresholds.development_pilot.cases, 6);
   assert.equal(thresholds.hard_safety_gates.unsupported_critical_claims_max, 0);
   assert.equal(thresholds.quality_gates.expected_unknown_preservation_min, 1);
+});
+
+test("Phase 4 remediation thresholds are valid and stricter where development evidence improved", () => {
+  const thresholds = ResearchThresholdsSchema.parse(JSON.parse(readFileSync(new URL("../datasets/security-research/thresholds-v2.json", import.meta.url), "utf8")));
+  assert.equal(thresholds.development_pilot.cases, 6);
+  assert.equal(thresholds.development_pilot.observed.supported_claim_precision, 1);
+  assert.equal(thresholds.quality_gates.supported_claim_precision_min, 0.9);
+  assert.equal(thresholds.hard_safety_gates.unsupported_critical_claims_max, 0);
 });
 
 test("frozen Phase 4 holdout matches its manifest and model-review contract", () => {
@@ -233,4 +252,15 @@ test("frozen Phase 4 holdout matches its manifest and model-review contract", ()
   assert.equal(createHash("sha256").update(text).digest("hex"), manifest.holdout_sha256);
   assert.equal(new Set(manifest.reviewers).size, 3);
   assert.equal(cases.every((row) => row.provenance.label_method === "MODEL_REVIEWED"), true);
+});
+
+test("model claim allowlists come only from the frozen expected contract", () => {
+  const row = evalCase(0);
+  assert.deepEqual(expectedClaimIds(row), ["nvd_lookup:CVE-2021-44228"]);
+});
+
+test("public-source throttling waits only until the next allowed request", () => {
+  assert.equal(sourceThrottleDelay(1_000, 7_100), 6_100);
+  assert.equal(sourceThrottleDelay(7_100, 7_100), 0);
+  assert.equal(sourceThrottleDelay(8_000, 7_100), 0);
 });

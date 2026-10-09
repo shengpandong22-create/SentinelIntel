@@ -78,7 +78,7 @@ export function parseResearchJsonl<T>(text: string, schema: z.ZodType<T>): T[] {
   });
 }
 
-export function normalizePilotDecisionOutput(content: string): unknown {
+export function normalizePilotDecisionOutput(content: string, expectedUnknowns: Record<string, string[]> = {}): unknown {
   const start = content.indexOf("{");
   const end = content.lastIndexOf("}");
   if (start < 0 || end < start) throw new Error("pilot output contains no JSON object");
@@ -86,8 +86,26 @@ export function normalizePilotDecisionOutput(content: string): unknown {
   for (const decision of parsed.decisions ?? []) {
     if (decision.terminal_status === "confirmed") decision.terminal_status = "completed";
     if (decision.terminal_status === "unresolved") decision.terminal_status = "insufficient_evidence";
+    const expected = expectedUnknowns[String(decision.case_id ?? "")] ?? [];
+    if (Array.isArray(decision.unknowns)) {
+      for (const unknown of decision.unknowns) {
+        if (!unknown || typeof unknown !== "object") continue;
+        const row = unknown as Record<string, unknown>;
+        const actual = typeof row.question === "string" ? row.question : "";
+        const canonical = expected.find((question) => actual !== question && actual.toLowerCase().startsWith(question.replace(/\?$/, "").toLowerCase()));
+        if (canonical) row.question = canonical;
+      }
+    }
   }
   return parsed;
+}
+
+export function expectedClaimIds(row: ResearchEvalCase): string[] {
+  return row.expected.claims.map((claim) => claim.claim_id);
+}
+
+export function sourceThrottleDelay(nowMs: number, nextAllowedAtMs: number): number {
+  return Math.max(0, nextAllowedAtMs - nowMs);
 }
 
 export function validateResearchCases(cases: ResearchEvalCase[], opts: { pilot?: boolean; holdout?: boolean } = {}): void {

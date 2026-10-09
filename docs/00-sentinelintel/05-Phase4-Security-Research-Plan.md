@@ -1,10 +1,16 @@
 # Phase 4 — Security Research Agent implementation contract
 
-Status: `FINAL_HOLDOUT_GATE_FAILED`
+Status: `REMEDIATED_AWAITING_INDEPENDENT_HOLDOUT_REVIEW`
 
 Approval: contract self-audited against the repository and approved on 2026-10-08. The owner later
 authorized the bounded real-model development pilot, the explicit `MODEL_REVIEWED` holdout route, and
 the final paid B0/B1 evaluation. Every call remains subject to receipts and a scratch-database budget.
+
+After the first frozen holdout failed, remediation was restricted to development data. Claim ids now
+come only from each case's expected allowlist, zero-Evidence negative conclusions remain unknown, and
+NVD calls are paced below the public no-key rate. A development replay passed the safety gates, new
+thresholds were pre-registered, and a second holdout candidate was built with source-row and CVE-level
+exclusion from both development and the consumed holdout. The original holdout remains immutable.
 
 Checkpoint 1 completed on 2026-10-08: migration `0040`, cross-runtime schemas, fail-closed switches,
 internal endpoint authentication, backend-owned run capabilities/limits, deterministic unknown-preserving
