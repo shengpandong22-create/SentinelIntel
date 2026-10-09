@@ -126,15 +126,27 @@ Deliberately not modified: `tests/analyze-shutdown.test.ts` and `tests/translate
 
 ## Current Phase
 
-Phase: **Phase 4 — Security Research Agent**
+Phase: **Phase 5 — Event Tracking Agent (planning)**
 
-Branch: `phase/4-security-research-agent`
+Branch: `phase/5-event-tracking-agent`
 
-Base: `main` = `7282efd` (Phase 3 merge)
+Base: `main` = `d4e1520` (Phase 4 merge)
 
-Status: **INCOMPLETE — FINAL_HOLDOUT_GATE_FAILED**
+Status: **READY_FOR_IMPLEMENTATION_REVIEW**
 
-Implementation contract: `docs/00-sentinelintel/05-Phase4-Security-Research-Plan.md`.
+Implementation contract: `docs/00-sentinelintel/06-Phase5-Event-Tracking-Plan.md`.
+
+Phase 4 was squash-merged into `main` at `d4e1520` after both canonical GitHub checks passed. Phase 5
+planning started from that clean merge. No Phase 5 code, migration, benchmark, external request, or paid
+model call has begun.
+
+The Phase 5 contract preserves the existing Story lifecycle and pg-boss scheduler, introduces only the
+active tracking state absent from AIHOT, and separates Python semantic reasoning from deterministic
+TypeScript scheduling, policy enforcement, validation, and persistence. Its acceptance gate requires the
+three migration-spec demonstrations, exact-zero safety failures, development-based threshold
+preregistration, an immutable independently reviewed holdout, and canonical Linux CI.
+
+### Historical Phase 4 record
 
 Planning was explicitly authorized on 2026-10-08. The contract was written before implementation and
 limits Phase 4 to one bounded Security Research Agent. Python owns reasoning; the TypeScript backend
@@ -143,10 +155,12 @@ persistence. The Agent returns an auditable proposal and cannot modify core Stor
 
 A repository-grounded contract audit on 2026-10-08 added independent research execution/network
 switches, TypeScript-enforced per-run capabilities and limits, and fail-closed paid service budgets.
-The deterministic foundation, development benchmark, paid pilot, pre-registered thresholds, and
-three-model-reviewed holdout are complete. The authorized final B0/B1 evaluation failed its frozen safety
-gate and stopped after the third of four planned requests. Phase 4 is not accepted; see
-`docs/evaluation/security-research-baseline.md`.
+The deterministic foundation, development benchmark, paid pilot, and pre-registered thresholds were
+completed. The first three immutable holdouts exposed safety or quality deficiencies and remain retained
+as failed evidence. Development-only remediation produced persistent NVD evidence, stricter unknown
+preservation, and a full development replay. The independently reviewed fourth holdout then passed every
+pre-registered safety and quality gate. Phase 4 is complete; its canonical final report is
+`docs/evaluation/security-research-baseline-v4.md`.
 
 ### Phase 4 implementation checkpoint 1 — deterministic foundation
 
@@ -1525,7 +1539,10 @@ one), and the concrete distractor count and seed per case.
 
 **The 180-case development benchmark and 60-case `MODEL_REVIEWED` holdout are frozen, and the authorized
 paid baseline has run. No production grouping behaviour, threshold or prompt changed.**
-Phase 3 has started under the owner-approved implementation contract described in `## Current Phase`.
+
+**Phase 3 was merged** into `main` at `7282efd`. **Phase 4 was merged** into `main` at `d4e1520` after both
+canonical GitHub checks passed. Phase 5 planning now lives on `phase/5-event-tracking-agent`; review and
+accept `docs/00-sentinelintel/06-Phase5-Event-Tracking-Plan.md` before implementation begins.
 
 Still open as **deferred work, not blockers**: the seeded source pack has no procurement source and no
 physical-security vendor feed, and the Phase 1 benchmark's 50 `web` rows are not URL-traceable.
