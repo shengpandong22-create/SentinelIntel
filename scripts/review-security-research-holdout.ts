@@ -62,7 +62,7 @@ try {
     attemptTag: "phase4-holdout-review-v8",
   };
   const result = values.provider === "codebuddy"
-    ? await codeBuddyStructured({ ...common, model: values.reviewer, prompt: user, promptInArgument: true, useJsonSchema: false, jsonSchema: z.toJSONSchema(BatchSchema) as Record<string, unknown>, timeoutMs: 180_000 })
+    ? await codeBuddyStructured({ ...common, model: values.reviewer, prompt: user, promptInArgument: true, useJsonSchema: true, jsonSchema: z.toJSONSchema(BatchSchema) as Record<string, unknown>, timeoutMs: 180_000 })
     : await chatJson({ ...common, model: "default", user, parse: parseReviewOutput, maxTokens: 10_000, timeoutMs: 180_000 });
   const ids = new Set(result.data.reviews.map((review) => review.case_id));
   if (ids.size !== cases.length || cases.some((row) => !ids.has(row.case_id))) throw new Error("review returned duplicate or missing case ids");
