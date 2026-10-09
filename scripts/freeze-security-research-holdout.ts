@@ -64,7 +64,9 @@ const manifest = {
   review_receipts: Object.fromEntries(reviewers.map((reviewer) => [reviewer, reviewFiles.filter((item) => item.data.reviewer === reviewer).map((item) => item.data.receipt_id)])),
   holdout_sha256: createHash("sha256").update(body).digest("hex"),
   thresholds_sha256: createHash("sha256").update(readFileSync(thresholdsPath)).digest("hex"),
-  limitation: "Model-reviewed benchmark; not human gold. All cases were unanimously accepted, but confidence was not uniformly high.",
+  limitation: reviewFiles.every((file) => file.data.reviews.every((review) => review.confidence === "high"))
+    ? "Model-reviewed benchmark; not human gold. All cases were unanimously accepted at high confidence."
+    : "Model-reviewed benchmark; not human gold. All cases were unanimously accepted, but confidence was not uniformly high.",
 };
 writeFileSync(path.resolve(values.manifest!), `${JSON.stringify(manifest, null, 2)}\n`);
 process.stdout.write(`${JSON.stringify({ ok: true, cases: frozen.length, reviewers, holdout_sha256: manifest.holdout_sha256, out })}\n`);

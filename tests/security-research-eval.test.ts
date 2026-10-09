@@ -254,6 +254,20 @@ test("frozen Phase 4 holdout matches its manifest and model-review contract", ()
   assert.equal(cases.every((row) => row.provenance.label_method === "MODEL_REVIEWED"), true);
 });
 
+test("remediation holdout is independently frozen against the v2 threshold contract", () => {
+  const text = readFileSync(new URL("../datasets/security-research/holdout-v2.jsonl", import.meta.url), "utf8");
+  const cases = parseResearchJsonl(text, ResearchEvalCaseSchema);
+  const manifest = JSON.parse(readFileSync(new URL("../datasets/security-research/holdout-v2-manifest.json", import.meta.url), "utf8")) as { cases: number; holdout_sha256: string; thresholds_sha256: string; reviewers: string[] };
+  const thresholds = readFileSync(new URL("../datasets/security-research/thresholds-v2.json", import.meta.url));
+  validateResearchCases(cases, { holdout: true });
+  assert.equal(cases.length, 20);
+  assert.equal(manifest.cases, cases.length);
+  assert.equal(createHash("sha256").update(text).digest("hex"), manifest.holdout_sha256);
+  assert.equal(createHash("sha256").update(thresholds).digest("hex"), manifest.thresholds_sha256);
+  assert.deepEqual(manifest.reviewers, ["deepseek-flash", "deepseek-v4-pro", "glm-5.3-flash"]);
+  assert.equal(cases.every((row) => row.provenance.label_method === "MODEL_REVIEWED"), true);
+});
+
 test("model claim allowlists come only from the frozen expected contract", () => {
   const row = evalCase(0);
   assert.deepEqual(expectedClaimIds(row), ["nvd_lookup:CVE-2021-44228"]);
