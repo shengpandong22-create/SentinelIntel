@@ -456,6 +456,34 @@ all 20 cases. Seventeen GLM decisions were high confidence and three were medium
 marked all cases high confidence. The dataset is frozen as `MODEL_REVIEWED`, not human gold, with its
 holdout and v4 threshold hashes recorded in `holdout-v4-manifest.json` before final execution.
 
+### Phase 4 evaluation checkpoint 19 — final gate passed
+
+Completed on 2026-10-10. A fresh database applied migrations through `0041`, prewarmed all 18 unique
+holdout CVEs under NVD's public limit, and executed four five-case final shards exactly once. All four
+receipts completed. Every safety metric is zero. B1 expected-claim recall, authoritative-evidence recall,
+supported-claim precision, expected-unknown preservation, and conflict preservation are all `1.0`; tool
+error rate is `0.0`. All frozen v4 thresholds pass. The canonical report is
+`docs/evaluation/security-research-baseline-v4.md`.
+
+Phase: **Phase 4 — Security Research Agent**
+
+Status: **COMPLETE**
+
+The accepted benchmark is explicitly `MODEL_REVIEWED`, not human gold. The first three failed holdouts
+and their reports remain immutable evaluation history.
+
+Final local validation on 2026-10-10:
+
+- Phase 4 adapter/cache/gateway/evaluation tests: 37 passed;
+- Python Agent runtime: 15 passed;
+- TypeScript typecheck: passed;
+- web production build and tests: 16 passed;
+- Docker Compose configuration: passed;
+- empty-database migrations through `0041`: passed;
+- the broad root suite was stopped after two unrelated Windows SIGTERM integration tests each exhausted
+  their 120-second harness timeout; all Phase 4 tests completed before those timeouts and no Phase 4
+  assertion failed. Canonical Linux CI remains the repository-wide merge gate.
+
 ## Phase 3 — completed history
 
 Phase: **Phase 3 — Python Agent Foundation**

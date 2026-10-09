@@ -1,6 +1,6 @@
 # Phase 4 — Security Research Agent implementation contract
 
-Status: `DEVELOPMENT_REMEDIATION_VALIDATED_NO_FOURTH_HOLDOUT`
+Status: `COMPLETE`
 
 Approval: contract self-audited against the repository and approved on 2026-10-08. The owner later
 authorized the bounded real-model development pilot, the explicit `MODEL_REVIEWED` holdout route, and
