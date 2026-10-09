@@ -251,6 +251,14 @@ test("Phase 4 claim-projection thresholds are frozen before the third holdout", 
   assert.equal(thresholds.quality_gates.supported_claim_precision_min, 0.9);
 });
 
+test("Phase 4 durable-source thresholds use the complete development replay", () => {
+  const thresholds = ResearchThresholdsSchema.parse(JSON.parse(readFileSync(new URL("../datasets/security-research/thresholds-v4.json", import.meta.url), "utf8")));
+  assert.equal(thresholds.development_pilot.cases, 24);
+  assert.equal(thresholds.development_pilot.observed.expected_claim_recall, 17 / 18);
+  assert.equal(thresholds.development_pilot.observed.expected_unknown_preservation, 1);
+  assert.equal(thresholds.quality_gates.expected_claim_recall_min, 0.8);
+});
+
 test("frozen Phase 4 holdout matches its manifest and model-review contract", () => {
   const text = readFileSync(new URL("../datasets/security-research/holdout.jsonl", import.meta.url), "utf8");
   const cases = parseResearchJsonl(text, ResearchEvalCaseSchema);

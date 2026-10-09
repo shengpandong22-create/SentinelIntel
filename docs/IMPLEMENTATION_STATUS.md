@@ -435,6 +435,12 @@ The canonical development report is `docs/evaluation/security-research-developme
 clears the development-evidence prerequisite only; Phase 4 remains incomplete and no fourth holdout has
 been constructed.
 
+### Phase 4 evaluation checkpoint 16 — fourth-holdout thresholds pre-registered
+
+Completed on 2026-10-10 before constructing or reviewing a fourth holdout. `thresholds-v4.json` records
+the complete 24-case development result while retaining the existing safety and quality gates. The
+threshold contract is now immutable for the next final attempt.
+
 ## Phase 3 — completed history
 
 Phase: **Phase 3 — Python Agent Foundation**
