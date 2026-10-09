@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
@@ -221,4 +221,16 @@ test("Phase 4 thresholds are valid and frozen before holdout", () => {
   assert.equal(thresholds.development_pilot.cases, 6);
   assert.equal(thresholds.hard_safety_gates.unsupported_critical_claims_max, 0);
   assert.equal(thresholds.quality_gates.expected_unknown_preservation_min, 1);
+});
+
+test("frozen Phase 4 holdout matches its manifest and model-review contract", () => {
+  const text = readFileSync(new URL("../datasets/security-research/holdout.jsonl", import.meta.url), "utf8");
+  const cases = parseResearchJsonl(text, ResearchEvalCaseSchema);
+  const manifest = JSON.parse(readFileSync(new URL("../datasets/security-research/holdout-manifest.json", import.meta.url), "utf8")) as { cases: number; holdout_sha256: string; reviewers: string[] };
+  validateResearchCases(cases, { holdout: true });
+  assert.equal(cases.length, 20);
+  assert.equal(manifest.cases, cases.length);
+  assert.equal(createHash("sha256").update(text).digest("hex"), manifest.holdout_sha256);
+  assert.equal(new Set(manifest.reviewers).size, 3);
+  assert.equal(cases.every((row) => row.provenance.label_method === "MODEL_REVIEWED"), true);
 });

@@ -10,9 +10,9 @@ cases across each of the six required strata. It is deterministically constructe
 Phase 2 development source material by `scripts/construct-security-research-development.ts`; only the
 source documents are reused, never the Phase 2 relation labels.
 
-A later holdout must be stored
-separately, frozen before final evaluation, and labelled `HUMAN_ADJUDICATED` or explicitly
-`MODEL_REVIEWED`; source verification alone is insufficient for holdout labels.
+`holdout.jsonl` is the frozen 20-case `MODEL_REVIEWED` holdout. Its immutable hashes, reviewer identities,
+and receipt ids are recorded in `holdout-manifest.json`. It is not human gold and must not be modified or
+rerun for tuning after the final result recorded in `docs/evaluation/security-research-baseline.md`.
 
 `thresholds.json` is the pre-registered Phase 4 acceptance contract. It records the six-stratum
 development pilot observed on 2026-10-08 and fixes the final B1 safety and quality gates before any

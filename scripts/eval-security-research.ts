@@ -20,7 +20,7 @@ const allCases = parseResearchJsonl(readFileSync(path.resolve(values.cases!), "u
 const cases = values.pilot
   ? [...new Set(allCases.map((row) => row.stratum))].map((stratum) => allCases.find((row) => row.stratum === stratum)!)
   : allCases;
-validateResearchCases(cases, { pilot: values.pilot });
+validateResearchCases(cases, { pilot: values.pilot, holdout: cases.every((row) => row.split === "holdout") });
 if (values["validate-only"]) {
   process.stdout.write(`${JSON.stringify({ ok: true, cases: cases.length, strata: new Set(cases.map((row) => row.stratum)).size })}\n`);
   process.exit(0);

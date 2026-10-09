@@ -1,6 +1,6 @@
 # Phase 4 — Security Research Agent implementation contract
 
-Status: `IMPLEMENTATION_IN_PROGRESS`
+Status: `FINAL_HOLDOUT_GATE_FAILED`
 
 Approval: contract self-audited against the repository and approved on 2026-10-08. The owner later
 authorized the bounded real-model development pilot, the explicit `MODEL_REVIEWED` holdout route, and
@@ -55,13 +55,12 @@ expected-claim recall was `1.0`, authoritative-evidence recall `0.8889`, support
 `0.0769`. `datasets/security-research/thresholds.json` pre-registers the final gates from that evidence
 before holdout construction.
 
-Evaluation checkpoint 7 is in progress. A deterministic constructor produced 20 independent holdout
+Evaluation checkpoint 7 completed. A deterministic constructor produced 20 independent holdout
 candidates across all six strata from the frozen Phase 2 holdout source material. `deepseek-flash`
 accepted 20/20 at high confidence; `deepseek-v4-pro` accepted 20/20 (17 high, three medium revision
-unknowns). The required third independent model review is not complete: the configured direct endpoint
-advertises only those two model names, while CodeBuddy/GLM has not returned usable non-interactive output
-and no `CODEBUDDY_API_KEY` is visible to this workspace process. The candidate file remains under
-`.data`; no holdout has been frozen or observed by B0/B1.
+unknowns); `glm-5.3-flash` accepted 20/20 at high confidence. The holdout and threshold hashes were
+frozen before final execution. The final run then failed the exact-zero safety gate and stopped after a
+schema-rejected third request; `docs/evaluation/security-research-baseline.md` is the canonical report.
 
 ## 1. Objective
 

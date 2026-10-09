@@ -132,7 +132,7 @@ Branch: `phase/4-security-research-agent`
 
 Base: `main` = `7282efd` (Phase 3 merge)
 
-Status: **IMPLEMENTATION_IN_PROGRESS — THRESHOLDS_PREREGISTERED / HOLDOUT_REVIEW_BLOCKED**
+Status: **INCOMPLETE — FINAL_HOLDOUT_GATE_FAILED**
 
 Implementation contract: `docs/00-sentinelintel/05-Phase4-Security-Research-Plan.md`.
 
@@ -143,10 +143,10 @@ persistence. The Agent returns an auditable proposal and cannot modify core Stor
 
 A repository-grounded contract audit on 2026-10-08 added independent research execution/network
 switches, TypeScript-enforced per-run capabilities and limits, and fail-closed paid service budgets.
-The deterministic foundation and 24-case development benchmark are implemented. The owner authorized
-the bounded paid pilot, `MODEL_REVIEWED` holdout route, and final paid B0/B1 evaluation. The pilot is
-complete and thresholds are pre-registered. Holdout construction is complete but freeze is blocked on
-the third independent reviewer; final evaluation has not started.
+The deterministic foundation, development benchmark, paid pilot, pre-registered thresholds, and
+three-model-reviewed holdout are complete. The authorized final B0/B1 evaluation failed its frozen safety
+gate and stopped after the third of four planned requests. Phase 4 is not accepted; see
+`docs/evaluation/security-research-baseline.md`.
 
 ### Phase 4 implementation checkpoint 1 — deterministic foundation
 
@@ -307,18 +307,38 @@ safety count was zero. Quality results were expected-claim recall `1.0`, authori
 `datasets/security-research/thresholds.json` was written from this development evidence before holdout
 construction and must not be changed in response to holdout results.
 
-### Phase 4 evaluation checkpoint 7 — holdout review blocker
+### Phase 4 evaluation checkpoint 7 — holdout review and freeze
 
 The deterministic constructor produced 20 candidates across all six strata from the independent Phase 2
 holdout source corpus. Two independent reviews completed: `deepseek-flash` accepted 20/20 at high
 confidence, and `deepseek-v4-pro` accepted 20/20 with 17 high and three medium-confidence
-revision/unknown labels. The candidate is not frozen because the approved route requires a third model.
+revision/unknown labels. `glm-5.3-flash` later accepted 20/20 at high confidence in four shards.
 
 The direct endpoint explicitly rejects every model except `deepseek-flash` and `deepseek-v4-pro`.
-CodeBuddy/GLM attempts are retained as failure evidence: native structured stdin timed out, bounded
-argument modes did not return captured output, and this workspace process has no visible
-`CODEBUDDY_API_KEY`. No failed or empty response was used as a label. Candidate/review artifacts remain
-ignored under `.data`; final B0/B1 has not observed the holdout.
+Earlier CodeBuddy/GLM attempts are retained as failure evidence: native structured stdin timed out and
+bounded argument modes without the owner shell's API-key environment did not return captured output.
+No failed or empty response was used as a label. The successful owner-shell shards used receipts
+`69`–`72`; the holdout was then frozen before final B0/B1 observed it.
+
+### Phase 4 evaluation checkpoint 8 — frozen holdout and failed final gate
+
+Completed on 2026-10-09 with a non-passing result:
+
+- the third reviewer, `glm-5.3-flash`, accepted all 20 cases at high confidence in four receipt-backed
+  shards;
+- the 20-case holdout was frozen with three reviewer identities, receipt ids, threshold hash, and
+  holdout hash before final B0/B1 execution;
+- a new scratch database enforced a four-call final budget;
+- two five-case requests completed, the third raw response was persisted but rejected by the strict
+  schema, and the fourth request was not sent;
+- the valid 10-case prefix already contained three unsupported critical claims; the rejected response
+  contained four negative absence claims with empty Evidence references;
+- expected-claim and authoritative-evidence recall on the valid prefix were both `0.4444`, while the
+  tool error rate was `0.4545` due to NVD failures.
+
+The exact-zero safety contract is not met. No retry, output repair, prompt change, or threshold change was
+performed after observing holdout output. This holdout is consumed and frozen. Phase 4 remains incomplete;
+future remediation requires development-only work followed by a new independently reviewed holdout.
 
 ## Phase 3 — completed history
 

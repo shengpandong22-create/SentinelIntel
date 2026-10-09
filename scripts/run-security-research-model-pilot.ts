@@ -27,14 +27,15 @@ const { values } = parseArgs({ options: {
   model: { type: "string", default: "glm-5.3-flash" },
   n: { type: "string", default: "6" },
   skip: { type: "string", default: "0" },
+  all: { type: "boolean", default: false },
   "allow-paid": { type: "boolean", default: false },
 } });
 if (!values["allow-paid"]) throw new Error("real-model pilot requires the explicit --allow-paid flag");
 if (process.env.AGENT_RESEARCH_NETWORK_ENABLED !== "true") throw new Error("set AGENT_RESEARCH_NETWORK_ENABLED=true for B1 source adapters");
 
 const allCases = parseResearchJsonl(readFileSync(path.resolve(REPO_ROOT, values.cases!), "utf8"), ResearchEvalCaseSchema);
-validateResearchCases(allCases);
-const representatives = RESEARCH_STRATA.map((stratum) => allCases.find((row) => row.stratum === stratum)!);
+validateResearchCases(allCases, { holdout: allCases.every((row) => row.split === "holdout") });
+const representatives = values.all ? allCases : RESEARCH_STRATA.map((stratum) => allCases.find((row) => row.stratum === stratum)!);
 if (representatives.some((row) => !row)) throw new Error("pilot requires one case from every stratum");
 const skip = Number.parseInt(values.skip!, 10), count = Number.parseInt(values.n!, 10);
 if (!Number.isInteger(skip) || !Number.isInteger(count) || skip < 0 || count < 1 || skip + count > representatives.length) {
