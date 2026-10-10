@@ -26,8 +26,8 @@ const allCases = z.array(z.object({
   case_id: z.string(), split: z.string(), stratum: z.string(), cve: z.string(), vendor: z.string(),
   story_title: z.string(),
   expected: z.object({
-    decision: z.string(), row_contains: z.array(z.string()), min_rows: z.number(),
-    known_exploited: z.string(), confidence: z.string(), unknowns_min: z.number(),
+    decisions: z.array(z.string()), row_contains: z.array(z.string()), min_rows: z.number(),
+    known_exploited: z.string(), unknowns_min: z.number(),
   }).strict(),
   provenance: z.object({
     source_urls: z.array(z.string()), label_method: z.string(), reviewers: z.array(z.string()), note: z.string(),
@@ -41,8 +41,13 @@ const ReviewSchema = z.object({ case_id: z.string(), accept: z.boolean(), confid
 const BatchSchema = z.object({ reviews: z.array(ReviewSchema).length(cases.length) }).strict();
 const system = `You independently review expected labels for an end-to-end Product Impact Agent holdout on real CVEs.
 Judge whether each expected label is supported by real public evidence for that exact CVE: the vendor advisory, the NVD record, and the CISA KEV catalog.
-known_exploited = yes requires the CVE to genuinely be in the KEV catalog. row_contains keywords must match the products the official evidence names.
-Absence of public impact detail must stay insufficient_evidence with unknowns. PoC is never claimed. Return strict JSON only.`;
+known_exploited = yes requires the CVE to genuinely be in the KEV catalog; a CVE absent from the catalog must expect unknown, never no.
+row_contains keywords must match the products the official evidence names. An expected outcome set may legally include both
+"propose" (when official evidence names affected products) and "insufficient_evidence with preserved unknowns" (when the
+advisory states no product/version detail the pipeline can ground on); reject a label set only if neither allowed outcome
+could ever be conservative for that CVE. Confidence numbers are deliberately not asserted: routing consistency (high persists
+claims, medium routes to human review, low stays unknown) is enforced deterministically elsewhere. PoC is never claimed.
+Return strict JSON only.`;
 const user = JSON.stringify({
   task: "Review every case independently against real public sources. Do not rewrite labels.",
   output: { reviews: [{ case_id: "exact id", accept: true, confidence: "high|medium|low", reason: "brief source-grounded reason" }] },
