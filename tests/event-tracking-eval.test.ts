@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   evaluateTracking,
+  assessTrackingThresholds,
   TRACKING_STRATA,
   type TrackingEvalCase,
   type TrackingEvalResult,
@@ -23,6 +24,7 @@ function row(index: number, stratum: typeof TRACKING_STRATA[number]): TrackingEv
     case_id: `TRK-DEV-${String(index).padStart(3, "0")}`,
     split: "development",
     stratum,
+    fixture_gateway: { mode: stratum === "tool-failure" ? "error" : "empty", expected_tools: [] },
     input: {
       trace_id: traceId,
       run_id: runId,
@@ -95,4 +97,20 @@ test("scorer fails closed on missing and duplicate results", () => {
   const rows = TRACKING_STRATA.map((stratum, index) => row(index, stratum));
   assert.throws(() => evaluateTracking(rows, rows.slice(1).map(result)), /missing result/);
   assert.throws(() => evaluateTracking(rows, [...rows.map(result), result(rows[0]!) ]), /duplicate result/);
+});
+
+test("pre-registered thresholds fail closed for a named metric regression", () => {
+  const rows = TRACKING_STRATA.map((stratum, index) => row(index, stratum));
+  const summary = evaluateTracking(rows, rows.map(result));
+  const thresholds = {
+    schema_version: 1,
+    preregistered_at: "2026-10-10T00:00:00Z",
+    applies_to: "Phase 5 holdout",
+    development: { cases: 6, observed: { material_change_recall: 1 } },
+    hard_safety_maximums: { unsupported_material_changes: 0 },
+    quality_minimums: { material_change_recall: 1 },
+    freeze_rule: "Commit before holdout construction.",
+  };
+  assert.equal(assessTrackingThresholds(summary, thresholds).passed, true);
+  assert.equal(assessTrackingThresholds({ ...summary, quality: { ...summary.quality, material_change_recall: 0.9 } }, thresholds).passed, false);
 });

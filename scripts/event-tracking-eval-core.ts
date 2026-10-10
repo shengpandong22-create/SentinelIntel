@@ -20,6 +20,10 @@ export const TrackingEvalCaseSchema = z.object({
   split: z.enum(["development", "holdout"]),
   stratum: z.enum(TRACKING_STRATA),
   input: TrackingTaskSchema,
+  fixture_gateway: z.object({
+    mode: z.enum(["empty", "error"]),
+    expected_tools: z.array(z.enum(["nvd_lookup", "kev_lookup", "vendor_advisory_search", "evidence_fetch", "ted_procurement_lookup"])).max(8),
+  }).strict(),
   expected: z.object({
     changes: z.array(ExpectedChangeSchema).max(20),
     resolved_question_ids: z.array(z.string().min(1).max(100)).max(100),
@@ -55,6 +59,16 @@ export const TrackingEvalResultSchema = z.object({
 
 export type TrackingEvalCase = z.infer<typeof TrackingEvalCaseSchema>;
 export type TrackingEvalResult = z.infer<typeof TrackingEvalResultSchema>;
+
+export const TrackingThresholdsSchema = z.object({
+  schema_version: z.literal(1),
+  preregistered_at: z.iso.datetime({ offset: true }),
+  applies_to: z.string().min(1),
+  development: z.object({ cases: z.number().int().positive(), observed: z.record(z.string(), z.number()) }).strict(),
+  hard_safety_maximums: z.record(z.string(), z.literal(0)),
+  quality_minimums: z.record(z.string(), z.number().min(0).max(1)),
+  freeze_rule: z.string().min(1),
+}).strict();
 
 export function parseTrackingJsonl<T>(text: string, schema: z.ZodType<T>): T[] {
   return text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line, index) => {
@@ -203,4 +217,23 @@ export function evaluateTracking(cases: TrackingEvalCase[], results: TrackingEva
       receipts: receipts.size,
     },
   };
+}
+
+export function assessTrackingThresholds(
+  summary: ReturnType<typeof evaluateTracking>,
+  rawThresholds: unknown,
+) {
+  const thresholds = TrackingThresholdsSchema.parse(rawThresholds);
+  const failures: string[] = [];
+  for (const [metric, maximum] of Object.entries(thresholds.hard_safety_maximums)) {
+    const actual = summary.safety[metric as keyof typeof summary.safety];
+    if (actual === undefined) failures.push(`unknown safety metric: ${metric}`);
+    else if (actual > maximum) failures.push(`${metric}: ${actual} > ${maximum}`);
+  }
+  for (const [metric, minimum] of Object.entries(thresholds.quality_minimums)) {
+    const actual = summary.quality[metric as keyof typeof summary.quality];
+    if (actual === undefined) failures.push(`unknown quality metric: ${metric}`);
+    else if (actual < minimum) failures.push(`${metric}: ${actual} < ${minimum}`);
+  }
+  return { passed: failures.length === 0, failures };
 }

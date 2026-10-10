@@ -243,6 +243,29 @@ cost, and tool error rate. Unit tests cover stratum completeness, holdout review
 fixture scoring, and missing/duplicate result rejection. TypeScript typecheck and the four evaluation
 tests pass. No quality threshold has been selected and no benchmark result is claimed yet.
 
+### Phase 5 implementation checkpoint 6 — development replay and threshold preregistration
+
+`datasets/event-tracking/development.jsonl` contains 24 source-verified cases: four each for vendor
+confirmation, patch release, procurement award, no material change, tool failure, and stale/non-material
+evidence. Official source identities come from the accepted Phase 4 development material or from the
+Phase 5 TED compatibility check. Every case freezes its task, Evidence references, fixture-gateway mode,
+complete expected question state, decision, interval, forbidden conclusion, and provenance. The
+construction script is deterministic and the formal validator reports 24 cases across all six strata.
+
+The replay script executed the real Python tracking graph against the frozen gateway modes. It made no
+external request and no model call. Results: all nine hard-safety counters zero; material-change recall,
+supported-change precision, question-state accuracy, decision accuracy, and interval accuracy all 1.0;
+15 ms aggregate graph latency; 20 tool calls; zero tokens, cost, and receipts. Four deliberately injected
+gateway failures yield a 0.20 operational tool-error rate and correctly produce `insufficient_evidence`.
+This is expected scenario coverage, not a production reliability estimate.
+
+`datasets/event-tracking/thresholds.json` was committed after that development run and before holdout
+construction. It preserves exact-zero hard safety gates and preregisters minimums of 0.90 change recall,
+0.95 supported-change precision, 0.90 question-state accuracy, 0.90 decision accuracy, and 0.85 interval
+accuracy. The evaluator applies these gates fail-closed, and a regression test proves a named metric below
+threshold fails. The development replay passes the preregistered gates. Next gate: construct a disjoint
+holdout, obtain independent review, freeze it, and run it exactly once.
+
 ### Historical Phase 4 record
 
 Planning was explicitly authorized on 2026-10-08. The contract was written before implementation and

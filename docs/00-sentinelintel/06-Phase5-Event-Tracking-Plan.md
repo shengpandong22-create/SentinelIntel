@@ -34,6 +34,14 @@ rules, stratum coverage, and one result per case. The scorer separates exact-zer
 change recall/precision, question-state, decision, interval, and operations metrics; it never fabricates
 missing execution output. Formal development case construction is the next gate.
 
+Checkpoint 6 completed on 2026-10-10: a 24-case, six-stratum source-verified development set and a
+deterministic fixture-gateway replay are committed. The actual Python tracking graph produced all
+results with no external, model, or paid call. Development safety counters were all zero and the five
+quality metrics were 1.0; four intentional gateway-failure cases account for the reported 0.20 tool
+error rate. Conservative quality thresholds and exact-zero safety thresholds were then pre-registered
+before any holdout construction. These fixture-backed results establish contract behavior, not production
+generalization.
+
 This contract is written before Phase 5 implementation. Phase 5 adds bounded, evidence-backed active
 tracking to an existing Story. It does not replace the Story lifecycle, event grouping, digest generation,
 or pg-boss scheduling already owned by deterministic TypeScript code.
