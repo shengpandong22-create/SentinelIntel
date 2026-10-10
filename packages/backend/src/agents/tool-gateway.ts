@@ -11,15 +11,17 @@ import {
   parseCveId,
   parseVendorKey,
   searchVendorAdvisories,
+  lookupTedProcurementAward,
   type ResearchFetchDocument,
   type ResearchFetchJson,
+  type ResearchPostJson,
 } from "./research-adapters.ts";
 import { lookupNvdPersistent } from "./research-source-cache.ts";
 
 export const ResearchToolRequestSchema = z.object({
   trace_id: z.uuid(),
   run_id: z.uuid(),
-  tool: z.enum(["stub", "nvd_lookup", "kev_lookup", "vendor_advisory_search", "evidence_fetch", "web_search"]),
+  tool: z.enum(["stub", "nvd_lookup", "kev_lookup", "vendor_advisory_search", "evidence_fetch", "ted_procurement_lookup", "web_search"]),
   input: z.record(z.string(), z.unknown()),
 }).strict();
 
@@ -40,7 +42,7 @@ export type ResearchToolResponse = z.infer<typeof ResearchToolResponseSchema>;
 export async function executeResearchTool(
   request: ResearchToolRequest,
   capability: string,
-  deps: { networkEnabled?: boolean; fetchJson?: ResearchFetchJson; fetchDocument?: ResearchFetchDocument } = {},
+  deps: { networkEnabled?: boolean; fetchJson?: ResearchFetchJson; fetchDocument?: ResearchFetchDocument; postJson?: ResearchPostJson } = {},
 ): Promise<ResearchToolResponse> {
   const parsed = ResearchToolRequestSchema.parse(request);
   let question: string | null = null;
@@ -49,6 +51,7 @@ export async function executeResearchTool(
   let query: string | null = null;
   let advisoryUrl: string | null = null;
   let candidateUrls: string[] = [];
+  let procedureId: string | null = null;
   if (parsed.tool === "stub") question = z.string().min(1).max(2_000).parse(parsed.input.question);
   else if (parsed.tool === "nvd_lookup" || parsed.tool === "kev_lookup") cveId = parseCveId(parsed.input.cve_id);
   else if (parsed.tool === "vendor_advisory_search") {
@@ -58,6 +61,8 @@ export async function executeResearchTool(
   } else if (parsed.tool === "evidence_fetch") {
     vendor = parseVendorKey(parsed.input.vendor);
     advisoryUrl = assertVendorAdvisoryUrl(vendor, parsed.input.url).toString();
+  } else if (parsed.tool === "ted_procurement_lookup") {
+    procedureId = z.string().trim().min(1).max(200).regex(/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/).parse(parsed.input.procedure_id);
   }
   else throw new Error("research tool is not implemented");
   await authorizeResearchToolCall({
@@ -101,9 +106,12 @@ export async function executeResearchTool(
   } else if (parsed.tool === "vendor_advisory_search") {
     if (vendor === null || query === null) throw new Error("vendor advisory search input is missing");
     result = await searchVendorAdvisories(vendor, query, deps.fetchDocument, candidateUrls);
-  } else {
+  } else if (parsed.tool === "evidence_fetch") {
     if (vendor === null || advisoryUrl === null) throw new Error("vendor advisory fetch input is missing");
     result = await fetchVendorAdvisory(vendor, advisoryUrl, deps.fetchDocument);
+  } else {
+    if (procedureId === null) throw new Error("TED procedure id is missing");
+    result = await lookupTedProcurementAward(procedureId, deps.postJson);
   }
   const response = ResearchToolResponseSchema.parse({
     trace_id: parsed.trace_id,

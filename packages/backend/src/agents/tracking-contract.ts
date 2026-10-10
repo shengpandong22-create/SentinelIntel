@@ -38,6 +38,11 @@ export const TrackingPlanSnapshotSchema = z.object({
   why_track: z.string().min(1).max(4_000),
   questions: z.array(TrackingQuestionSchema).min(1).max(100),
   source_targets: z.array(z.enum(["nvd", "cisa_kev", "vendor_advisory", "official_procurement"])).min(1).max(20),
+  source_parameters: z.object({
+    cve_id: z.string().regex(/^CVE-\d{4}-\d{4,}$/).nullable(),
+    vendor: z.enum(["cisco", "fortinet", "hikvision", "microsoft"]).nullable(),
+    ted_procedure_id: z.string().min(1).max(200).regex(/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/).nullable(),
+  }).strict().default({ cve_id: null, vendor: null, ted_procedure_id: null }),
   interval_policy: TrackingIntervalPolicySchema,
   stop_condition: TrackingStopConditionSchema,
   current_interval_hours: z.number().int().min(1).max(24 * 365),

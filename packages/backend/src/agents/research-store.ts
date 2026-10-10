@@ -46,7 +46,7 @@ export async function startResearchRun(input: StartResearchRunInput): Promise<Re
   return { id: row!.id, publicId, traceId: input.traceId, capability };
 }
 
-const RESEARCH_TOOLS = new Set(["nvd_lookup", "kev_lookup", "vendor_advisory_search", "evidence_fetch", "web_search", "stub"]);
+const RESEARCH_TOOLS = new Set(["nvd_lookup", "kev_lookup", "vendor_advisory_search", "evidence_fetch", "ted_procurement_lookup", "web_search", "stub"]);
 
 /** Reserves one tool call in the backend before any adapter runs; Python cannot self-report these limits. */
 export async function authorizeResearchToolCall(input: {

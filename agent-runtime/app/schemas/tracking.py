@@ -42,6 +42,12 @@ class TrackingStopCondition(StrictModel):
     deadline_at: datetime | None = None
 
 
+class TrackingSourceParameters(StrictModel):
+    cve_id: str | None = Field(default=None, pattern=r"^CVE-\d{4}-\d{4,}$")
+    vendor: Literal["cisco", "fortinet", "hikvision", "microsoft"] | None = None
+    ted_procedure_id: str | None = Field(default=None, min_length=1, max_length=200, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:/-]*$")
+
+
 class TrackingPlanSnapshot(StrictModel):
     schema_version: Literal[1]
     plan_id: UUID
@@ -51,6 +57,7 @@ class TrackingPlanSnapshot(StrictModel):
     why_track: str = Field(min_length=1, max_length=4_000)
     questions: list[TrackingQuestion] = Field(min_length=1, max_length=100)
     source_targets: list[Literal["nvd", "cisa_kev", "vendor_advisory", "official_procurement"]] = Field(min_length=1, max_length=20)
+    source_parameters: TrackingSourceParameters = Field(default_factory=TrackingSourceParameters)
     interval_policy: TrackingIntervalPolicy
     stop_condition: TrackingStopCondition
     current_interval_hours: int = Field(ge=1, le=24 * 365)

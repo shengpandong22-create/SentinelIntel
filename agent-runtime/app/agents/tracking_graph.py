@@ -58,9 +58,9 @@ async def compare_evidence(state: TrackingState) -> dict[str, TrackingProposal]:
     tool_failed = False
     text = "\n".join(filter(None, [task.story.title, task.story.digest, *(fact.title for fact in task.story.facts)]))
     cve_match = re.search(r"\bCVE-\d{4}-\d{4,}\b", text, re.IGNORECASE)
-    cve_id = cve_match.group(0).upper() if cve_match else None
+    cve_id = task.plan.source_parameters.cve_id or (cve_match.group(0).upper() if cve_match else None)
     lowered = text.lower()
-    vendor = next((key for key, aliases in VENDOR_ALIASES.items() if any(alias in lowered for alias in aliases)), None)
+    vendor = task.plan.source_parameters.vendor or next((key for key, aliases in VENDOR_ALIASES.items() if any(alias in lowered for alias in aliases)), None)
     planned: list[tuple[str, dict[str, object]]] = []
     if cve_id and "nvd" in task.plan.source_targets:
         planned.append(("nvd_lookup", {"cve_id": cve_id}))
@@ -68,6 +68,8 @@ async def compare_evidence(state: TrackingState) -> dict[str, TrackingProposal]:
         planned.append(("kev_lookup", {"cve_id": cve_id}))
     if cve_id and vendor and "vendor_advisory" in task.plan.source_targets:
         planned.append(("vendor_advisory_search", {"vendor": vendor, "query": cve_id, "candidate_urls": []}))
+    if task.plan.source_parameters.ted_procedure_id and "official_procurement" in task.plan.source_targets:
+        planned.append(("ted_procurement_lookup", {"procedure_id": task.plan.source_parameters.ted_procedure_id}))
 
     advisory_candidates: list[str] = []
     sequence = 0

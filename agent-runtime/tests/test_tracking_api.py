@@ -165,3 +165,44 @@ async def test_tracking_tool_failure_preserves_unknown_and_is_insufficient(monke
     assert proposal["material_changes"] == []
     assert proposal["question_updates"][0]["status"] == "open"
     assert proposal["tool_trace"][0]["status"] == "error"
+
+
+@pytest.mark.anyio
+async def test_tracking_uses_explicit_ted_procedure_id_for_official_award_delta(monkeypatch: pytest.MonkeyPatch) -> None:
+    payload = body(evidence=False)
+    payload["plan"]["source_targets"] = ["official_procurement"]  # type: ignore[index]
+    payload["plan"]["source_parameters"] = {"cve_id": None, "vendor": None, "ted_procedure_id": "PROC-SECURITY-2026"}  # type: ignore[index]
+    payload["plan"]["questions"] = [{  # type: ignore[index]
+        "question_id": "award", "question": "Was an award published?", "resolve_on": ["procurement_award"],
+        "status": "open", "resolved_evidence_ids": [],
+    }]
+    evidence_id = str(uuid4())
+
+    async def invoke(task: object, tool: str, input_data: dict[str, object]) -> ResearchToolResponse:
+        del task
+        assert tool == "ted_procurement_lookup"
+        assert input_data == {"procedure_id": "PROC-SECURITY-2026"}
+        return ResearchToolResponse.model_validate({
+            "trace_id": payload["trace_id"], "run_id": payload["run_id"], "tool": tool, "status": "ok",
+            "output": {"found": True}, "receipt_ids": [], "latency_ms": 1,
+            "evidence": [{
+                "evidence_id": evidence_id, "source_type": "official_procurement", "source_name": "TED",
+                "canonical_url": "https://ted.europa.eu/en/notice/123456-2026", "title": "Award notice", "excerpt": "Winner",
+                "normalized": {"tracking_observations": ["procurement_award"]}, "content_hash": "e" * 64,
+                "authority_level": "authoritative", "published_at": None, "source_updated_at": None,
+                "retrieved_at": "2026-10-10T00:00:00Z", "provenance": {"fixture": True},
+            }],
+        })
+
+    monkeypatch.setattr(research_gateway, "invoke", invoke)
+    old_token, old_enabled = settings.internal_token, settings.tracking_enabled
+    settings.internal_token, settings.tracking_enabled = SecretStr("test-token"), True
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
+            response = await client.post("/v1/tracking/story/7", headers={"authorization": "Bearer test-token"}, json=payload)
+    finally:
+        settings.internal_token, settings.tracking_enabled = old_token, old_enabled
+    assert response.status_code == 200
+    proposal = response.json()["proposal"]
+    assert proposal["decision"] == "stop"
+    assert proposal["material_changes"][0]["change_type"] == "procurement_award"

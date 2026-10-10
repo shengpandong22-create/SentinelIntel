@@ -6,9 +6,35 @@ import {
   fetchVendorAdvisory,
   lookupKev,
   lookupNvd,
+  lookupTedProcurementAward,
   parseCveId,
   searchVendorAdvisories,
 } from "@aihot/backend/agents/research-adapters";
+
+test("TED lookup turns only an official result notice into procurement-award Evidence", async () => {
+  let request: { url: string; body: Record<string, unknown> } | null = null;
+  const result = await lookupTedProcurementAward("PROC-SECURITY-CAMERA-2026", async (url, body) => {
+    request = { url, body };
+    return fixture("ted-award.json");
+  });
+  assert.equal(request!.url, "https://api.ted.europa.eu/v3/notices/search");
+  assert.match(String(request!.body.query), /procedure-identifier/);
+  assert.equal(result.output.found, true);
+  assert.equal(result.evidence[0]!.source_type, "official_procurement");
+  assert.equal(result.evidence[0]!.canonical_url, "https://ted.europa.eu/en/notice/-/detail/123456-2026");
+  assert.deepEqual(result.evidence[0]!.normalized.tracking_observations, ["procurement_award"]);
+  assert.deepEqual(result.evidence[0]!.normalized.winners, ["Example Security Systems GmbH"]);
+  assert.deepEqual(result.receiptIds, []);
+});
+
+test("TED lookup preserves unknown when no official result notice exists and rejects query injection", async () => {
+  const miss = await lookupTedProcurementAward("PROC-1", async () => ({
+    notices: [{ "publication-number": ["111111-2026"], "notice-type": ["pin-only"] }], totalNoticeCount: 1, timedOut: false,
+  }));
+  assert.deepEqual(miss.evidence, []);
+  assert.equal(miss.output.found, false);
+  await assert.rejects(lookupTedProcurementAward('PROC-1" OR *', async () => ({})), /Invalid string/);
+});
 
 const fixture = async (name: string) => JSON.parse(await readFile(new URL(`./fixtures/research/${name}`, import.meta.url), "utf8")) as unknown;
 

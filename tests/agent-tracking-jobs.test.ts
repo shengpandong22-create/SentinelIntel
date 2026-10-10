@@ -7,6 +7,7 @@ const plan = (version: number) => ({
   schema_version: 1 as const, plan_id: randomUUID(), story_id: version, version, status: "active" as const,
   why_track: "Track", questions: [{ question_id: "q", question: "Changed?", resolve_on: ["material_update" as const], status: "open" as const, resolved_evidence_ids: [] }],
   source_targets: ["vendor_advisory" as const],
+  source_parameters: { cve_id: null, vendor: null, ted_procedure_id: null },
   interval_policy: { min_hours: 1, max_hours: 24, no_change_multiplier: 2, max_no_change_checks: 3 },
   stop_condition: { all_questions_resolved: true, stop_after_no_change_checks: null, deadline_at: null },
   current_interval_hours: 1, consecutive_no_change_checks: 0, next_check_at: new Date().toISOString(), last_checked_at: null,

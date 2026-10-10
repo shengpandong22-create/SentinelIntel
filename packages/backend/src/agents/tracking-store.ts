@@ -19,6 +19,7 @@ export interface CreateTrackingPlanInput {
   whyTrack: string;
   questions: TrackingPlanSnapshot["questions"];
   sourceTargets: TrackingPlanSnapshot["source_targets"];
+  sourceParameters?: TrackingPlanSnapshot["source_parameters"];
   intervalPolicy: TrackingPlanSnapshot["interval_policy"];
   stopCondition: TrackingPlanSnapshot["stop_condition"];
   initialIntervalHours: number;
@@ -36,6 +37,7 @@ export async function createTrackingPlan(input: CreateTrackingPlanInput): Promis
     why_track: input.whyTrack,
     questions: input.questions,
     source_targets: input.sourceTargets,
+    source_parameters: input.sourceParameters ?? { cve_id: null, vendor: null, ted_procedure_id: null },
     interval_policy: input.intervalPolicy,
     stop_condition: input.stopCondition,
     current_interval_hours: input.initialIntervalHours,
@@ -45,11 +47,11 @@ export async function createTrackingPlan(input: CreateTrackingPlanInput): Promis
   });
   await sql`
     INSERT INTO tracking_plans
-      (public_id, story_id, status, why_track, questions, source_targets, next_check_at,
+      (public_id, story_id, status, why_track, questions, source_targets, source_parameters, next_check_at,
        current_interval_hours, interval_policy, stop_condition)
     VALUES
       (${candidate.plan_id}, ${candidate.story_id}, ${candidate.status}, ${candidate.why_track},
-       ${sql.json(candidate.questions as never)}, ${candidate.source_targets}, ${candidate.next_check_at},
+       ${sql.json(candidate.questions as never)}, ${candidate.source_targets}, ${sql.json(candidate.source_parameters as never)}, ${candidate.next_check_at},
        ${candidate.current_interval_hours}, ${sql.json(candidate.interval_policy as never)},
        ${sql.json(candidate.stop_condition as never)})`;
   return candidate;
@@ -63,6 +65,7 @@ interface TrackingPlanRow {
   why_track: string;
   questions: TrackingPlanSnapshot["questions"];
   source_targets: TrackingPlanSnapshot["source_targets"];
+  source_parameters: TrackingPlanSnapshot["source_parameters"];
   next_check_at: Date | null;
   last_checked_at: Date | null;
   current_interval_hours: number;
@@ -82,6 +85,7 @@ function snapshotOf(row: TrackingPlanRow): TrackingPlanSnapshot {
     why_track: row.why_track,
     questions: row.questions,
     source_targets: row.source_targets,
+    source_parameters: row.source_parameters,
     interval_policy: row.interval_policy,
     stop_condition: row.stop_condition,
     current_interval_hours: row.current_interval_hours,
@@ -94,7 +98,7 @@ function snapshotOf(row: TrackingPlanRow): TrackingPlanSnapshot {
 export async function listDueTrackingPlans(now = new Date(), limit = 50): Promise<TrackingPlanSnapshot[]> {
   if (!Number.isInteger(limit) || limit < 1 || limit > 200) throw new Error("invalid tracking due-plan limit");
   const rows = await sql<TrackingPlanRow[]>`
-    SELECT id, public_id, story_id, status, why_track, questions, source_targets, next_check_at,
+    SELECT id, public_id, story_id, status, why_track, questions, source_targets, source_parameters, next_check_at,
            last_checked_at, current_interval_hours, consecutive_no_change_checks, interval_policy,
            stop_condition, version
     FROM tracking_plans
@@ -116,7 +120,7 @@ export async function loadTrackingTask(input: {
   limits: ResearchLimits;
 }): Promise<TrackingTask> {
   const [plan] = await sql<TrackingPlanRow[]>`
-    SELECT id, public_id, story_id, status, why_track, questions, source_targets, next_check_at,
+    SELECT id, public_id, story_id, status, why_track, questions, source_targets, source_parameters, next_check_at,
            last_checked_at, current_interval_hours, consecutive_no_change_checks, interval_policy,
            stop_condition, version
     FROM tracking_plans WHERE public_id = ${input.planPublicId}`;
@@ -190,7 +194,7 @@ export async function applyTrackingProposal(input: {
   const checkedAt = input.checkedAt ?? new Date();
   return sql.begin(async (tx) => {
     const [row] = await tx<(TrackingPlanRow & { last_run_id: string | null })[]>`
-      SELECT id, public_id, story_id, status, why_track, questions, source_targets, next_check_at,
+      SELECT id, public_id, story_id, status, why_track, questions, source_targets, source_parameters, next_check_at,
              last_checked_at, current_interval_hours, consecutive_no_change_checks, interval_policy,
              stop_condition, version, last_run_id
       FROM tracking_plans WHERE public_id = ${task.plan.plan_id} FOR UPDATE`;

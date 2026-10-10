@@ -126,19 +126,19 @@ Deliberately not modified: `tests/analyze-shutdown.test.ts` and `tests/translate
 
 ## Current Phase
 
-Phase: **Phase 5 — Event Tracking Agent (planning)**
+Phase: **Phase 5 — Event Tracking Agent**
 
 Branch: `phase/5-event-tracking-agent`
 
 Base: `main` = `d4e1520` (Phase 4 merge)
 
-Status: **IN_PROGRESS — DETERMINISTIC TRACKING FOUNDATION COMPLETE**
+Status: **IN_PROGRESS — REAL SOURCE ADAPTERS COMPLETE; DEVELOPMENT EVALUATION NEXT**
 
 Implementation contract: `docs/00-sentinelintel/06-Phase5-Event-Tracking-Plan.md`.
 
 Phase 4 was squash-merged into `main` at `d4e1520` after both canonical GitHub checks passed. Phase 5
-planning started from that clean merge. No Phase 5 code, migration, benchmark, external request, or paid
-model call has begun.
+planning and implementation started from that clean merge. No paid Phase 5 model call or frozen holdout
+run has begun.
 
 The Phase 5 contract preserves the existing Story lifecycle and pg-boss scheduler, introduces only the
 active tracking state absent from AIHOT, and separates Python semantic reasoning from deterministic
@@ -204,6 +204,28 @@ tests 24/24; typecheck and Docker Compose configuration pass; the real local Typ
 TypeScript replay still passes with the new research-run lifecycle. Network and paid switches remained
 off. Next gate: add a controlled official-procurement delta adapter, then construct the evidence-backed
 development benchmark and scorer.
+
+### Phase 5 implementation checkpoint 4 — official procurement delta
+
+The tracking plan now carries explicit, validated source parameters rather than depending on title
+inference. Additive migration `0043` supplies those parameters to databases that already applied
+`0042`. The Python graph may request the new `ted_procurement_lookup` tool only when the plan declares
+both an official-procurement target and a safe TED procedure identifier.
+
+The TypeScript adapter sends an exact procedure-identifier query to the anonymous TED Search API v3,
+accepts only official contract-award/result notice types, derives a stable official notice URL, and
+emits an authoritative procurement-award observation. Non-result responses remain unknown; query
+injection, malformed identities, timeouts, and response-shape drift fail closed. The call goes through
+the existing capability, network switch, trace, tool-call, and evidence-document counters and creates no
+paid receipt.
+
+Verification after checkpoint 4: empty scratch database migration through `0043`; research gateway and
+tracking store tests 11/11; adapter and schedule tests 15/15; Python tracking API tests 6/6; TypeScript
+typecheck; and one anonymous live development lookup of TED procedure
+`8c068af4-57cc-4dff-ac84-8f6f7c79de89`, which returned official publication `696533-2026` with zero
+receipts. This live check is source compatibility evidence, not a benchmark result. Next gate: construct
+and validate the evidence-backed development set and offline scorer before setting any numeric quality
+threshold.
 
 ### Historical Phase 4 record
 

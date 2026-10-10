@@ -21,6 +21,13 @@ Only Evidence retrieved after the preceding check enters the next delta snapshot
 `insufficient_evidence`, preserves open questions, and cannot trigger a semantic stop. Procurement
 acquisition remains a later source adapter; no arbitrary URL or generic-search permission was added.
 
+Checkpoint 4 completed on 2026-10-10: an allowlisted TED Search API v3 adapter can look up a declared
+procedure identifier and emit a procurement-award observation only from an official result notice. The
+identifier is stored explicitly in the tracking plan, query construction rejects unsafe input, an empty
+or non-result response preserves the question as unknown, and the free call still consumes the normal
+research capability and tool/document limits. A fixture-backed gateway test and one anonymous live
+development check passed with no model call or receipt. Benchmark construction remains the next gate.
+
 This contract is written before Phase 5 implementation. Phase 5 adds bounded, evidence-backed active
 tracking to an existing Story. It does not replace the Story lifecycle, event grouping, digest generation,
 or pg-boss scheduling already owned by deterministic TypeScript code.
