@@ -124,6 +124,7 @@ def normalize_extraction(state: ImpactState) -> dict[str, ImpactProposal]:
     evidence_by_id = {item.evidence_id: item for item in task.evidence}
     rows: list[ImpactRow] = []
     dropped: list[str] = []
+    low_confidence: list[str] = []
     for draft in extraction.drafts:
         cited = [evidence_id for evidence_id in draft.evidence_ids if evidence_id in evidence_by_id]
         if not cited:
@@ -133,6 +134,10 @@ def normalize_extraction(state: ImpactState) -> dict[str, ImpactProposal]:
         confidence = draft.confidence
         if confidence == "high" and "authoritative" not in authorities:
             confidence = "medium" if "primary" in authorities else "low"
+        if confidence == "low":
+            # Design §12: Low confidence keeps the unknown and never carries a claim.
+            low_confidence.append(draft.product)
+            continue
         affected = draft.affected_range_raw
         fixed = draft.fixed_range_raw
         rows.append(ImpactRow(
@@ -152,10 +157,39 @@ def normalize_extraction(state: ImpactState) -> dict[str, ImpactProposal]:
             confidence=confidence,
             evidence_ids=cited,
         ))
+    # One product, one row: when drafts collide, the most authoritative citation governs and the
+    # losing drafts become an explicit conflict unknown instead of a duplicate claim. A surviving
+    # row with superseded conflicting drafts caps at medium: the conflict itself lowers confidence.
+    best: dict[tuple[str, str], tuple[int, ImpactRow, str, bool]] = {}
+    conflicted: set[tuple[str, str]] = set()
+    rank = {"authoritative": 2, "primary": 1, "secondary": 0}
+    for row_item in rows:
+        key = (row_item.vendor.lower(), row_item.product.lower())
+        authority = max((evidence_by_id[evidence_id].authority_level for evidence_id in row_item.evidence_ids), key=lambda level: rank[level])
+        current = best.get(key)
+        if current is None:
+            best[key] = (rank[authority], row_item, authority, False)
+            continue
+        conflicted.add(key)
+        if rank[authority] > current[0]:
+            best[key] = (rank[authority], row_item, authority, True)
+        else:
+            best[key] = (current[0], current[1], current[2], True)
+    rows = []
+    for key, (_, row_item, _authority, had_conflict) in best.items():
+        if had_conflict and row_item.confidence == "high":
+            rows.append(row_item.model_copy(update={"confidence": "medium"}))
+        else:
+            rows.append(row_item)
+    dropped_conflict_names = [f"{key[0]} {key[1]}" for key in sorted(conflicted)]
     kev_ids = [item.evidence_id for item in task.evidence if item.source_type == "cisa_kev"]
     unknowns = list(extraction.unknowns)
     if dropped:
         unknowns.append(f"Extraction drafts cited no task-local evidence and were dropped: {', '.join(sorted(dropped))}.")
+    if low_confidence:
+        unknowns.append(f"Low-confidence extraction kept as unknown without claims: {', '.join(sorted(low_confidence))}.")
+    if dropped_conflict_names:
+        unknowns.append(f"Conflicting drafts for a product were superseded by the most authoritative citation: {', '.join(dropped_conflict_names)}.")
     decision = "propose" if rows else "insufficient_evidence"
     return {"proposal": ImpactProposal(
         new_evidence=[],

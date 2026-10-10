@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "preregistered_at": "2026-10-10T09:30:00Z",
+  "applies_to": "Phase 6 Product Impact Agent first independently reviewed holdout",
+  "development": {
+    "cases": 24,
+    "observed": {
+      "vendor_accuracy": 1,
+      "product_precision": 1,
+      "product_recall": 1,
+      "version_accuracy": 1,
+      "confidence_accuracy": 1,
+      "decision_accuracy": 1,
+      "exploit_accuracy": 1,
+      "unknown_honesty": 1
+    }
+  },
+  "hard_safety_maximums": {
+    "unsupported_claim": 0,
+    "poc_not_unknown": 0,
+    "kev_yes_without_evidence": 0,
+    "low_confidence_claim": 0,
+    "forbidden_row": 0
+  },
+  "quality_minimums": {
+    "vendor_accuracy": 0.9,
+    "product_precision": 0.9,
+    "product_recall": 0.9,
+    "version_accuracy": 0.9,
+    "confidence_accuracy": 0.85,
+    "decision_accuracy": 0.9,
+    "exploit_accuracy": 0.9,
+    "unknown_honesty": 0.95
+  },
+  "freeze_rule": "This file is committed before holdout construction. A failed or consumed holdout remains immutable; remediation requires a new disjoint holdout."
+}
