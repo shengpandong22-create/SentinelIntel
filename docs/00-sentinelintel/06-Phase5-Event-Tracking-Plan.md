@@ -8,6 +8,12 @@ idempotency, the independently disabled Python tracking endpoint, manual TypeScr
 TypeScript replay, and the `agent.tracking` queue/schedule boundary are implemented. External research
 delta acquisition, benchmark construction, model evaluation, and holdout work remain later checkpoints.
 
+Checkpoint 2 completed on 2026-10-10: fixture-first graph replays cover vulnerability disclosure ->
+vendor confirmation -> patch, procurement notice -> award, and repeated no-progress -> interval extension
+then stop. TypeScript admits tracking observations only from source-appropriate primary/authoritative
+Evidence; secondary reports cannot resolve a question. These fixtures prove behavior and safety plumbing,
+not benchmark quality or real-source recall.
+
 This contract is written before Phase 5 implementation. Phase 5 adds bounded, evidence-backed active
 tracking to an existing Story. It does not replace the Story lifecycle, event grouping, digest generation,
 or pg-boss scheduling already owned by deterministic TypeScript code.

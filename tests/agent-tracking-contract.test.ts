@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { TrackingTaskSchema, validateTrackingProposal } from "@aihot/backend/agents/tracking-contract";
+import { trackingObservationsForEvidence } from "@aihot/backend/agents/tracking-store";
 
 function fixture() {
   const evidenceId = randomUUID();
@@ -72,4 +73,12 @@ test("rejects resolved questions without evidence and inconsistent plan scheduli
     ...task,
     plan: { ...task.plan, status: "active", next_check_at: null },
   }), /requires next_check_at/);
+});
+
+test("only source-appropriate primary evidence becomes a tracking observation", () => {
+  const normalized = { tracking_observations: ["vendor_confirmation", "patch", "procurement_award", "material_update"] };
+  assert.deepEqual(trackingObservationsForEvidence("vendor_advisory", "authoritative", normalized), ["vendor_confirmation", "patch", "material_update"]);
+  assert.deepEqual(trackingObservationsForEvidence("official_procurement", "primary", normalized), ["procurement_award", "material_update"]);
+  assert.deepEqual(trackingObservationsForEvidence("nvd", "authoritative", normalized), ["material_update"]);
+  assert.deepEqual(trackingObservationsForEvidence("vendor_advisory", "secondary", normalized), []);
 });

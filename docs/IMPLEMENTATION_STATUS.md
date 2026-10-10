@@ -172,6 +172,19 @@ Next gate: reuse the Phase 4 bounded research gateway for evidence acquired sinc
 snapshot, then add fixture-first vulnerability/procurement/no-progress replays. No model, paid call,
 development benchmark, or holdout has begun.
 
+### Phase 5 implementation checkpoint 2 — required fixture scenarios
+
+Fixture-first graph replays now cover all three required migration-spec demonstrations: a vendor
+confirmation followed by a later patch, an official procurement award following a notice, and two
+no-progress checks that first extend the interval and then stop at the declared threshold. Observation
+projection is source-appropriate: vendor confirmation/patch require vendor-advisory Evidence,
+procurement awards require official-procurement Evidence, generic material updates still require primary
+or authoritative Evidence, and secondary Evidence resolves nothing.
+
+Verification: Python scenario tests 3/3 and the TypeScript observation-policy test pass. These are
+deterministic fixtures, not formal development or holdout cases. The next gate remains bounded research
+delta acquisition through the Phase 4 gateway, followed by evidence-backed benchmark construction.
+
 ### Historical Phase 4 record
 
 Planning was explicitly authorized on 2026-10-08. The contract was written before implementation and

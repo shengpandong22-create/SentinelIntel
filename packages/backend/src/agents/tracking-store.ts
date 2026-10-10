@@ -104,6 +104,16 @@ export async function listDueTrackingPlans(now = new Date(), limit = 50): Promis
 
 const OBSERVATIONS = new Set(["vendor_confirmation", "patch", "procurement_award", "material_update"] as const);
 
+export function trackingObservationsForEvidence(sourceType: string, authority: "authoritative" | "primary" | "secondary", normalized: Record<string, unknown>) {
+  if (!Array.isArray(normalized.tracking_observations) || authority === "secondary") return [];
+  return [...new Set(normalized.tracking_observations.filter((value): value is "vendor_confirmation" | "patch" | "procurement_award" | "material_update" => {
+    if (typeof value !== "string" || !OBSERVATIONS.has(value as never)) return false;
+    if ((value === "vendor_confirmation" || value === "patch") && sourceType !== "vendor_advisory") return false;
+    if (value === "procurement_award" && sourceType !== "official_procurement") return false;
+    return true;
+  }))];
+}
+
 export async function loadTrackingTask(input: {
   planPublicId: string;
   traceId: string;
@@ -152,9 +162,7 @@ export async function loadTrackingTask(input: {
     canonical_url: row.canonical_url,
     content_hash: row.content_hash,
     retrieved_at: row.retrieved_at.toISOString(),
-    observations: Array.isArray(row.normalized.tracking_observations)
-      ? [...new Set(row.normalized.tracking_observations.filter((value): value is "vendor_confirmation" | "patch" | "procurement_award" | "material_update" => typeof value === "string" && OBSERVATIONS.has(value as never)))]
-      : [],
+    observations: trackingObservationsForEvidence(row.source_type, row.authority_level, row.normalized),
   }));
   return TrackingTaskSchema.parse({
     trace_id: input.traceId,
