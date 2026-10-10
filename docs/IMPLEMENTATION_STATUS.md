@@ -286,6 +286,12 @@ unanimous high-confidence acceptance for every row. It writes dataset and thresh
 explicit `MODEL_REVIEWED` limitation. Default-off review and missing-review freeze refusal were verified;
 no paid call, frozen holdout, or holdout result was produced.
 
+Pre-holdout local validation: all Python runtime tests 27/27; Web build and tests 16/16; TypeScript
+typecheck; Docker Compose configuration; an empty scratch database migration through `0043`; and the
+Phase 5 contract/evaluation test selection 10/10 pass. The repository-wide Windows run again reached the
+known POSIX `SIGTERM` timeout cases, so canonical Linux CI remains the final platform gate after the
+holdout is frozen and the branch is ready for review.
+
 ### Historical Phase 4 record
 
 Planning was explicitly authorized on 2026-10-08. The contract was written before implementation and
