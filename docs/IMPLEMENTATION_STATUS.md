@@ -167,13 +167,17 @@ CVE-2022-30190 produced zero grounded rows (thin MSRC evidence; extraction corre
 fabricate) and the runner's repeat-skip assertion mishandled review-only outcomes
 (`docs/evaluation/impact-e2e-baseline.md`). That failed holdout stays frozen unmodified.
 
-Holdout v2 (CVE-2021-34527, CVE-2022-39952, CVE-2023-36884 — disjoint, MSRC-class failure mode
-included, behavioral expectations) is constructed and its review is **PAUSED by an environment
-blocker**: the local Application Control policy began denying `codebuddy.exe` mid-session (receipt 143,
-GLM, completed 3/3 high just before the block; DS receipt 144 was admin-released as unbilled after a
-CLI spawn failure; Kimi receipt 145 timed out and is unknown). The blocker is a machine-level policy
-this project must not bypass; review resumes once the owner unblocks the CLI or provides an alternate
-reviewer channel. Phase 6 remains **NOT COMPLETE**.
+Holdout v2 review was paused mid-session by a local Application Control policy denying `codebuddy.exe`;
+the owner turned Smart App Control off (a machine-level, owner-made change) and the review resumed.
+Three end-to-end holdout generations have now been consumed, all retained frozen: v1 (3 cases,
+receipts 140-142, FAILED on thin MSRC evidence), v2 (2 of 3 frozen after a correct reviewer refusal,
+FAILED on a candidate construction defect: CVE ids swapped without syncing evidence content), and v3
+(2 of 3 frozen after excluding a reviewer-withheld case, FAILED on an expectation-keyword modeling
+defect: AND-semantics keywords that omitted the product word the model legitimately normalized to).
+Every v3 safety counter was zero and both frozen runs produced correctly routed, KEV-grounded rows.
+Phase 6 remains **NOT COMPLETE**. The carried remediation is development-only and recorded in
+`docs/evaluation/impact-e2e-baseline.md` (OR-semantics expectation keywords anchored on official NVD
+wording; no model-knowledge-limited CVEs in holdout candidacy).
 
 ### Phase 6 checkpoint 1 — contracts, matcher, migrations, stores
 

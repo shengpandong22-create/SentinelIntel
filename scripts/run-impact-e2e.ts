@@ -17,7 +17,7 @@ import { runImpactForStory } from "@aihot/backend/agents/impact";
 //   deterministic; the routing-consistency rule is.
 
 const CaseSchema = z.object({
-  case_id: z.string().regex(/^IMP-E2E2?-HOLD-[A-Z0-9-]+$|^IMP-E2E-DEV-[A-Z0-9-]+$/),
+  case_id: z.string().regex(/^IMP-E2E\d*-HOLD-[A-Z0-9-]+$|^IMP-E2E-DEV-[A-Z0-9-]+$/),
   split: z.enum(["development", "holdout"]),
   stratum: z.string().min(1).max(64),
   cve: z.string().regex(/^CVE-\d{4}-\d{4,}$/),
