@@ -118,7 +118,25 @@ export async function extractImpactDrafts(
     parse: (content: string) => {
       const start = content.indexOf("{"), end = content.lastIndexOf("}");
       if (start < 0 || end < start) throw new Error("extraction output contains no JSON object");
-      return JSON.parse(content.slice(start, end + 1)) as unknown;
+      try {
+        return JSON.parse(content.slice(start, end + 1)) as unknown;
+      } catch {
+        // The model sometimes appends prose after the JSON. Extract the first balanced object.
+        let depth = 0, inString = false, escaped = false;
+        for (let i = start; i < content.length; i++) {
+          const ch = content[i]!;
+          if (escaped) { escaped = false; continue; }
+          if (ch === "\\") { escaped = true; continue; }
+          if (ch === '"') inString = !inString;
+          if (inString) continue;
+          if (ch === "{") depth += 1;
+          else if (ch === "}") {
+            depth -= 1;
+            if (depth === 0) return JSON.parse(content.slice(start, i + 1)) as unknown;
+          }
+        }
+        throw new Error("extraction output contains no balanced JSON object");
+      }
     },
     maxTokens: 4_000,
     timeoutMs: 180_000,
