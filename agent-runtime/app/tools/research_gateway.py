@@ -4,6 +4,7 @@ import httpx
 
 from app.config import settings
 from app.schemas.research import ResearchTaskRequest, ResearchToolResponse
+from app.schemas.tracking import TrackingTaskRequest
 
 
 class ResearchGatewayError(Exception):
@@ -11,7 +12,7 @@ class ResearchGatewayError(Exception):
 
 
 class ResearchGatewayClient:
-    async def invoke(self, task: ResearchTaskRequest, tool: str, input_data: dict[str, object]) -> ResearchToolResponse:
+    async def invoke(self, task: ResearchTaskRequest | TrackingTaskRequest, tool: str, input_data: dict[str, object]) -> ResearchToolResponse:
         token = settings.internal_token.get_secret_value() if settings.internal_token is not None else ""
         if not token:
             raise ResearchGatewayError("agent internal token is not configured")

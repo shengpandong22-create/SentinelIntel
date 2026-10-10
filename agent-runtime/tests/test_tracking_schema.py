@@ -50,6 +50,8 @@ def task_payload() -> dict[str, object]:
             "retrieved_at": now,
             "observations": ["patch"],
         }],
+        "limits": {"max_rounds": 3, "max_tool_calls": 8, "max_generic_searches": 2, "max_evidence_documents": 12,
+                   "deadline_ms": 60_000, "max_response_bytes": 2_097_152},
     }
 
 
@@ -72,6 +74,7 @@ def test_tracking_task_rejects_story_mismatch_and_unsupported_source() -> None:
 def test_tracking_proposal_requires_evidence_for_resolution_and_bounded_shape() -> None:
     with pytest.raises(ValidationError, match="lacks evidence"):
         TrackingProposal.model_validate({
+            "new_evidence": [],
             "material_changes": [],
             "question_updates": [{"question_id": "patch", "status": "resolved", "reason": "guess", "evidence_ids": []}],
             "decision": "stop",
@@ -81,6 +84,6 @@ def test_tracking_proposal_requires_evidence_for_resolution_and_bounded_shape() 
         })
     with pytest.raises(ValidationError, match="cannot suggest an interval"):
         TrackingProposal.model_validate({
-            "material_changes": [], "question_updates": [], "decision": "stop",
+            "new_evidence": [], "material_changes": [], "question_updates": [], "decision": "stop",
             "suggested_interval_hours": 12, "decision_reason": "done", "tool_trace": [],
         })

@@ -5,12 +5,14 @@ import {
   TrackingPlanSnapshotSchema,
   TrackingStopConditionSchema,
   TrackingTaskSchema,
+  trackingObservationsForSource,
   validateTrackingProposal,
   type TrackingPlanSnapshot,
   type TrackingProposal,
   type TrackingTask,
 } from "./tracking-contract.ts";
 import type { StoryResearchSnapshot } from "./research-contract.ts";
+import type { ResearchLimits } from "./research-contract.ts";
 
 export interface CreateTrackingPlanInput {
   storyId: number;
@@ -102,16 +104,8 @@ export async function listDueTrackingPlans(now = new Date(), limit = 50): Promis
   return rows.map(snapshotOf);
 }
 
-const OBSERVATIONS = new Set(["vendor_confirmation", "patch", "procurement_award", "material_update"] as const);
-
 export function trackingObservationsForEvidence(sourceType: string, authority: "authoritative" | "primary" | "secondary", normalized: Record<string, unknown>) {
-  if (!Array.isArray(normalized.tracking_observations) || authority === "secondary") return [];
-  return [...new Set(normalized.tracking_observations.filter((value): value is "vendor_confirmation" | "patch" | "procurement_award" | "material_update" => {
-    if (typeof value !== "string" || !OBSERVATIONS.has(value as never)) return false;
-    if ((value === "vendor_confirmation" || value === "patch") && sourceType !== "vendor_advisory") return false;
-    if (value === "procurement_award" && sourceType !== "official_procurement") return false;
-    return true;
-  }))];
+  return trackingObservationsForSource(sourceType, authority, normalized);
 }
 
 export async function loadTrackingTask(input: {
@@ -119,6 +113,7 @@ export async function loadTrackingTask(input: {
   traceId: string;
   runId: string;
   toolCapability: string;
+  limits: ResearchLimits;
 }): Promise<TrackingTask> {
   const [plan] = await sql<TrackingPlanRow[]>`
     SELECT id, public_id, story_id, status, why_track, questions, source_targets, next_check_at,
@@ -153,7 +148,9 @@ export async function loadTrackingTask(input: {
   }[]>`
     SELECT public_id AS evidence_id, source_type, authority_level, canonical_url, content_hash,
            retrieved_at, normalized
-    FROM external_evidence WHERE story_id = ${story.id}
+    FROM external_evidence
+    WHERE story_id = ${story.id}
+      AND (${plan.last_checked_at}::timestamptz IS NULL OR retrieved_at > ${plan.last_checked_at})
     ORDER BY retrieved_at DESC, id DESC LIMIT 100`;
   const evidence = evidenceRows.map((row) => ({
     evidence_id: row.evidence_id,
@@ -171,6 +168,7 @@ export async function loadTrackingTask(input: {
     story: storySnapshot,
     plan: snapshotOf(plan),
     evidence,
+    limits: input.limits,
   });
 }
 

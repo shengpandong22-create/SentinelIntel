@@ -185,6 +185,26 @@ Verification: Python scenario tests 3/3 and the TypeScript observation-policy te
 deterministic fixtures, not formal development or holdout cases. The next gate remains bounded research
 delta acquisition through the Phase 4 gateway, followed by evidence-backed benchmark construction.
 
+### Phase 5 implementation checkpoint 3 — bounded research delta
+
+Tracking now reuses the Phase 4 capability, gateway, Evidence, trace, tool-limit, network-switch, and
+research-run boundaries. The graph may select NVD, CISA KEV, registered vendor discovery, and official
+advisory fetch from Story/plan context. Newly returned Evidence is validated and stored through the
+existing research-run transaction before a tracking change may reference it. The next tracking snapshot
+loads only Evidence retrieved after `last_checked_at`.
+
+NVD/KEV produce only generic material-update observations. Vendor advisories produce confirmation and
+produce a patch observation only when the official document contains deterministic remediation/update
+language. TypeScript independently rechecks source type and authority before accepting any transition.
+A search result never becomes Evidence. A gateway failure yields `insufficient_evidence`, keeps the
+question open, and cannot satisfy a stop condition.
+
+Verification after checkpoint 3: Python runtime tests 26/26; combined TypeScript tracking and adapter
+tests 24/24; typecheck and Docker Compose configuration pass; the real local TypeScript -> Python ->
+TypeScript replay still passes with the new research-run lifecycle. Network and paid switches remained
+off. Next gate: add a controlled official-procurement delta adapter, then construct the evidence-backed
+development benchmark and scorer.
+
 ### Historical Phase 4 record
 
 Planning was explicitly authorized on 2026-10-08. The contract was written before implementation and

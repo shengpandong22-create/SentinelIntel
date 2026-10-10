@@ -19,6 +19,8 @@ def task(*, questions: list[dict[str, object]], evidence: list[dict[str, object]
                  "current_interval_hours": 12, "consecutive_no_change_checks": no_change,
                  "next_check_at": "2026-10-10T00:00:00Z", "last_checked_at": None},
         "evidence": evidence,
+        "limits": {"max_rounds": 3, "max_tool_calls": 8, "max_generic_searches": 2, "max_evidence_documents": 12,
+                   "deadline_ms": 60_000, "max_response_bytes": 2_097_152},
     })
 
 

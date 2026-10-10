@@ -25,6 +25,7 @@ test("NVD adapter normalizes official v2 response shape without a receipt", asyn
   assert.equal(result.evidence[0]!.authority_level, "authoritative");
   assert.equal(result.evidence[0]!.normalized.cve_id, "CVE-2021-44228");
   assert.deepEqual(result.evidence[0]!.normalized.cwes, ["CWE-917"]);
+  assert.deepEqual(result.evidence[0]!.normalized.tracking_observations, ["material_update"]);
   assert.equal(result.evidence[0]!.provenance.external_network, true);
 });
 
@@ -46,6 +47,7 @@ test("KEV adapter normalizes the official catalog shape and preserves remediatio
   assert.equal(result.evidence[0]!.source_type, "cisa_kev");
   assert.equal(result.evidence[0]!.normalized.required_action, "Apply updates per vendor instructions.");
   assert.equal(result.evidence[0]!.normalized.known_ransomware_campaign_use, "Known");
+  assert.deepEqual(result.evidence[0]!.normalized.tracking_observations, ["material_update"]);
 });
 
 test("KEV absence is not converted into a claim that exploitation has not occurred", async () => {
@@ -94,6 +96,7 @@ test("official advisory fetch creates authoritative Evidence but never executes 
   assert.equal(result.evidence[0]!.source_type, "vendor_advisory");
   assert.equal(result.evidence[0]!.authority_level, "authoritative");
   assert.deepEqual(result.evidence[0]!.normalized.cves, ["CVE-2024-20399"]);
+  assert.deepEqual(result.evidence[0]!.normalized.tracking_observations, ["vendor_confirmation", "patch"]);
   assert.equal(result.evidence[0]!.excerpt?.includes("invokeTool"), false);
   assert.equal(result.evidence[0]!.provenance.untrusted_content, true);
   assert.deepEqual(result.receiptIds, []);

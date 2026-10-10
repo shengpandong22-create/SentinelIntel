@@ -14,6 +14,13 @@ then stop. TypeScript admits tracking observations only from source-appropriate 
 Evidence; secondary reports cannot resolve a question. These fixtures prove behavior and safety plumbing,
 not benchmark quality or real-source recall.
 
+Checkpoint 3 completed on 2026-10-10: tracking runs now receive a real Phase 4 research-run capability
+and backend-owned limits, can select the existing NVD, CISA KEV, vendor discovery, and official fetch
+tools, return newly acquired Evidence, and persist that Evidence before committing a tracking transition.
+Only Evidence retrieved after the preceding check enters the next delta snapshot. Tool failure produces
+`insufficient_evidence`, preserves open questions, and cannot trigger a semantic stop. Procurement
+acquisition remains a later source adapter; no arbitrary URL or generic-search permission was added.
+
 This contract is written before Phase 5 implementation. Phase 5 adds bounded, evidence-backed active
 tracking to an existing Story. It does not replace the Story lifecycle, event grouping, digest generation,
 or pg-boss scheduling already owned by deterministic TypeScript code.

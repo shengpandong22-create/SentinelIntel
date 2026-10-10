@@ -163,6 +163,7 @@ export async function lookupNvd(cveInput: string, fetchJson: ResearchFetchJson =
     metrics: record.metrics,
     cwes,
     references: record.references.slice(0, 50),
+    tracking_observations: ["material_update"],
   };
   const evidence = ResearchEvidenceSchema.parse({
     evidence_id: randomUUID(),
@@ -208,6 +209,7 @@ export async function lookupKev(cveInput: string, fetchJson: ResearchFetchJson =
     cwes: record.cwes ?? [],
     catalog_version: parsed.catalogVersion,
     catalog_date_released: parsed.dateReleased,
+    tracking_observations: ["material_update"],
   };
   const evidence = ResearchEvidenceSchema.parse({
     evidence_id: randomUUID(),
@@ -345,6 +347,10 @@ export async function fetchVendorAdvisory(
   const body = cleanText($("main,article,[role='main']").first().text() || $("body").text());
   if (!title || body.length < 20) throw new Error("vendor advisory did not contain usable document text");
   const cves = [...new Set((`${title} ${body}`.match(/\bCVE-\d{4}-\d{4,}\b/gi) ?? []).map((item) => item.toUpperCase()))].slice(0, 50);
+  const trackingObservations = ["vendor_confirmation"];
+  if (/\b(?:patch|patched|fixed|fixes|software updates?|upgrade|upgraded|remediat(?:e|ed|ion))\b|修复|补丁|升级/i.test(body)) {
+    trackingObservations.push("patch");
+  }
   const evidence = ResearchEvidenceSchema.parse({
     evidence_id: randomUUID(),
     source_type: "vendor_advisory",
@@ -352,7 +358,7 @@ export async function fetchVendorAdvisory(
     canonical_url: canonical.toString(),
     title: title.slice(0, 1_000),
     excerpt: body.slice(0, 20_000),
-    normalized: { vendor, cves },
+    normalized: { vendor, cves, tracking_observations: trackingObservations },
     content_hash: sha256(response.text),
     authority_level: "authoritative",
     published_at: null,

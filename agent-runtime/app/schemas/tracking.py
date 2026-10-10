@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import Field, HttpUrl, SecretStr, model_validator
 
-from .research import ResearchToolTrace, StoryResearchSnapshot, StrictModel
+from .research import ResearchEvidence, ResearchLimits, ResearchToolTrace, StoryResearchSnapshot, StrictModel
 
 
 class TrackingQuestion(StrictModel):
@@ -104,6 +104,7 @@ class TrackingQuestionUpdate(StrictModel):
 
 
 class TrackingProposal(StrictModel):
+    new_evidence: list[ResearchEvidence] = Field(max_length=12)
     material_changes: list[TrackingChange] = Field(max_length=50)
     question_updates: list[TrackingQuestionUpdate] = Field(max_length=100)
     decision: Literal["continue", "stop", "insufficient_evidence"]
@@ -131,6 +132,7 @@ class TrackingTaskRequest(StrictModel):
     story: StoryResearchSnapshot
     plan: TrackingPlanSnapshot
     evidence: list[TrackingEvidenceRef] = Field(max_length=100)
+    limits: ResearchLimits
 
     @model_validator(mode="after")
     def references_are_local(self) -> "TrackingTaskRequest":

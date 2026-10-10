@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ResearchToolTraceSchema, StoryResearchSnapshotSchema } from "./research-contract.ts";
+import { ResearchEvidenceSchema, ResearchLimitsSchema, ResearchToolTraceSchema, StoryResearchSnapshotSchema } from "./research-contract.ts";
 
 export const TrackingQuestionSchema = z.object({
   question_id: z.string().min(1).max(100),
@@ -90,6 +90,7 @@ export const TrackingQuestionUpdateSchema = z.object({
 });
 
 export const TrackingProposalSchema = z.object({
+  new_evidence: z.array(ResearchEvidenceSchema).max(12),
   material_changes: z.array(TrackingChangeSchema).max(50),
   question_updates: z.array(TrackingQuestionUpdateSchema).max(100),
   decision: z.enum(["continue", "stop", "insufficient_evidence"]),
@@ -118,6 +119,7 @@ export const TrackingTaskSchema = z.object({
   story: StoryResearchSnapshotSchema,
   plan: TrackingPlanSnapshotSchema,
   evidence: z.array(TrackingEvidenceRefSchema).max(100),
+  limits: ResearchLimitsSchema,
 }).strict().superRefine((task, ctx) => {
   if (task.story.story_id !== task.plan.story_id) ctx.addIssue({ code: "custom", message: "tracking story and plan mismatch" });
 });
@@ -128,9 +130,32 @@ export const TrackingTaskResponseSchema = z.object({
   proposal: TrackingProposalSchema,
 }).strict();
 
+const TRACKING_OBSERVATIONS = new Set(["vendor_confirmation", "patch", "procurement_award", "material_update"] as const);
+
+export function trackingObservationsForSource(
+  sourceType: string,
+  authority: "authoritative" | "primary" | "secondary",
+  normalized: Record<string, unknown>,
+) {
+  if (!Array.isArray(normalized.tracking_observations) || authority === "secondary") return [];
+  return [...new Set(normalized.tracking_observations.filter((value): value is "vendor_confirmation" | "patch" | "procurement_award" | "material_update" => {
+    if (typeof value !== "string" || !TRACKING_OBSERVATIONS.has(value as never)) return false;
+    if ((value === "vendor_confirmation" || value === "patch") && sourceType !== "vendor_advisory") return false;
+    if (value === "procurement_award" && sourceType !== "official_procurement") return false;
+    return true;
+  }))];
+}
+
 export function validateTrackingProposal(task: z.infer<typeof TrackingTaskSchema>, raw: unknown) {
   const proposal = TrackingProposalSchema.parse(raw);
-  const evidenceIds = new Set(task.evidence.map((item) => item.evidence_id));
+  const evidenceIds = new Set([
+    ...task.evidence.map((item) => item.evidence_id),
+    ...proposal.new_evidence.map((item) => item.evidence_id),
+  ]);
+  const observations = new Map(task.evidence.map((item) => [item.evidence_id, new Set(item.observations)]));
+  for (const item of proposal.new_evidence) {
+    observations.set(item.evidence_id, new Set(trackingObservationsForSource(item.source_type, item.authority_level, item.normalized)));
+  }
   const questionIds = new Set(task.plan.questions.map((item) => item.question_id));
   const referenced = [
     ...proposal.material_changes.flatMap((change) => change.evidence_ids),
@@ -140,6 +165,15 @@ export function validateTrackingProposal(task: z.infer<typeof TrackingTaskSchema
   for (const id of referenced) if (!evidenceIds.has(id)) throw new Error(`dangling tracking evidence id: ${id}`);
   for (const update of proposal.question_updates) {
     if (!questionIds.has(update.question_id)) throw new Error(`unknown tracking question id: ${update.question_id}`);
+    const question = task.plan.questions.find((item) => item.question_id === update.question_id)!;
+    if (update.status === "resolved" && !update.evidence_ids.some((id) => question.resolve_on.some((kind) => observations.get(id)?.has(kind)))) {
+      throw new Error(`tracking question resolution lacks source-appropriate evidence: ${update.question_id}`);
+    }
+  }
+  for (const change of proposal.material_changes) {
+    if (!change.evidence_ids.some((id) => observations.get(id)?.has(change.change_type))) {
+      throw new Error(`tracking change lacks source-appropriate evidence: ${change.change_key}`);
+    }
   }
   const policy = task.plan.interval_policy;
   if (proposal.suggested_interval_hours !== null

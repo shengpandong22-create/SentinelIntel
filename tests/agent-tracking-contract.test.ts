@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { TrackingTaskSchema, validateTrackingProposal } from "@aihot/backend/agents/tracking-contract";
+import { DEFAULT_RESEARCH_LIMITS } from "@aihot/backend/agents/research-contract";
 import { trackingObservationsForEvidence } from "@aihot/backend/agents/tracking-store";
 
 function fixture() {
@@ -28,6 +29,7 @@ function fixture() {
       evidence_id: evidenceId, source_type: "vendor_advisory", authority_level: "authoritative",
       canonical_url: "https://vendor.example/advisory", content_hash: "a".repeat(64), retrieved_at: new Date().toISOString(), observations: ["patch"],
     }],
+    limits: DEFAULT_RESEARCH_LIMITS,
   });
   return { task, evidenceId };
 }
@@ -35,6 +37,7 @@ function fixture() {
 test("accepts an evidence-backed material change and bounded continuation", () => {
   const { task, evidenceId } = fixture();
   const proposal = validateTrackingProposal(task, {
+    new_evidence: [],
     material_changes: [{
       change_key: "patch-v1", change_type: "patch", summary: "Vendor released a patch.",
       before: { patch: "unknown" }, after: { patch: "available" }, evidence_ids: [evidenceId],
@@ -48,7 +51,7 @@ test("accepts an evidence-backed material change and bounded continuation", () =
 test("rejects dangling evidence, invented questions, arbitrary intervals, and invalid stop shape", () => {
   const { task } = fixture();
   const base = {
-    material_changes: [], question_updates: [], decision: "continue" as const,
+    new_evidence: [], material_changes: [], question_updates: [], decision: "continue" as const,
     suggested_interval_hours: 12, decision_reason: "Continue", tool_trace: [],
   };
   assert.throws(() => validateTrackingProposal(task, {
@@ -81,4 +84,20 @@ test("only source-appropriate primary evidence becomes a tracking observation", 
   assert.deepEqual(trackingObservationsForEvidence("official_procurement", "primary", normalized), ["procurement_award", "material_update"]);
   assert.deepEqual(trackingObservationsForEvidence("nvd", "authoritative", normalized), ["material_update"]);
   assert.deepEqual(trackingObservationsForEvidence("vendor_advisory", "secondary", normalized), []);
+});
+
+test("new research evidence cannot claim a source-inappropriate transition", () => {
+  const { task } = fixture();
+  const evidenceId = randomUUID();
+  assert.throws(() => validateTrackingProposal(task, {
+    new_evidence: [{
+      evidence_id: evidenceId, source_type: "nvd", source_name: "NVD",
+      canonical_url: "https://nvd.nist.gov/vuln/detail/CVE-2026-0001", title: "NVD record", excerpt: null,
+      normalized: { tracking_observations: ["patch"] }, content_hash: "c".repeat(64), authority_level: "authoritative",
+      published_at: null, source_updated_at: null, retrieved_at: new Date().toISOString(), provenance: {},
+    }],
+    material_changes: [{ change_key: "bad-patch", change_type: "patch", summary: "Patch exists", before: {}, after: {}, evidence_ids: [evidenceId] }],
+    question_updates: [{ question_id: "patch", status: "resolved", reason: "NVD says so", evidence_ids: [evidenceId] }],
+    decision: "stop", suggested_interval_hours: null, decision_reason: "done", tool_trace: [],
+  }), /source-appropriate evidence/);
 });

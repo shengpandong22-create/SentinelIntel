@@ -72,8 +72,10 @@ test("atomically appends evidence-backed changes, advances once, and leaves Stor
     trace_id: randomUUID(), run_id: randomUUID(), tool_capability: "x".repeat(32), story: storySnapshot(storyId), plan,
     evidence: [{ evidence_id: evidenceId, source_type: "vendor_advisory", authority_level: "authoritative" as const,
       canonical_url: "https://vendor.example/patch", content_hash: "b".repeat(64), retrieved_at: new Date().toISOString(), observations: ["patch" as const] }],
+    limits: DEFAULT_RESEARCH_LIMITS,
   };
   const proposal = {
+    new_evidence: [],
     material_changes: [{ change_key: "patch-v2", change_type: "patch" as const, summary: "Vendor released version 2.",
       before: { patch: "unknown" }, after: { patch: "v2" }, evidence_ids: [evidenceId] }],
     question_updates: [{ question_id: "patch", status: "resolved" as const, reason: "Official advisory", evidence_ids: [evidenceId] }],
@@ -107,10 +109,10 @@ test("no-change checks extend the interval and stop only at the declared thresho
   });
   planIds.push(plan.plan_id);
   const proposal = {
-    material_changes: [], question_updates: [{ question_id: "award", status: "open" as const, reason: "No authoritative update", evidence_ids: [] }],
+    new_evidence: [], material_changes: [], question_updates: [{ question_id: "award", status: "open" as const, reason: "No authoritative update", evidence_ids: [] }],
     decision: "continue" as const, suggested_interval_hours: 24, decision_reason: "No material change", tool_trace: [],
   };
-  const base = { trace_id: randomUUID(), tool_capability: "x".repeat(32), story: storySnapshot(noChangeStoryId), evidence: [] };
+  const base = { trace_id: randomUUID(), tool_capability: "x".repeat(32), story: storySnapshot(noChangeStoryId), evidence: [], limits: DEFAULT_RESEARCH_LIMITS };
   await applyTrackingProposal({ task: { ...base, run_id: randomUUID(), plan }, proposal });
   const [row] = await sql<{ version: number; next_check_at: Date; last_checked_at: Date; consecutive_no_change_checks: number }[]>`
     SELECT version, next_check_at, last_checked_at, consecutive_no_change_checks
