@@ -16,6 +16,13 @@ import {
   type TrackingTask,
   type TrackingTaskResponse,
 } from "./tracking-contract.ts";
+import {
+  ImpactTaskResponseSchema,
+  ImpactTaskSchema,
+  validateImpactProposal,
+  type ImpactTask,
+  type ImpactTaskResponse,
+} from "./impact-contract.ts";
 
 const TestTaskResponseSchema = z.object({
   trace_id: z.uuid(),
@@ -255,6 +262,69 @@ export async function runAgentTrackingTask(
         parsed.success ? parsed.data.error.message : `Agent runtime HTTP ${response.status}`,
         parsed.success ? parsed.data.error.code : "http_error",
         retryable,
+        traceId,
+        response.status,
+      );
+    } catch (error) {
+      if (error instanceof AgentRuntimeError) last = error;
+      else {
+        const timeout = error instanceof Error && error.name === "TimeoutError";
+        last = new AgentRuntimeError(
+          timeout ? `Agent runtime timed out after ${timeoutMs} ms` : `Agent runtime request failed: ${error instanceof Error ? error.message : String(error)}`,
+          timeout ? "timeout" : "network_error",
+          true,
+          traceId,
+          null,
+        );
+      }
+    }
+    if (!last.retryable || attempt === retries) throw last;
+  }
+  throw last ?? new AgentRuntimeError("Agent runtime request failed", "network_error", true, traceId, null);
+}
+
+export async function runAgentImpactTask(
+  taskInput: ImpactTask,
+  opts: AgentClientOptions & { productImpactEnabled?: boolean } = {},
+): Promise<ImpactTaskResponse> {
+  const task = ImpactTaskSchema.parse(taskInput);
+  const traceId = task.trace_id;
+  if (!(opts.productImpactEnabled ?? config.productImpactEnabled)) {
+    throw new AgentRuntimeError("Product impact analysis is disabled", "impact_disabled", false, traceId, null);
+  }
+  const token = opts.internalToken ?? config.agentInternalToken;
+  if (!token) throw new AgentRuntimeError("Agent internal token is not configured", "auth_not_configured", false, traceId, null);
+  const baseUrl = (opts.baseUrl ?? config.agentRuntimeUrl).replace(/\/$/, "");
+  const timeoutMs = opts.timeoutMs ?? Math.min(config.agentRuntimeTimeoutMs, task.limits.deadline_ms);
+  const retries = opts.retries ?? config.agentRuntimeRetries;
+  const request = opts.fetch ?? fetch;
+  let last: AgentRuntimeError | null = null;
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      const response = await request(`${baseUrl}/v1/impact/story/${task.story.story_id}`, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}`, "x-trace-id": traceId },
+        body: JSON.stringify(task),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      const body: unknown = await response.json().catch(() => null);
+      if (response.ok) {
+        const parsed = ImpactTaskResponseSchema.safeParse(body);
+        if (!parsed.success || parsed.data.trace_id !== traceId || parsed.data.run_id !== task.run_id) {
+          throw new AgentRuntimeError("Invalid impact runtime response", "invalid_response", false, traceId, response.status);
+        }
+        validateImpactProposal(task, parsed.data.proposal);
+        return parsed.data;
+      }
+      const parsed = ErrorEnvelopeSchema.safeParse(body);
+      if (parsed.success && parsed.data.error.trace_id !== null && parsed.data.error.trace_id !== traceId) {
+        throw new AgentRuntimeError("Agent runtime error trace id mismatch", "invalid_response", false, traceId, response.status);
+      }
+      last = new AgentRuntimeError(
+        parsed.success ? parsed.data.error.message : `Agent runtime HTTP ${response.status}`,
+        parsed.success ? parsed.data.error.code : "http_error",
+        parsed.success ? parsed.data.error.retryable : transientStatus(response.status),
         traceId,
         response.status,
       );
