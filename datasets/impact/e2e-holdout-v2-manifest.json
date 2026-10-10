@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "frozen_at": "2026-10-10T12:04:24.867Z",
+  "cases": 2,
+  "candidate_cases": 3,
+  "excluded_cases": [
+    "IMP-E2E2-HOLD-003"
+  ],
+  "label_method": "MODEL_REVIEWED",
+  "reviewers": [
+    "glm-5.3-flash",
+    "deepseek-v4.1-flash",
+    "kimi-k3-2"
+  ],
+  "review_receipts": {
+    "glm-5.3-flash": [
+      143
+    ],
+    "deepseek-v4.1-flash": [
+      144
+    ],
+    "kimi-k3-2": [
+      145
+    ]
+  },
+  "holdout_sha256": "eeefb0bc16abb6b886a680649b4dab60abfe18620ce9210e5141d9074b8856a3",
+  "thresholds_sha256": "40f9f401012ccd039a1bbd9d553bc3116c462ce7ad07e1cf5f25f354a9289e77",
+  "limitation": "Model-reviewed benchmark on real public evidence; not human gold. Every frozen case was unanimously accepted at high confidence by three independently identified reviewers. The single authorized run is the complete TypeScript -> Python -> TypeScript -> scratch-database pipeline."
+}
