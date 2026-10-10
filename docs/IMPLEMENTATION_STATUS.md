@@ -147,10 +147,42 @@ TypeScript scheduling, policy enforcement, validation, and persistence. Its acce
 three migration-spec demonstrations, exact-zero safety failures, development-based threshold
 preregistration, an immutable independently reviewed holdout, and canonical Linux CI.
 
-Phase 6 — Product Impact Agent: the implementation contract is drafted at
-`docs/00-sentinelintel/07-Phase6-Product-Impact-Plan.md` from the merged Phase 5 state. Status:
-`PLANNING` — implementation has not begun and must not begin until the project owner accepts that
-contract as the Phase 6 boundary.
+Phase 6 — Product Impact Agent: the implementation contract was drafted at
+`docs/00-sentinelintel/07-Phase6-Product-Impact-Plan.md` from the merged Phase 5 state, revised on the
+owner's `REQUEST_CHANGES` (row-per-product `product_impacts` model, PoC `unknown`-only, NVD/vendor-
+advisory/KEV source alignment, explicit TypeScript model-gateway LLM boundary, closed version-matcher
+grammar), and accepted for implementation on `phase/6-product-impact-agent`.
+
+### Phase 6 checkpoint 1 — contracts, matcher, migrations, stores
+
+Implemented on 2026-10-10 without external or paid calls: strict cross-runtime impact task/proposal
+schemas (`impact-contract.ts` + `agent-runtime/app/schemas/impact.py`) sharing one fixture
+(`tests/fixtures/impact/task.json`) parsed by both runtimes; a closed-grammar deterministic version
+matcher (`version-matcher.ts`: exact, `< <= > >=`, closed ranges, comma lists, numeric SemVer ordering;
+everything else returns unsupported so callers degrade to unknown + human review); additive migration
+`0044` with `security_entities` (alias-aware identity), `story_entities`, row-per-product
+`product_impacts` (`impact_version` + current/superseded status + `persisted_kind` claims/unknown_only),
+and `impact_human_reviews`; and `impact-store.ts` with confidence routing (high → claims, medium →
+human review, low → unknown-only row with no claims), atomic supersession, and run idempotency that
+covers both impact rows and review records. A review-only run neither supersedes current claims nor
+burns a version. Verification: typecheck; Python runtime tests 32/32; impact contract/store/matcher
+tests 13/13 against a scratch database; empty-database migration through `0044` (41 migrations).
+
+### Phase 6 checkpoint 2 — runtime graph, orchestration, worker queue
+
+A second execution under the owner's account added the Python impact graph (`2dafe25`): bounded
+official-source acquisition through the Phase 4/5 gateway (NVD, KEV, vendor advisory search plus one
+evidence fetch), an authenticated `/v1/impact/story/{id}` endpoint behind the default-off
+`PRODUCT_IMPACT_ENABLED` switch, the TypeScript client `runAgentImpactTask` (fail-closed switch,
+identity correlation, proposal validation), and fixture tests on both sides. The graph deliberately
+preserves unknowns instead of guessing semantic rows: until the TypeScript model-gateway extraction
+round trip from the contract lands, no impact rows are fabricated. The same session then added the
+orchestration (`agents/impact.ts`): deterministic eligibility (Stories whose title or digest carries a
+CVE id, with vendor aliases resolved deterministically), one research-run bookkeeping wrapper, evidence
+persistence before the impact transaction, and skip semantics for already-analyzed and non-CVE stories;
+plus the `agent.product-impact` pg-boss queue (`jobs/impact.ts`), worker registration, and a
+`*/10` candidate scan guarded by the same switch. Verification: typecheck; Python tests 32/32; impact
+TypeScript tests 21/21; Docker Compose configuration. No external, model, or paid call was made.
 
 ### Phase 5 implementation checkpoint 1 — deterministic tracking foundation
 
