@@ -51,6 +51,100 @@ export interface ResearchFetchedDocument {
   text: string;
 }
 export type ResearchFetchDocument = (url: string, maxBytes: number) => Promise<ResearchFetchedDocument>;
+export type ResearchPostJson = (url: string, body: Record<string, unknown>, maxBytes: number) => Promise<unknown>;
+
+const TedSearchResponseSchema = z.object({
+  notices: z.array(z.record(z.string(), z.unknown())).default([]),
+  totalNoticeCount: z.number().int().nonnegative().optional(),
+  timedOut: z.boolean().optional(),
+}).passthrough();
+
+const TED_RESULT_TYPES = new Set(["can-standard", "can-social", "can-tran", "can-desg"]);
+
+async function defaultPostJson(url: string, body: Record<string, unknown>, maxBytes: number): Promise<unknown> {
+  const response = await guardedFetch(url, {
+    method: "POST",
+    timeoutMs: 20_000,
+    maxBytes,
+    headers: { accept: "application/json", "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (response.status !== 200) throw new Error(`research source returned HTTP ${response.status}`);
+  return JSON.parse(response.text()) as unknown;
+}
+
+function firstText(value: unknown): string | null {
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (Array.isArray(value)) return value.find((item): item is string => typeof item === "string" && item.trim() !== "")?.trim() ?? null;
+  if (value && typeof value === "object") return Object.values(value).find((item): item is string => typeof item === "string" && item.trim() !== "")?.trim() ?? null;
+  return null;
+}
+
+function textList(value: unknown): string[] {
+  if (typeof value === "string") return value.trim() ? [value.trim()] : [];
+  if (Array.isArray(value)) return value.flatMap(textList);
+  if (value && typeof value === "object") return Object.values(value).flatMap(textList);
+  return [];
+}
+
+export async function lookupTedProcurementAward(
+  procedureInput: unknown,
+  postJson: ResearchPostJson = defaultPostJson,
+): Promise<AdapterResult> {
+  const procedureId = z.string().trim().min(1).max(200).regex(/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/).parse(procedureInput);
+  const endpoint = "https://api.ted.europa.eu/v3/notices/search";
+  const fields = ["publication-number", "notice-type", "procedure-identifier", "title-proc", "tendering-party-name", "links"];
+  const request = {
+    query: `procedure-identifier = \"${procedureId}\"`,
+    fields,
+    page: 1,
+    limit: 20,
+    scope: "ALL",
+    checkQuerySyntax: false,
+    paginationMode: "PAGE_NUMBER",
+    onlyLatestVersions: true,
+  };
+  const parsed = TedSearchResponseSchema.parse(await postJson(endpoint, request, 4 * 1024 * 1024));
+  if (parsed.timedOut) throw new Error("TED procurement search timed out");
+  const award = parsed.notices.find((notice) => {
+    const types = Array.isArray(notice["notice-type"]) ? notice["notice-type"] : [notice["notice-type"]];
+    return types.some((value) => typeof value === "string" && TED_RESULT_TYPES.has(value));
+  });
+  if (!award) return { output: { found: false, procedure_id: procedureId, total: parsed.totalNoticeCount ?? parsed.notices.length }, evidence: [], receiptIds: [] };
+  const publicationNumber = firstText(award["publication-number"]);
+  const noticeType = firstText(award["notice-type"]);
+  if (!publicationNumber || !noticeType) throw new Error("TED award result lacks a stable publication identity");
+  const title = firstText(award["title-proc"]) ?? `TED procurement award ${publicationNumber}`;
+  const winners = [...new Set(textList(award["tendering-party-name"]))].slice(0, 50);
+  const links = award.links && typeof award.links === "object" ? award.links as Record<string, unknown> : {};
+  const htmlLinks = links.html && typeof links.html === "object" ? links.html as Record<string, unknown> : {};
+  const canonicalUrl = firstText(htmlLinks.ENG)
+    ?? `https://ted.europa.eu/en/notice/-/detail/${encodeURIComponent(publicationNumber)}`;
+  const normalized = {
+    procedure_id: procedureId,
+    publication_number: publicationNumber,
+    notice_type: noticeType,
+    winners,
+    links: award.links ?? [],
+    tracking_observations: ["procurement_award"],
+  };
+  const evidence = ResearchEvidenceSchema.parse({
+    evidence_id: randomUUID(),
+    source_type: "official_procurement",
+    source_name: "Tenders Electronic Daily (TED)",
+    canonical_url: canonicalUrl,
+    title: title.slice(0, 1_000),
+    excerpt: winners.length ? `Awarded tendering parties: ${winners.join(", ")}`.slice(0, 20_000) : `Official TED award notice ${publicationNumber}`,
+    normalized,
+    content_hash: sha256(stableJson(award)),
+    authority_level: "authoritative",
+    published_at: null,
+    source_updated_at: null,
+    retrieved_at: new Date().toISOString(),
+    provenance: { adapter: "ted-search-api-v3", retrieved_from: endpoint, external_network: true },
+  });
+  return { output: { found: true, procedure_id: procedureId, publication_number: publicationNumber }, evidence: [evidence], receiptIds: [] };
+}
 
 const VendorKeySchema = z.enum(["cisco", "fortinet", "hikvision", "microsoft"]);
 export type VendorKey = z.infer<typeof VendorKeySchema>;
@@ -163,6 +257,7 @@ export async function lookupNvd(cveInput: string, fetchJson: ResearchFetchJson =
     metrics: record.metrics,
     cwes,
     references: record.references.slice(0, 50),
+    tracking_observations: ["material_update"],
   };
   const evidence = ResearchEvidenceSchema.parse({
     evidence_id: randomUUID(),
@@ -208,6 +303,7 @@ export async function lookupKev(cveInput: string, fetchJson: ResearchFetchJson =
     cwes: record.cwes ?? [],
     catalog_version: parsed.catalogVersion,
     catalog_date_released: parsed.dateReleased,
+    tracking_observations: ["material_update"],
   };
   const evidence = ResearchEvidenceSchema.parse({
     evidence_id: randomUUID(),
@@ -345,6 +441,10 @@ export async function fetchVendorAdvisory(
   const body = cleanText($("main,article,[role='main']").first().text() || $("body").text());
   if (!title || body.length < 20) throw new Error("vendor advisory did not contain usable document text");
   const cves = [...new Set((`${title} ${body}`.match(/\bCVE-\d{4}-\d{4,}\b/gi) ?? []).map((item) => item.toUpperCase()))].slice(0, 50);
+  const trackingObservations = ["vendor_confirmation"];
+  if (/\b(?:patch|patched|fixed|fixes|software updates?|upgrade|upgraded|remediat(?:e|ed|ion))\b|修复|补丁|升级/i.test(body)) {
+    trackingObservations.push("patch");
+  }
   const evidence = ResearchEvidenceSchema.parse({
     evidence_id: randomUUID(),
     source_type: "vendor_advisory",
@@ -352,7 +452,7 @@ export async function fetchVendorAdvisory(
     canonical_url: canonical.toString(),
     title: title.slice(0, 1_000),
     excerpt: body.slice(0, 20_000),
-    normalized: { vendor, cves },
+    normalized: { vendor, cves, tracking_observations: trackingObservations },
     content_hash: sha256(response.text),
     authority_level: "authoritative",
     published_at: null,

@@ -1,5 +1,5 @@
 // Worker process: queues and schedules for collection, processing, events, reports, monitors and ops.
-import { assertProductionSecrets } from "@aihot/backend/config";
+import { assertProductionSecrets, config } from "@aihot/backend/config";
 import { FEATURES } from "@aihot/industry/features";
 import { closeDb, sql } from "@aihot/backend/db";
 import { getBoss, stopBoss } from "@aihot/backend/jobs/queue";
@@ -8,6 +8,7 @@ import { registerSourceJobs } from "@aihot/backend/jobs/sources";
 import { registerEventJobs } from "@aihot/backend/jobs/events";
 import { registerNotifyJobs } from "@aihot/backend/jobs/notify";
 import { registerPublicationJobs } from "@aihot/backend/jobs/publication";
+import { registerTrackingJobs } from "@aihot/backend/jobs/tracking";
 import { registerSchedules } from "./schedules.ts";
 import { ensureContentTargets } from "@aihot/backend/notify/deliver";
 import { startHeartbeat } from "@aihot/backend/operations/heartbeat";
@@ -21,6 +22,7 @@ if (process.env.COLLECT_ENABLED !== "false") await registerSourceJobs(boss);
 await registerEventJobs(boss);
 await registerNotifyJobs(boss);
 await registerPublicationJobs(boss);
+if (config.agentTrackingEnabled) await registerTrackingJobs(boss);
 await registerSchedules(boss);
 // A new site has no leaderboard until the first scheduled round: compute one now.
 if (FEATURES.leaderboard) {

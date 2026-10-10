@@ -51,7 +51,7 @@ export const ResearchUnknownSchema = z.object({
 
 export const ResearchToolTraceSchema = z.object({
   sequence: z.number().int().min(1),
-  tool: z.enum(["nvd_lookup", "kev_lookup", "vendor_advisory_search", "evidence_fetch", "web_search", "stub"]),
+  tool: z.enum(["nvd_lookup", "kev_lookup", "vendor_advisory_search", "evidence_fetch", "ted_procurement_lookup", "web_search", "stub"]),
   status: z.enum(["ok", "error", "blocked"]),
   input_summary: z.record(z.string(), z.unknown()),
   evidence_ids: z.array(z.uuid()).default([]),

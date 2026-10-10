@@ -1,0 +1,14 @@
+{
+  "notices": [
+    {
+      "publication-number": ["123456-2026"],
+      "notice-type": ["can-standard"],
+      "procedure-identifier": ["PROC-SECURITY-CAMERA-2026"],
+      "title-proc": ["Security camera framework award"],
+      "tendering-party-name": ["Example Security Systems GmbH"],
+      "links": {"html": "https://ted.europa.eu/en/notice/123456-2026"}
+    }
+  ],
+  "totalNoticeCount": 1,
+  "timedOut": false
+}

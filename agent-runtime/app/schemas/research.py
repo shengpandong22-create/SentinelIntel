@@ -74,7 +74,7 @@ class ResearchConflict(StrictModel):
 
 class ResearchToolTrace(StrictModel):
     sequence: int = Field(gt=0)
-    tool: Literal["nvd_lookup", "kev_lookup", "vendor_advisory_search", "evidence_fetch", "web_search", "stub"]
+    tool: Literal["nvd_lookup", "kev_lookup", "vendor_advisory_search", "evidence_fetch", "ted_procurement_lookup", "web_search", "stub"]
     status: Literal["ok", "error", "blocked"]
     input_summary: dict[str, object]
     evidence_ids: list[UUID] = Field(default_factory=list)

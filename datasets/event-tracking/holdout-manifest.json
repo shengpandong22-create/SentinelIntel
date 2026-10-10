@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "frozen_at": "2026-10-10T05:08:46.647Z",
+  "cases": 26,
+  "candidate_cases": 30,
+  "excluded_cases": [
+    {
+      "case_id": "TRK-HOLD-STALEORNONMATERIAL-001",
+      "detail": "accept/high,accept/medium,accept/medium"
+    },
+    {
+      "case_id": "TRK-HOLD-STALEORNONMATERIAL-002",
+      "detail": "accept/high,accept/medium,accept/medium"
+    },
+    {
+      "case_id": "TRK-HOLD-STALEORNONMATERIAL-003",
+      "detail": "accept/medium,accept/high,reject/medium"
+    },
+    {
+      "case_id": "TRK-HOLD-STALEORNONMATERIAL-004",
+      "detail": "accept/medium,accept/high,reject/medium"
+    }
+  ],
+  "strata": {
+    "vendor-confirmation": 4,
+    "patch-release": 4,
+    "procurement-award": 4,
+    "no-material-change": 4,
+    "tool-failure": 4,
+    "stale-or-nonmaterial": 6
+  },
+  "label_method": "MODEL_REVIEWED",
+  "reviewers": [
+    "deepseek-v4.1-flash",
+    "glm-5.3-flash",
+    "kimi-k3-2"
+  ],
+  "review_receipts": {
+    "deepseek-v4.1-flash": [
+      47,
+      52,
+      53,
+      54,
+      55,
+      56,
+      48,
+      57,
+      58,
+      49,
+      50,
+      51,
+      74,
+      75,
+      76
+    ],
+    "glm-5.3-flash": [
+      34,
+      35,
+      40,
+      41,
+      42,
+      43,
+      44,
+      36,
+      45,
+      46,
+      37,
+      38,
+      39,
+      71,
+      72,
+      73
+    ],
+    "kimi-k3-2": [
+      59,
+      64,
+      65,
+      66,
+      67,
+      68,
+      60,
+      69,
+      70,
+      61,
+      62,
+      63,
+      77,
+      78,
+      79
+    ]
+  },
+  "holdout_sha256": "a5c6be8218d7af23ffe5b210fd1dddf5162cced8ad24cd4e1d20b0289a78ccea",
+  "thresholds_sha256": "b3b20e95b52d9f86eb31a8a786e1b8337275bf4ae9e270c577d7935d90e9a27a",
+  "limitation": "Model-reviewed benchmark; not human gold. Every frozen case was unanimously accepted at high confidence by three independently identified reviewers."
+}

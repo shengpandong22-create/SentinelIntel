@@ -8,6 +8,7 @@ class Settings(BaseModel):
     version: str = "0.1.0"
     research_enabled: bool = os.getenv("AGENT_RESEARCH_ENABLED", "false").lower() in {"1", "true"}
     research_network_enabled: bool = os.getenv("AGENT_RESEARCH_NETWORK_ENABLED", "false").lower() in {"1", "true"}
+    tracking_enabled: bool = os.getenv("AGENT_TRACKING_ENABLED", "false").lower() in {"1", "true"}
     internal_token: SecretStr | None = SecretStr(os.environ["AGENT_INTERNAL_TOKEN"]) if os.getenv("AGENT_INTERNAL_TOKEN") else None
     gateway_url: str = os.getenv("AGENT_GATEWAY_URL", "http://127.0.0.1:3001").rstrip("/")
 

@@ -7,9 +7,10 @@ from fastapi.responses import JSONResponse
 
 from app.agents.test_graph import AgentTaskError, run_test_graph
 from app.agents.research_graph import run_research_graph
+from app.agents.tracking_graph import run_tracking_graph
 from app.config import settings
 from app.observability import trace_event
-from app.schemas import ErrorBody, ErrorEnvelope, ResearchTaskRequest, ResearchTaskResponse, TestTaskRequest, TestTaskResponse
+from app.schemas import ErrorBody, ErrorEnvelope, ResearchTaskRequest, ResearchTaskResponse, TestTaskRequest, TestTaskResponse, TrackingTaskRequest, TrackingTaskResponse
 
 app = FastAPI(title="SentinelIntel Agent Runtime", version=settings.version)
 
@@ -57,6 +58,15 @@ def authorize_research(authorization: str | None, trace_id: UUID) -> None:
         raise AgentTaskError("research_disabled", "security research is disabled", False, trace_id)
 
 
+def authorize_tracking(authorization: str | None, trace_id: UUID) -> None:
+    configured = settings.internal_token.get_secret_value() if settings.internal_token is not None else ""
+    supplied = authorization.removeprefix("Bearer ") if authorization and authorization.startswith("Bearer ") else ""
+    if not configured or not supplied or not hmac.compare_digest(configured, supplied):
+        raise AgentTaskError("unauthorized", "tracking endpoint authentication failed", False, trace_id)
+    if not settings.tracking_enabled:
+        raise AgentTaskError("tracking_disabled", "event tracking is disabled", False, trace_id)
+
+
 @app.post("/v1/tasks/test", response_model=TestTaskResponse)
 async def test_task(task: TestTaskRequest, request: Request) -> TestTaskResponse:
     header_trace = request.headers.get("x-trace-id")
@@ -85,3 +95,22 @@ async def research_story(
     proposal = await run_research_graph(task)
     trace_event("task_completed", task.trace_id, task="security_research", run_id=str(task.run_id))
     return ResearchTaskResponse(trace_id=task.trace_id, run_id=task.run_id, proposal=proposal)
+
+
+@app.post("/v1/tracking/story/{story_id}", response_model=TrackingTaskResponse)
+async def track_story(
+    story_id: int,
+    task: TrackingTaskRequest,
+    request: Request,
+    authorization: str | None = Header(default=None),
+) -> TrackingTaskResponse:
+    authorize_tracking(authorization, task.trace_id)
+    header_trace = request.headers.get("x-trace-id")
+    if header_trace is not None and header_trace != str(task.trace_id):
+        raise AgentTaskError("trace_mismatch", "header and body trace ids differ", False, task.trace_id)
+    if story_id != task.story.story_id:
+        raise AgentTaskError("story_mismatch", "path and snapshot story ids differ", False, task.trace_id)
+    trace_event("task_started", task.trace_id, task="event_tracking", run_id=str(task.run_id))
+    proposal = await run_tracking_graph(task)
+    trace_event("task_completed", task.trace_id, task="event_tracking", run_id=str(task.run_id))
+    return TrackingTaskResponse(trace_id=task.trace_id, run_id=task.run_id, proposal=proposal)

@@ -261,3 +261,37 @@ test("vendor discovery and official fetch pass through the bounded gateway witho
   assert.deepEqual(stored, { calls: 2, documents: 1 });
   await failResearchRun(run.id, "fixture_done", "vendor adapter test complete");
 });
+
+test("TED award lookup passes through the bounded gateway and consumes one free tool call", async () => {
+  const traceId = randomUUID();
+  const run = await startResearchRun({
+    storyId,
+    traceId,
+    objective: "Find the official procurement award for PROC-SECURITY-CAMERA-2026",
+    graphVersion: "phase5-ted-source-v1",
+    snapshot: snapshot(),
+    limits: { ...DEFAULT_RESEARCH_LIMITS, max_tool_calls: 1 },
+  });
+  const postJson = async () => JSON.parse(await readFile(
+    new URL("./fixtures/research/ted-award.json", import.meta.url),
+    "utf8",
+  )) as unknown;
+  const result = await executeResearchTool(
+    {
+      trace_id: traceId,
+      run_id: run.publicId,
+      tool: "ted_procurement_lookup",
+      input: { procedure_id: "PROC-SECURITY-CAMERA-2026" },
+    },
+    run.capability,
+    { networkEnabled: true, postJson },
+  );
+  assert.equal(result.evidence[0]!.source_type, "official_procurement");
+  assert.deepEqual(result.evidence[0]!.normalized.tracking_observations, ["procurement_award"]);
+  assert.deepEqual(result.receipt_ids, []);
+  const [stored] = await sql<{ calls: number; documents: number }[]>`
+    SELECT tool_calls_used AS calls, evidence_documents_used AS documents
+    FROM agent_research_runs WHERE id = ${run.id}`;
+  assert.deepEqual(stored, { calls: 1, documents: 1 });
+  await failResearchRun(run.id, "fixture_done", "TED adapter test complete");
+});
