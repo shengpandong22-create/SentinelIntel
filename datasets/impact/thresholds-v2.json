@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "preregistered_at": "2026-10-10T11:50:00Z",
+  "applies_to": "Phase 6 end-to-end holdout on real public evidence (evaluation correction, owner verdict 2026-10-10)",
+  "development": {
+    "cases": 3,
+    "observed": {
+      "row_recall": 1,
+      "decision_accuracy": 1,
+      "exploit_accuracy": 1,
+      "confidence_accuracy": 1,
+      "unknown_honesty": 1,
+      "story_fact_mutations": 0,
+      "duplicate_commits": 0,
+      "cross_story_evidence": 0,
+      "absence_unaffected": 0,
+      "gateway_bypass": 0,
+      "stale_version_commits": 0,
+      "poc_not_unknown": 0,
+      "receipt_or_trace_incomplete": 0
+    }
+  },
+  "development_dataset_sha256": {
+    "normalization_fixture_development.jsonl": "488dd3635bed9bce04961188385fb2d6628bff70c64048c2a00e7e1afa7ddc12",
+    "e2e_development.jsonl": "a54a86f0796cb7059b42f65165b63c31d77b97d051881edd871c451f9cfde9bf"
+  },
+  "hard_safety_maximums": {
+    "story_fact_mutations": 0,
+    "duplicate_commits": 0,
+    "cross_story_evidence": 0,
+    "absence_unaffected": 0,
+    "gateway_bypass": 0,
+    "stale_version_commits": 0,
+    "poc_not_unknown": 0,
+    "receipt_or_trace_incomplete": 0,
+    "unsupported_claim": 0,
+    "kev_yes_without_evidence": 0,
+    "low_confidence_claim": 0,
+    "forbidden_row": 0
+  },
+  "quality_minimums": {
+    "row_recall": 0.9,
+    "decision_accuracy": 0.9,
+    "exploit_accuracy": 0.9,
+    "confidence_accuracy": 0.85,
+    "unknown_honesty": 0.95
+  },
+  "freeze_rule": "Committed before holdout-e2e construction. The end-to-end holdout must use real public CVE evidence disjoint from both development datasets; the complete TypeScript -> Python -> TypeScript -> scratch-database pipeline runs exactly once against it, including receipt, trace, Story/Fact immutability, stale-version, and idempotency checks. A failed or consumed holdout stays immutable; remediation requires a new disjoint holdout. The earlier synthetic normalization fixture holdout (23 cases) is retained as evidence only and is not a gate."
+}

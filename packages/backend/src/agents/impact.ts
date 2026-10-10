@@ -85,7 +85,7 @@ export async function runImpactForStory(
   });
   try {
     const acquisition = await runAgentImpactTask(task, opts);
-    const { response: finalResponse, extractionReceiptId } = await completeWithExtraction(task, acquisition, opts);
+    const { response: finalResponse, task: finalTask, extractionReceiptId } = await completeWithExtraction(task, acquisition, opts);
     await completeResearchRun({
       runId: run.id,
       storyId: task.story.story_id,
@@ -98,14 +98,14 @@ export async function runImpactForStory(
           attempted_sources: finalResponse.proposal.tool_trace.map((trace) => trace.tool),
           reason: unknown,
         })),
-        evidence: finalResponse.proposal.new_evidence,
+        evidence: [...acquisition.proposal.new_evidence, ...finalResponse.proposal.new_evidence],
         conflicts: [],
         tool_trace: finalResponse.proposal.tool_trace,
         summary: finalResponse.proposal.decision_reason,
         terminal_status: finalResponse.proposal.decision === "insufficient_evidence" ? "insufficient_evidence" : "completed",
       }),
     });
-    const committed = await applyImpactProposal({ task, proposal: finalResponse.proposal });
+    const committed = await applyImpactProposal({ task: finalTask, proposal: finalResponse.proposal });
     return { storyId, traceId, runId: run.publicId, extractionReceiptId, ...committed, proposal: finalResponse.proposal };
   } catch (error) {
     await failResearchRun(run.id, "impact_failed", error instanceof Error ? error.message : String(error)).catch(() => undefined);
@@ -123,14 +123,13 @@ async function completeWithExtraction(
   task: ImpactTask,
   response: ImpactTaskResponse,
   opts: AgentClientOptions & { productImpactEnabled?: boolean; modelCallsEnabled?: boolean },
-): Promise<{ response: ImpactTaskResponse; extractionReceiptId: number | null }> {
+): Promise<{ response: ImpactTaskResponse; task: ImpactTask; extractionReceiptId: number | null }> {
   if (response.proposal.impact_rows.length > 0 || response.proposal.extraction_requests.length === 0) {
-    return { response, extractionReceiptId: null };
+    return { response, task, extractionReceiptId: null };
   }
-  if (!(opts.productImpactEnabled ?? config.productImpactEnabled)) return { response, extractionReceiptId: null };
-  if (!(opts.modelCallsEnabled ?? config.modelCallsEnabled)) return { response, extractionReceiptId: null };
+  if (!(opts.productImpactEnabled ?? config.productImpactEnabled)) return { response, task, extractionReceiptId: null };
+  if (!(opts.modelCallsEnabled ?? config.modelCallsEnabled)) return { response, task, extractionReceiptId: null };
 
-  const { receiptId, ...extraction } = await extractImpactDrafts(task, response.proposal.extraction_requests);
   const evidenceRefs = [
     ...task.evidence,
     ...response.proposal.new_evidence.map((item) => ({
@@ -141,11 +140,16 @@ async function completeWithExtraction(
       content_hash: item.content_hash,
       retrieved_at: item.retrieved_at,
       observations: [] as never[],
+      title: item.title.slice(0, 1_000),
+      excerpt: item.excerpt ? item.excerpt.slice(0, 5_000) : item.excerpt,
     })),
   ];
+  const normalizeTask = ImpactTaskSchema.parse({ ...task, evidence: evidenceRefs });
+  // The extraction prompt must see the acquired evidence content: build the normalize task first.
+  const { receiptId, ...extraction } = await extractImpactDrafts(normalizeTask, response.proposal.extraction_requests);
   const normalized = await runAgentImpactTask(
-    ImpactTaskSchema.parse({ ...task, evidence: evidenceRefs, extraction }),
+    ImpactTaskSchema.parse({ ...normalizeTask, extraction }),
     opts,
   );
-  return { response: normalized, extractionReceiptId: receiptId };
+  return { response: normalized, task: normalizeTask, extractionReceiptId: receiptId };
 }

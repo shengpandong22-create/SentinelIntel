@@ -52,7 +52,10 @@ export function impactExtractionPrompt(task: ImpactTask, requests: ImpactExtract
       request_id: request.request_id, focus: request.focus, instructions: request.instructions,
       evidence: task.evidence
         .filter((item) => request.evidence_ids.includes(item.evidence_id))
-        .map((item) => ({ evidence_id: item.evidence_id, source_type: item.source_type, title: task.story.title, url: item.canonical_url })),
+        .map((item) => ({
+          evidence_id: item.evidence_id, source_type: item.source_type, url: item.canonical_url,
+          title: item.title ?? "", excerpt: item.excerpt ?? "",
+        })),
     })),
   });
 }
