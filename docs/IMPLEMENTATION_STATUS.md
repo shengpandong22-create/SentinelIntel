@@ -157,12 +157,18 @@ demonstrations on real public evidence, and it is NOT the Phase 6 closing baseli
 cover only five of the contract's safety gates. `docs/evaluation/impact-baseline.md` carries a
 correction notice to the same effect.
 
-Evaluation correction (owner-mandated order): (1) status corrected; (2) the synthetic holdout is
-frozen and never re-used; (3) a new holdout built from real public evidence, disjoint from
-development, with full contract safety metrics pre-registered and the development dataset hash
-recorded; (4) one complete TypeScript → Python → TypeScript → scratch-database replay (model
-gateway, tools, receipts, persistence, Story/Fact immutability, stale/idempotency checks); (5) a new
-baseline; then canonical Linux CI before any Phase 6 closure.
+Evaluation correction progress (owner-mandated order): (1) status corrected; (2) the synthetic holdout
+is frozen and never re-used; (3) the end-to-end evaluation was built and pre-registered
+(`thresholds-v2.json`: full contract safety set, development hashes); (4) the end-to-end development
+pilot (CVE-2024-20353, CVE-2020-1472, CVE-2023-20273) passed every safety observation and quality
+metric on the complete live pipeline; (5) the first end-to-end holdout (3 real-CVE cases, receipts
+140-142) then **FAILED** its single authorized run — CVE-2018-13379 and CVE-2020-0688 passed, but
+CVE-2022-30190 produced zero grounded rows (thin MSRC evidence; extraction correctly refused to
+fabricate) and the runner's repeat-skip assertion mishandled review-only outcomes
+(`docs/evaluation/impact-e2e-baseline.md`). The failed holdout stays frozen unmodified; Phase 6
+remains **NOT COMPLETE**. Next: development-only remediation (MSRC-class evidence acquisition, runner
+assertion, expectation modeling for evidence-limited outcomes), then a new disjoint end-to-end
+holdout, then canonical Linux CI.
 
 ### Phase 6 checkpoint 1 — contracts, matcher, migrations, stores
 
