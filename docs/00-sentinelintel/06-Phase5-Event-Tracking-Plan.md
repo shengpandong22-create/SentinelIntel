@@ -47,6 +47,11 @@ whose source identities are disjoint from development. It remains only in `.data
 `UNREVIEWED`, and the evaluator refuses to score it. Independent review and freeze are intentionally
 deferred; no holdout result has been observed.
 
+Checkpoint 8 completed on 2026-10-10: review and freeze tooling is ready but has not been executed. Paid
+review fails closed without an explicit flag and uses the existing receipt/budget boundary. Freeze
+requires three distinct complete reviewer sets and unanimous high-confidence acceptance for every case,
+then records dataset and threshold hashes and the `MODEL_REVIEWED`, not-human-gold limitation.
+
 This contract is written before Phase 5 implementation. Phase 5 adds bounded, evidence-backed active
 tracking to an existing Story. It does not replace the Story lifecycle, event grouping, digest generation,
 or pg-boss scheduling already owned by deterministic TypeScript code.

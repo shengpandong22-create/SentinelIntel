@@ -20,6 +20,11 @@ be frozen before the final run, and must never be edited after results are obser
 `.data/`. The evaluator permits validation of that candidate with `--candidate --validate-only`, but
 refuses to score it. Candidate construction is not a holdout freeze.
 
+Model review tooling is fail-closed: `review-event-tracking-holdout.ts` requires `--allow-paid`, a real
+reviewer identity, and the existing receipt/budget path. `freeze-event-tracking-holdout.ts` requires
+three distinct complete review sets and freezes only unanimous high-confidence acceptances. Until then,
+neither `holdout.jsonl` nor its manifest exists.
+
 `thresholds.json` was pre-registered from the development replay before holdout construction. Its safety
 gates are exact zero. Tool error rate is reported but is not a quality gate because four development
 cases deliberately inject a bounded gateway failure.

@@ -279,6 +279,13 @@ adjudicator or three separately identified model reviewers and, for model review
 through the existing receipt and budget boundary. This deferred participation item does not invalidate
 the completed implementation, development replay, or preregistered thresholds.
 
+Review and freeze tooling is implemented without consuming the candidate. The review command refuses to
+run unless `--allow-paid` and an actual reviewer id are supplied, routes through the existing paid-call
+receipt/budget controls, and stores receipt ids. Freeze requires three distinct complete review sets and
+unanimous high-confidence acceptance for every row. It writes dataset and threshold hashes plus an
+explicit `MODEL_REVIEWED` limitation. Default-off review and missing-review freeze refusal were verified;
+no paid call, frozen holdout, or holdout result was produced.
+
 ### Historical Phase 4 record
 
 Planning was explicitly authorized on 2026-10-08. The contract was written before implementation and
