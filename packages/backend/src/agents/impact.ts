@@ -1,9 +1,11 @@
 import { randomBytes, randomUUID } from "node:crypto";
+import { config } from "../config.ts";
 import { runAgentImpactTask, type AgentClientOptions } from "./client.ts";
 import { applyImpactProposal } from "./impact-store.ts";
+import { extractImpactDrafts } from "./impact-extraction.ts";
 import { completeResearchRun, failResearchRun, startResearchRun } from "./research-store.ts";
 import { DEFAULT_RESEARCH_LIMITS, ResearchProposalSchema } from "./research-contract.ts";
-import { ImpactTaskSchema } from "./impact-contract.ts";
+import { ImpactTaskSchema, type ImpactTask, type ImpactTaskResponse } from "./impact-contract.ts";
 import { sql } from "../db.ts";
 
 // Phase 6 orchestration: deterministic TypeScript decides eligibility (Stories whose title or digest
@@ -82,7 +84,8 @@ export async function runImpactForStory(
     limits: DEFAULT_RESEARCH_LIMITS,
   });
   try {
-    const response = await runAgentImpactTask(task, opts);
+    const acquisition = await runAgentImpactTask(task, opts);
+    const { response: finalResponse, extractionReceiptId } = await completeWithExtraction(task, acquisition, opts);
     await completeResearchRun({
       runId: run.id,
       storyId: task.story.story_id,
@@ -90,22 +93,59 @@ export async function runImpactForStory(
       promptVersion: "phase6-impact-v1",
       proposal: ResearchProposalSchema.parse({
         claims: [],
-        unknowns: response.proposal.unknowns.map((unknown) => ({
+        unknowns: finalResponse.proposal.unknowns.map((unknown) => ({
           question: unknown,
-          attempted_sources: response.proposal.tool_trace.map((trace) => trace.tool),
+          attempted_sources: finalResponse.proposal.tool_trace.map((trace) => trace.tool),
           reason: unknown,
         })),
-        evidence: response.proposal.new_evidence,
+        evidence: finalResponse.proposal.new_evidence,
         conflicts: [],
-        tool_trace: response.proposal.tool_trace,
-        summary: response.proposal.decision_reason,
-        terminal_status: response.proposal.decision === "insufficient_evidence" ? "insufficient_evidence" : "completed",
+        tool_trace: finalResponse.proposal.tool_trace,
+        summary: finalResponse.proposal.decision_reason,
+        terminal_status: finalResponse.proposal.decision === "insufficient_evidence" ? "insufficient_evidence" : "completed",
       }),
     });
-    const committed = await applyImpactProposal({ task, proposal: response.proposal });
-    return { storyId, traceId, runId: run.publicId, ...committed, proposal: response.proposal };
+    const committed = await applyImpactProposal({ task, proposal: finalResponse.proposal });
+    return { storyId, traceId, runId: run.publicId, extractionReceiptId, ...committed, proposal: finalResponse.proposal };
   } catch (error) {
     await failResearchRun(run.id, "impact_failed", error instanceof Error ? error.message : String(error)).catch(() => undefined);
     throw error;
   }
+}
+
+/**
+ * The contract's extraction round trip: when acquisition yields evidence but no rows, the Python
+ * graph's extraction requests are executed through the TypeScript model gateway (receipts, budgets),
+ * and the drafts are normalized by a second graph call. Fails closed unless both switches are on.
+ * The extraction receipt id is returned for the audit trail.
+ */
+async function completeWithExtraction(
+  task: ImpactTask,
+  response: ImpactTaskResponse,
+  opts: AgentClientOptions & { productImpactEnabled?: boolean; modelCallsEnabled?: boolean },
+): Promise<{ response: ImpactTaskResponse; extractionReceiptId: number | null }> {
+  if (response.proposal.impact_rows.length > 0 || response.proposal.extraction_requests.length === 0) {
+    return { response, extractionReceiptId: null };
+  }
+  if (!(opts.productImpactEnabled ?? config.productImpactEnabled)) return { response, extractionReceiptId: null };
+  if (!(opts.modelCallsEnabled ?? config.modelCallsEnabled)) return { response, extractionReceiptId: null };
+
+  const { receiptId, ...extraction } = await extractImpactDrafts(task, response.proposal.extraction_requests);
+  const evidenceRefs = [
+    ...task.evidence,
+    ...response.proposal.new_evidence.map((item) => ({
+      evidence_id: item.evidence_id,
+      source_type: item.source_type,
+      authority_level: item.authority_level,
+      canonical_url: item.canonical_url,
+      content_hash: item.content_hash,
+      retrieved_at: item.retrieved_at,
+      observations: [] as never[],
+    })),
+  ];
+  const normalized = await runAgentImpactTask(
+    ImpactTaskSchema.parse({ ...task, evidence: evidenceRefs, extraction }),
+    opts,
+  );
+  return { response: normalized, extractionReceiptId: receiptId };
 }

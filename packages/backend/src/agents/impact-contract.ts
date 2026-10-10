@@ -35,6 +35,37 @@ export const ImpactRowSchema = z.object({
   evidence_ids: z.array(z.uuid()).min(1).max(20),
 }).strict();
 
+export const ImpactExtractionRequestSchema = z.object({
+  request_id: z.uuid(),
+  evidence_ids: z.array(z.uuid()).min(1).max(12),
+  focus: z.enum(["product_versions", "mitigation", "exploit_status"]),
+  instructions: z.string().min(1).max(2_000),
+}).strict();
+
+// The Python graph emits extraction requests; the TypeScript model gateway executes them under
+// receipts and budgets; the drafts flow back to Python for normalization. Range expressions stay raw
+// text and the gateway attaches the deterministic matcher's support flags — the model never decides
+// support, and unsupported expressions must surface as unknown, never as a claim.
+export const ImpactExtractionRowDraftSchema = z.object({
+  vendor: z.string().min(1).max(200),
+  product: z.string().min(1).max(200),
+  models: z.array(z.string().min(1).max(200)).max(50),
+  cve_id: z.string().regex(/^CVE-\d{4}-\d{4,}$/).nullable(),
+  affected_range_raw: z.string().max(200).nullable(),
+  affected_range_supported: z.boolean(),
+  fixed_range_raw: z.string().max(200).nullable(),
+  fixed_range_supported: z.boolean(),
+  mitigations: z.array(z.string().min(1).max(500)).max(20),
+  confidence: z.enum(IMPACT_CONFIDENCE),
+  evidence_ids: z.array(z.uuid()).min(1).max(20),
+}).strict();
+
+export const ImpactExtractionSchema = z.object({
+  drafts: z.array(ImpactExtractionRowDraftSchema).max(20),
+  unknowns: z.array(z.string().min(1).max(500)).max(50),
+  prompt_version: z.string().min(1).max(100),
+}).strict();
+
 export const ImpactProposalSchema = z.object({
   new_evidence: z.array(ResearchEvidenceSchema).max(12),
   impact_rows: z.array(ImpactRowSchema).max(20),
@@ -44,6 +75,7 @@ export const ImpactProposalSchema = z.object({
   decision: z.enum(["propose", "insufficient_evidence"]),
   decision_reason: z.string().min(1).max(4_000),
   tool_trace: z.array(ResearchToolTraceSchema).max(8),
+  extraction_requests: z.array(ImpactExtractionRequestSchema).max(12).default([]),
 }).strict().superRefine((proposal, ctx) => {
   const rowKeys = proposal.impact_rows.map((row) => `${row.vendor}::${row.product}`.toLowerCase());
   if (new Set(rowKeys).size !== rowKeys.length) {
@@ -75,6 +107,8 @@ export const ImpactTaskSchema = z.object({
   // by impact validation, which checks evidence existence and story locality instead.
   evidence: z.array(TrackingEvidenceRefSchema).max(100),
   limits: ResearchLimitsSchema,
+  // Present only in the normalization call: gateway-executed extraction drafts to turn into rows.
+  extraction: ImpactExtractionSchema.nullable().default(null),
 }).strict();
 
 export const ImpactTaskResponseSchema = z.object({
@@ -93,7 +127,13 @@ export function validateImpactProposal(task: z.infer<typeof ImpactTaskSchema>, r
   const evidenceIds = new Set([
     ...task.evidence.map((item) => item.evidence_id),
     ...proposal.new_evidence.map((item) => item.evidence_id),
+    ...(task.extraction?.drafts.flatMap((draft) => draft.evidence_ids) ?? []),
   ]);
+  for (const request of proposal.extraction_requests) {
+    for (const id of request.evidence_ids) {
+      if (!evidenceIds.has(id)) throw new Error(`extraction request cites unknown evidence: ${id}`);
+    }
+  }
   const kevEvidence = new Set(
     [
       ...task.evidence,
@@ -132,3 +172,5 @@ export type ImpactTask = z.infer<typeof ImpactTaskSchema>;
 export type ImpactProposal = z.infer<typeof ImpactProposalSchema>;
 export type ImpactRow = z.infer<typeof ImpactRowSchema>;
 export type ImpactTaskResponse = z.infer<typeof ImpactTaskResponseSchema>;
+export type ImpactExtractionRequest = z.infer<typeof ImpactExtractionRequestSchema>;
+export type ImpactExtraction = z.infer<typeof ImpactExtractionSchema>;

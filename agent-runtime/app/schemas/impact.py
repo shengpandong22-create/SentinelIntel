@@ -40,6 +40,35 @@ class ImpactRow(StrictModel):
     evidence_ids: list[UUID] = Field(min_length=1, max_length=20)
 
 
+class ImpactExtractionRequest(StrictModel):
+    request_id: UUID
+    evidence_ids: list[UUID] = Field(min_length=1, max_length=12)
+    focus: Literal["product_versions", "mitigation", "exploit_status"]
+    instructions: str = Field(min_length=1, max_length=2_000)
+
+
+class ImpactExtractionRowDraft(StrictModel):
+    vendor: str = Field(min_length=1, max_length=200)
+    product: str = Field(min_length=1, max_length=200)
+    models: list[str] = Field(default_factory=list, max_length=50)
+    cve_id: str | None = Field(default=None, pattern=r"^CVE-\d{4}-\d{4,}$")
+    affected_range_raw: str | None = Field(default=None, max_length=200)
+    affected_range_supported: bool
+    fixed_range_raw: str | None = Field(default=None, max_length=200)
+    fixed_range_supported: bool
+    mitigations: list[str] = Field(default_factory=list, max_length=20)
+    confidence: ImpactConfidence
+    evidence_ids: list[UUID] = Field(min_length=1, max_length=20)
+
+
+class ImpactExtraction(StrictModel):
+    # Gateway-executed extraction drafts. Supported flags come from the deterministic TypeScript
+    # matcher — the model never decides support, and unsupported expressions surface as unknown.
+    drafts: list[ImpactExtractionRowDraft] = Field(max_length=20)
+    unknowns: list[str] = Field(default_factory=list, max_length=50)
+    prompt_version: str = Field(min_length=1, max_length=100)
+
+
 class ImpactProposal(StrictModel):
     new_evidence: list[ResearchEvidence] = Field(max_length=12)
     impact_rows: list[ImpactRow] = Field(max_length=20)
@@ -49,6 +78,7 @@ class ImpactProposal(StrictModel):
     decision: Literal["propose", "insufficient_evidence"]
     decision_reason: str = Field(min_length=1, max_length=4_000)
     tool_trace: list[ResearchToolTrace] = Field(max_length=8)
+    extraction_requests: list[ImpactExtractionRequest] = Field(default_factory=list, max_length=12)
 
     @model_validator(mode="after")
     def internally_consistent(self) -> "ImpactProposal":
@@ -79,6 +109,8 @@ class ImpactTaskRequest(StrictModel):
     # by impact validation, which checks evidence existence and story locality instead.
     evidence: list[TrackingEvidenceRef] = Field(default_factory=list, max_length=100)
     limits: ResearchLimits
+    # Present only in the normalization call: gateway-executed extraction drafts to turn into rows.
+    extraction: ImpactExtraction | None = None
 
 
 class ImpactTaskResponse(StrictModel):

@@ -74,3 +74,36 @@ def test_task_rejects_unsupported_evidence_observations_and_bad_cve() -> None:
     payload["evidence"][0]["observations"] = ["generic_search"]  # type: ignore[index]
     with pytest.raises(ValidationError):
         ImpactTaskRequest.model_validate(payload)
+
+
+def test_extraction_defaults_and_proposal_requests_round_trip() -> None:
+    task = ImpactTaskRequest.model_validate(task_payload())
+    assert task.extraction is None
+    proposal = ImpactProposal.model_validate(proposal_payload())
+    assert proposal.extraction_requests == []
+    with_requests = ImpactProposal.model_validate({**proposal_payload(), "extraction_requests": [{
+        "request_id": "00000000-0000-4000-8000-000000000301",
+        "evidence_ids": [task.evidence[0].evidence_id],  # type: ignore[index]
+        "focus": "product_versions",
+        "instructions": "Extract affected and fixed versions exactly.",
+    }]})
+    assert len(with_requests.extraction_requests) == 1
+
+
+def test_extraction_drafts_carry_matcher_support_flags_from_the_gateway() -> None:
+    from app.schemas.impact import ImpactExtraction, ImpactTaskRequest as TaskRequest
+
+    task = TaskRequest.model_validate({**task_payload(), "extraction": {
+        "drafts": [{
+            "vendor": "Acme", "product": "CamFirm", "models": ["CAM-100"], "cve_id": "CVE-2026-10001",
+            "affected_range_raw": "firmware R-1.0 beta", "affected_range_supported": False,
+            "fixed_range_raw": None, "fixed_range_supported": False,
+            "mitigations": [], "confidence": "low",
+            "evidence_ids": [task_payload()["evidence"][0]["evidence_id"]],  # type: ignore[index]
+        }],
+        "unknowns": ["Vendor range format is not machine-readable."],
+        "prompt_version": "phase6-impact-extraction-v1",
+    }})
+    assert task.extraction is not None
+    assert task.extraction.drafts[0].affected_range_supported is False
+    assert ImpactExtraction.model_validate(task.extraction.model_dump()).prompt_version == "phase6-impact-extraction-v1"
