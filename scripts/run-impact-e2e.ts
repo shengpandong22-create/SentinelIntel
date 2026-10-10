@@ -137,7 +137,10 @@ for (const item of cases) {
   const proposal = "proposal" in run ? run.proposal : null;
   const rowsText = impacts.map((row) => row.product.toLowerCase()).join(" | ");
   // row_contains lists alternative surface forms of the expected product (OR): any hit satisfies it.
-  const rowRecall = item.expected.row_contains.length === 0
+  // Recall only applies when the run decided to propose; an insufficient_evidence outcome legitimately
+  // has no rows (its honesty is measured by unknown_honesty instead).
+  const decidedInsufficient = proposal?.decision === "insufficient_evidence";
+  const rowRecall = item.expected.row_contains.length === 0 || decidedInsufficient
     ? 1
     : item.expected.row_contains.some((needle) =>
         rowsText.includes(needle.toLowerCase()) || rowsText.includes(needle.toLowerCase().replace(/ /g, "")))
