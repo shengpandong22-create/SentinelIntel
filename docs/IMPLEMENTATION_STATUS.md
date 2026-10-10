@@ -227,6 +227,22 @@ receipts. This live check is source compatibility evidence, not a benchmark resu
 and validate the evidence-backed development set and offline scorer before setting any numeric quality
 threshold.
 
+### Phase 5 implementation checkpoint 5 — evaluation contract
+
+The evaluation schema and scorer were committed before formal development cases or numeric thresholds.
+Each transition case freezes the complete tracking task, expected material changes with admissible source
+URLs, complete resolved/open question state, decision, interval, forbidden conclusions, and provenance.
+Validation requires 20–50 formal cases, all six declared strata, at least three development cases per
+stratum, source-backed expected changes, independent review for holdout, and three distinct reviewers
+when the holdout is labelled `MODEL_REVIEWED`.
+
+The harness refuses to invent missing output and enforces exactly one result per case. It reports the
+contract's exact-zero safety counters separately from material-change recall, supported-change precision,
+question-state accuracy, decision accuracy, interval accuracy, latency, tokens, tool calls, receipts,
+cost, and tool error rate. Unit tests cover stratum completeness, holdout review provenance, perfect
+fixture scoring, and missing/duplicate result rejection. TypeScript typecheck and the four evaluation
+tests pass. No quality threshold has been selected and no benchmark result is claimed yet.
+
 ### Historical Phase 4 record
 
 Planning was explicitly authorized on 2026-10-08. The contract was written before implementation and

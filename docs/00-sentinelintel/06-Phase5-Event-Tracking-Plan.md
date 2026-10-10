@@ -28,6 +28,12 @@ or non-result response preserves the question as unknown, and the free call stil
 research capability and tool/document limits. A fixture-backed gateway test and one anonymous live
 development check passed with no model call or receipt. Benchmark construction remains the next gate.
 
+Checkpoint 5 completed on 2026-10-10: the offline evaluation contract is implemented before dataset
+construction. It validates complete question-state labels, source-backed expected changes, split/review
+rules, stratum coverage, and one result per case. The scorer separates exact-zero safety gates from
+change recall/precision, question-state, decision, interval, and operations metrics; it never fabricates
+missing execution output. Formal development case construction is the next gate.
+
 This contract is written before Phase 5 implementation. Phase 5 adds bounded, evidence-backed active
 tracking to an existing Story. It does not replace the Story lifecycle, event grouping, digest generation,
 or pg-boss scheduling already owned by deterministic TypeScript code.
