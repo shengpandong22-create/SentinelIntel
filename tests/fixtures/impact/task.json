@@ -1,0 +1,84 @@
+{
+  "now": "2026-10-10T00:00:00Z",
+  "task": {
+    "trace_id": "00000000-0000-4000-8000-000000000101",
+    "run_id": "00000000-0000-4000-8000-000000000102",
+    "tool_capability": "impact-capability-placeholder-000000001",
+    "story": {
+      "schema_version": 1,
+      "story_id": 9001,
+      "story_version": 1,
+      "title": "Tracked camera firmware vulnerability",
+      "digest": null,
+      "status": "active",
+      "facts": [],
+      "missing_questions": [],
+      "captured_at": "2026-10-10T00:00:00Z"
+    },
+    "source_parameters": {
+      "cve_id": "CVE-2026-10001",
+      "vendor": "acme"
+    },
+    "evidence": [
+      {
+        "evidence_id": "00000000-0000-4000-8000-000000000201",
+        "source_type": "vendor_advisory",
+        "authority_level": "authoritative",
+        "canonical_url": "https://vendor.example/advisory/cve-2026-10001",
+        "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "retrieved_at": "2026-10-10T00:00:00Z",
+        "observations": ["vendor_confirmation"]
+      },
+      {
+        "evidence_id": "00000000-0000-4000-8000-000000000202",
+        "source_type": "cisa_kev",
+        "authority_level": "authoritative",
+        "canonical_url": "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+        "content_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "retrieved_at": "2026-10-10T00:00:00Z",
+        "observations": ["material_update"]
+      }
+    ],
+    "limits": {
+      "max_rounds": 3,
+      "max_tool_calls": 8,
+      "max_generic_searches": 0,
+      "max_evidence_documents": 12,
+      "deadline_ms": 60000,
+      "max_response_bytes": 2097152
+    }
+  },
+  "proposal": {
+    "new_evidence": [],
+    "impact_rows": [
+      {
+        "vendor": "Acme",
+        "product": "Acme CamFirm Platform",
+        "models": ["CAM-100", "CAM-200"],
+        "cve_id": "CVE-2026-10001",
+        "affected_range": { "raw": ">=1.0,<2.3.5", "supported": true },
+        "fixed_range": { "raw": "2.3.5", "supported": true },
+        "mitigations": ["Upgrade to firmware 2.3.5 or later."],
+        "confidence": "high",
+        "evidence_ids": ["00000000-0000-4000-8000-000000000201"]
+      }
+    ],
+    "exploit_status": { "poc": "unknown", "known_exploited": "yes" },
+    "known_exploited_evidence_ids": ["00000000-0000-4000-8000-000000000202"],
+    "unknowns": ["Vendor alias coverage for legacy product lines is incomplete."],
+    "decision": "propose",
+    "decision_reason": "Official advisory and KEV catalog fully support the impact row.",
+    "tool_trace": [
+      {
+        "sequence": 1,
+        "tool": "nvd_lookup",
+        "status": "ok",
+        "input_summary": { "cve_id": "CVE-2026-10001" },
+        "evidence_ids": [],
+        "receipt_ids": [],
+        "latency_ms": 12,
+        "error_code": null
+      }
+    ]
+  }
+}
