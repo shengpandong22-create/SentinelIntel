@@ -159,16 +159,21 @@ correction notice to the same effect.
 
 Evaluation correction progress (owner-mandated order): (1) status corrected; (2) the synthetic holdout
 is frozen and never re-used; (3) the end-to-end evaluation was built and pre-registered
-(`thresholds-v2.json`: full contract safety set, development hashes); (4) the end-to-end development
-pilot (CVE-2024-20353, CVE-2020-1472, CVE-2023-20273) passed every safety observation and quality
+(`thresholds-v2.json` revision 2: full contract safety set, behavioral assertions, development hashes);
+(4) the end-to-end development replay (4 real-CVE cases) passed every safety observation and quality
 metric on the complete live pipeline; (5) the first end-to-end holdout (3 real-CVE cases, receipts
-140-142) then **FAILED** its single authorized run — CVE-2018-13379 and CVE-2020-0688 passed, but
+140-142) **FAILED** its single authorized run — CVE-2018-13379 and CVE-2020-0688 passed, but
 CVE-2022-30190 produced zero grounded rows (thin MSRC evidence; extraction correctly refused to
 fabricate) and the runner's repeat-skip assertion mishandled review-only outcomes
-(`docs/evaluation/impact-e2e-baseline.md`). The failed holdout stays frozen unmodified; Phase 6
-remains **NOT COMPLETE**. Next: development-only remediation (MSRC-class evidence acquisition, runner
-assertion, expectation modeling for evidence-limited outcomes), then a new disjoint end-to-end
-holdout, then canonical Linux CI.
+(`docs/evaluation/impact-e2e-baseline.md`). That failed holdout stays frozen unmodified.
+
+Holdout v2 (CVE-2021-34527, CVE-2022-39952, CVE-2023-36884 — disjoint, MSRC-class failure mode
+included, behavioral expectations) is constructed and its review is **PAUSED by an environment
+blocker**: the local Application Control policy began denying `codebuddy.exe` mid-session (receipt 143,
+GLM, completed 3/3 high just before the block; DS receipt 144 was admin-released as unbilled after a
+CLI spawn failure; Kimi receipt 145 timed out and is unknown). The blocker is a machine-level policy
+this project must not bypass; review resumes once the owner unblocks the CLI or provides an alternate
+reviewer channel. Phase 6 remains **NOT COMPLETE**.
 
 ### Phase 6 checkpoint 1 — contracts, matcher, migrations, stores
 
