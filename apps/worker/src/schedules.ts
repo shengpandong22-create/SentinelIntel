@@ -26,6 +26,7 @@ import { sourceHealthWeekly } from "@aihot/backend/operations/reports";
 import { markStalePendingReceipts } from "@aihot/backend/providers/receipts";
 import { markStaleDeliveries } from "@aihot/backend/notify/deliver";
 import { scheduleDueTrackingPlans } from "@aihot/backend/jobs/tracking";
+import { scheduleImpactCandidates } from "@aihot/backend/jobs/impact";
 
 interface Scheduled {
   name: string;
@@ -46,6 +47,9 @@ export const SCHEDULES: Scheduled[] = [
   { name: "stories.links", cron: "12 * * * *", run: linkRelatedStories },
   ...(config.agentTrackingEnabled
     ? [{ name: "agent.tracking", cron: "*/5 * * * *", run: () => scheduleDueTrackingPlans() }]
+    : []),
+  ...(config.productImpactEnabled
+    ? [{ name: "agent.product-impact", cron: "*/10 * * * *", run: () => scheduleImpactCandidates() }]
     : []),
   { name: "reports.daily", cron: "0 8 * * *", missed: "once", run: () => composeDaily(beijingDate(Date.now())) },
   { name: "reports.weekly", cron: "0 10 * * 1", missed: "once", run: () => composeWeekly(isoWeekLabel(addDays(beijingDate(Date.now()), -7))) },
