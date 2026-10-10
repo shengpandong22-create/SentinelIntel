@@ -1,5 +1,9 @@
 import { closeDb, sql } from "@aihot/backend/db";
-const rows = await sql<{ id: number; service: string; model: string | null; status: string; resp: string }[]>`
-  SELECT id, service, model, status, left(response::text, 800) AS resp FROM receipts ORDER BY id`;
-for (const r of rows) console.log(r.id, r.service, r.model, r.status, "::", String(r.resp).slice(0, 500));
+const rows = await sql<{ id: number; resp: string }[]>`
+  SELECT id, response::text AS resp FROM receipts WHERE id IN (12, 13) ORDER BY id`;
+for (const r of rows) {
+  const parsed = JSON.parse(r.resp) as { choices?: Array<{ message?: { content?: string } }> };
+  console.log("=== receipt", r.id);
+  console.log(parsed.choices?.[0]?.message?.content?.slice(0, 1_200));
+}
 await closeDb();
