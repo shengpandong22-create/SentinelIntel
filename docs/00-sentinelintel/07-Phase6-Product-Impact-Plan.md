@@ -5,6 +5,33 @@ revisions (row-per-product `product_impacts` model, PoC `unknown`-only, NVD/vend
 alignment, explicit TypeScript model-gateway LLM boundary) were applied, and the owner pre-accepted the
 revised contract for implementation on `phase/6-product-impact-agent`.
 
+Checkpoint A completed on 2026-10-10: cross-runtime impact schemas sharing one fixture, the closed
+grammar version matcher, migration `0044` (entities, Story links, row-per-product impacts with
+`impact_version` history, human reviews), and the confidence-routing store with atomic supersession and
+run idempotency (review-only runs neither supersede claims nor burn a version).
+
+Checkpoint B completed on 2026-10-10: the Python impact graph acquires bounded official evidence,
+emits structured extraction requests, and refuses to guess semantic rows; the TypeScript model gateway
+(`impact-extraction.ts`) executes those requests through the paid path with receipts and attaches the
+deterministic matcher's support flags — the model never decides support; the normalization node turns
+gateway drafts into rows with authority-capped confidence (authoritative keeps high, primary caps at
+medium, low becomes an unknown without claims), merges same-product conflicts in favor of the most
+authoritative citation with a medium cap, keeps `known_exploited` KEV-only, and leaves PoC unknown-only.
+Orchestration and the `agent.product-impact` queue stay behind default-off switches.
+
+Checkpoint C completed on 2026-10-10: the evaluation contract, 24-case eight-stratum source-backed
+development set, offline scorer, and pre-registered thresholds (`datasets/impact/thresholds.json`,
+committed before holdout construction). The development replay passes every gate with all safety
+counters zero and all quality metrics 1.0. Two candidate-defect rounds were caught by model review and
+fixed before the freeze: evidence without frozen content (the evidence contract gained `title`/`excerpt`),
+and CVE ids swapped in labels while evidence content still described the original CVEs. The final
+candidate uses synthetic but self-consistent advisory content bound to fresh CVE ids. Three model
+families (receipts 104-139) reviewed all 24 cases; `IMP-HOLD-UNRESOLV-001` was excluded (a template
+product-attribution error a reviewer correctly refused) and the reviewed label was not changed. The
+frozen 23-case holdout (`MODEL_REVIEWED`, not human gold) passed the single authorized final replay
+with all safety counters zero and every quality gate at 1.0:
+`docs/evaluation/impact-baseline.md`.
+
 Sources of truth: `01-SentinelIntel-V2-Technical-Design.md` §6.3, §11 (trigger), §12 (confidence gate),
 §15.5 (eval); `02-AIHOT-to-SentinelIntel-Migration-Spec.md` §15. Phase 6 starts only from the merged
 Phase 5 state (`main` = `7b829d4`, PR #7, 2 canonical checks passed).

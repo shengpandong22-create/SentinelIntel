@@ -72,6 +72,10 @@ export const TrackingEvidenceRefSchema = z.object({
   content_hash: z.string().regex(/^[0-9a-f]{64}$/),
   retrieved_at: z.iso.datetime({ offset: true }),
   observations: z.array(z.enum(["vendor_confirmation", "patch", "procurement_award", "material_update"])).max(4),
+  // Frozen evidence content (official title and the load-bearing excerpt) so independent reviewers
+  // can verify impact claims without network access. Absent for pure routing refs.
+  title: z.string().max(1_000).nullish(),
+  excerpt: z.string().max(5_000).nullish(),
 }).strict();
 
 export const TrackingChangeSchema = z.object({

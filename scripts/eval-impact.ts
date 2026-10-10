@@ -17,10 +17,11 @@ const { values } = parseArgs({ options: {
   out: { type: "string" },
   "validate-only": { type: "boolean", default: false },
   candidate: { type: "boolean", default: false },
+  holdout: { type: "boolean", default: false },
 } });
 
 const cases = parseImpactJsonl(readFileSync(values.cases!, "utf8"), ImpactEvalCaseSchema);
-validateImpactEvalCases(cases, { candidate: values.candidate });
+validateImpactEvalCases(cases, { candidate: values.candidate, holdout: values.holdout });
 if (values["validate-only"]) {
   process.stdout.write(`${JSON.stringify({ ok: true, cases: cases.length, validated_only: true })}\n`);
   process.exit(0);

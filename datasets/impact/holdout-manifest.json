@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "frozen_at": "2026-10-10T09:52:13.900Z",
+  "cases": 23,
+  "candidate_cases": 24,
+  "excluded_cases": [
+    {
+      "case_id": "IMP-HOLD-UNRESOLV-001",
+      "detail": "reject/medium,accept/high,accept/high"
+    }
+  ],
+  "strata": {
+    "single-product-cve": 3,
+    "multi-product-family": 3,
+    "model-alias-conflict": 3,
+    "unresolvable-range": 2,
+    "missing-advisory": 3,
+    "conflicting-statements": 3,
+    "kev-status": 3,
+    "non-security-negative": 3
+  },
+  "label_method": "MODEL_REVIEWED",
+  "reviewers": [
+    "deepseek-v4.1-flash",
+    "glm-5.3-flash",
+    "kimi-k3-2"
+  ],
+  "review_receipts": {
+    "deepseek-v4.1-flash": [
+      116,
+      121,
+      122,
+      123,
+      124,
+      125,
+      117,
+      126,
+      127,
+      118,
+      119,
+      120
+    ],
+    "glm-5.3-flash": [
+      104,
+      109,
+      110,
+      111,
+      112,
+      113,
+      105,
+      114,
+      115,
+      106,
+      107,
+      108
+    ],
+    "kimi-k3-2": [
+      128,
+      133,
+      134,
+      135,
+      136,
+      137,
+      129,
+      138,
+      139,
+      130,
+      131,
+      132
+    ]
+  },
+  "holdout_sha256": "3b2e242ee681b49d5ee957881cd1667039780c9adafc8c26c36558919fe253b5",
+  "thresholds_sha256": "0c7a0c7d9fa53362d8eafaa916743c978d7074591475a116721bdcd8e18b0e08",
+  "limitation": "Model-reviewed benchmark; not human gold. Every frozen case was unanimously accepted at high confidence by three independently identified reviewers."
+}

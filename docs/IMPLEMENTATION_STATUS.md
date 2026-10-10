@@ -147,11 +147,14 @@ TypeScript scheduling, policy enforcement, validation, and persistence. Its acce
 three migration-spec demonstrations, exact-zero safety failures, development-based threshold
 preregistration, an immutable independently reviewed holdout, and canonical Linux CI.
 
-Phase 6 — Product Impact Agent: the implementation contract was drafted at
-`docs/00-sentinelintel/07-Phase6-Product-Impact-Plan.md` from the merged Phase 5 state, revised on the
-owner's `REQUEST_CHANGES` (row-per-product `product_impacts` model, PoC `unknown`-only, NVD/vendor-
-advisory/KEV source alignment, explicit TypeScript model-gateway LLM boundary, closed version-matcher
-grammar), and accepted for implementation on `phase/6-product-impact-agent`.
+Phase 6 — Product Impact Agent: implementation complete through the final authorized holdout run.
+Contract: `docs/00-sentinelintel/07-Phase6-Product-Impact-Plan.md` (owner `REQUEST_CHANGES` revisions
+applied, then accepted). Checkpoints A/B/C are recorded there; the frozen 23-case `MODEL_REVIEWED`
+holdout (SHA256 `3b2e242ee681b49d5ee957881cd1667039780c9adafc8c26c36558919fe253b5`, reviewers
+`glm-5.3-flash`, `deepseek-v4.1-flash`, `kimi-k3-2`, receipts 104-139, one case excluded on a correct
+reviewer refusal) passed the single authorized final replay with all five safety counters zero and all
+eight pre-registered quality gates at 1.0 (`docs/evaluation/impact-baseline.md`). Remaining before
+merge: canonical Linux CI on the pull request.
 
 ### Phase 6 checkpoint 1 — contracts, matcher, migrations, stores
 
