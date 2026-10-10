@@ -5,7 +5,7 @@ import { z } from "zod";
 import { REPO_ROOT } from "@aihot/backend/config";
 import { closeDb } from "@aihot/backend/db";
 import { codeBuddyStructured } from "@aihot/backend/providers/codebuddy";
-import { markReceiptsCompleted } from "@aihot/backend/providers/llm";
+import { chatJson, markReceiptsCompleted } from "@aihot/backend/providers/llm";
 
 // Independent review of the Phase 6 end-to-end holdout candidate: real CVEs with expected labels
 // anchored on real public evidence. Reviewers judge whether the expected decision, affected products,
@@ -14,13 +14,15 @@ import { markReceiptsCompleted } from "@aihot/backend/providers/llm";
 
 const { values } = parseArgs({ options: {
   cases: { type: "string", default: "datasets/impact/e2e-holdout-candidate.jsonl" },
-  reviewer: { type: "string" }, skip: { type: "string", default: "0" }, n: { type: "string", default: "3" },
+  reviewer: { type: "string" }, provider: { type: "string", default: "codebuddy" },
+  skip: { type: "string", default: "0" }, n: { type: "string", default: "3" },
   "allow-paid": { type: "boolean", default: false },
   out: { type: "string" },
 } });
 if (!values["allow-paid"]) throw new Error("e2e holdout review requires explicit --allow-paid");
 if (!values.reviewer) throw new Error("--reviewer is required and must identify the actual model");
-process.env.LLM_MODEL = values.reviewer;
+if (values.provider === "direct") process.env.LLM_MODEL = values.reviewer;
+else process.env.LLM_MODEL = values.reviewer;
 
 const allCases = z.array(z.object({
   case_id: z.string(), split: z.string(), stratum: z.string(), cve: z.string(), vendor: z.string(),
@@ -57,14 +59,25 @@ const user = JSON.stringify({
   })),
 });
 try {
-  const result = await codeBuddyStructured({
-    model: values.reviewer, purpose: "impact-e2e-holdout-review", subject: `phase6:e2e-holdout-review:${values.reviewer}`,
-    promptVersion: "impact-e2e-holdout-review-v1",
-    system,
-    schema: BatchSchema,
-    prompt: user, promptInArgument: true, useJsonSchema: true, jsonSchema: z.toJSONSchema(BatchSchema) as Record<string, unknown>,
-    timeoutMs: 180_000, attemptTag: "phase6-e2e-holdout-review-v1",
-  });
+  const result = values.provider === "direct"
+    ? await chatJson({
+        model: "default", purpose: "impact-e2e-holdout-review", subject: `phase6:e2e-holdout-review:${values.reviewer}`,
+        promptVersion: "impact-e2e-holdout-review-v1", system, schema: BatchSchema,
+        user, parse: (content: string) => {
+          const start = content.indexOf("{"), end = content.lastIndexOf("}");
+          if (start < 0 || end < start) throw new Error("review output contains no JSON object");
+          return JSON.parse(content.slice(start, end + 1)) as unknown;
+        },
+        maxTokens: 4_000, timeoutMs: 180_000, attemptTag: "phase6-e2e-holdout-review-v1",
+      })
+    : await codeBuddyStructured({
+        model: values.reviewer, purpose: "impact-e2e-holdout-review", subject: `phase6:e2e-holdout-review:${values.reviewer}`,
+        promptVersion: "impact-e2e-holdout-review-v1",
+        system,
+        schema: BatchSchema,
+        prompt: user, promptInArgument: true, useJsonSchema: true, jsonSchema: z.toJSONSchema(BatchSchema) as Record<string, unknown>,
+        timeoutMs: 180_000, attemptTag: "phase6-e2e-holdout-review-v1",
+      });
   const ids = new Set(result.data.reviews.map((review) => review.case_id));
   if (ids.size !== cases.length || cases.some((row) => !ids.has(row.case_id))) throw new Error("review returned duplicate or missing case ids");
   const output = { schema_version: 1, reviewer: values.reviewer, provider: "codebuddy", model: result.model, receipt_id: result.receiptId, reviewed_at: new Date().toISOString(), reviews: result.data.reviews };
