@@ -1,13 +1,20 @@
 # Phase 6 product impact holdout baseline
 
+> **CORRECTION (2026-10-10, owner review verdict: FAIL).** This baseline is **retained but
+> reclassified as a synthetic normalization fixture holdout**. It measures only the frozen-drafts →
+> normalize → route half of the pipeline: no model extraction, no tool gateway, no worker, no database
+> persistence. Its advisory content is synthetic. It does NOT satisfy the contract's end-to-end
+> demonstrations on real public evidence and is NOT the Phase 6 closing baseline. Its safety table
+> covers five of the contract's gates; the full gate set is pre-registered for the replacement
+> evaluation. The frozen dataset below is kept unmodified as failure/progress evidence and is never
+> re-used as a Phase 6 gate.
+
 Date: 2026-10-10
 
 Dataset: `datasets/impact/holdout.jsonl` (23 cases, SHA256
 `3b2e242ee681b49d5ee957881cd1667039780c9adafc8c26c36558919fe253b5`)
 
-This is the single authorized final run against the frozen holdout. The dataset is immutable from this
-point on; a failed or consumed holdout would be kept as-is and remediation would require a new disjoint
-holdout.
+This was the single authorized run against the synthetic fixture holdout. The dataset is immutable.
 
 ## Label provenance — MODEL_REVIEWED, not human gold
 

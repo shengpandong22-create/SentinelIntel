@@ -147,14 +147,22 @@ TypeScript scheduling, policy enforcement, validation, and persistence. Its acce
 three migration-spec demonstrations, exact-zero safety failures, development-based threshold
 preregistration, an immutable independently reviewed holdout, and canonical Linux CI.
 
-Phase 6 — Product Impact Agent: implementation complete through the final authorized holdout run.
-Contract: `docs/00-sentinelintel/07-Phase6-Product-Impact-Plan.md` (owner `REQUEST_CHANGES` revisions
-applied, then accepted). Checkpoints A/B/C are recorded there; the frozen 23-case `MODEL_REVIEWED`
-holdout (SHA256 `3b2e242ee681b49d5ee957881cd1667039780c9adafc8c26c36558919fe253b5`, reviewers
-`glm-5.3-flash`, `deepseek-v4.1-flash`, `kimi-k3-2`, receipts 104-139, one case excluded on a correct
-reviewer refusal) passed the single authorized final replay with all five safety counters zero and all
-eight pre-registered quality gates at 1.0 (`docs/evaluation/impact-baseline.md`). Remaining before
-merge: canonical Linux CI on the pull request.
+Phase 6 — Product Impact Agent: **NOT COMPLETE — evaluation correction in progress** (owner review
+verdict: FAIL on 2026-10-10). Implementation (schemas, matcher, stores, orchestration, worker, the
+model-gateway extraction round trip, and the deterministic normalization path) is accepted as
+substantially built. The frozen 23-case holdout (`3b2e242e...`, receipts 104-139) is retained but
+**reclassified as a synthetic normalization fixture holdout**: it measures only the frozen-drafts →
+normalize → route half of the pipeline on synthetic advisory content, not the contract's end-to-end
+demonstrations on real public evidence, and it is NOT the Phase 6 closing baseline. Its thresholds
+cover only five of the contract's safety gates. `docs/evaluation/impact-baseline.md` carries a
+correction notice to the same effect.
+
+Evaluation correction (owner-mandated order): (1) status corrected; (2) the synthetic holdout is
+frozen and never re-used; (3) a new holdout built from real public evidence, disjoint from
+development, with full contract safety metrics pre-registered and the development dataset hash
+recorded; (4) one complete TypeScript → Python → TypeScript → scratch-database replay (model
+gateway, tools, receipts, persistence, Story/Fact immutability, stale/idempotency checks); (5) a new
+baseline; then canonical Linux CI before any Phase 6 closure.
 
 ### Phase 6 checkpoint 1 — contracts, matcher, migrations, stores
 
