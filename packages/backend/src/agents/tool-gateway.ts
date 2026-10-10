@@ -16,7 +16,7 @@ import {
   type ResearchFetchJson,
   type ResearchPostJson,
 } from "./research-adapters.ts";
-import { lookupNvdPersistent } from "./research-source-cache.ts";
+import { lookupKevPersistent, lookupNvdPersistent } from "./research-source-cache.ts";
 
 export const ResearchToolRequestSchema = z.object({
   trace_id: z.uuid(),
@@ -102,7 +102,7 @@ export async function executeResearchTool(
     result = deps.fetchJson ? await lookupNvd(cveId, deps.fetchJson) : await lookupNvdPersistent(cveId);
   } else if (parsed.tool === "kev_lookup") {
     if (cveId === null) throw new Error("CVE id is missing");
-    result = await lookupKev(cveId, deps.fetchJson);
+    result = deps.fetchJson ? await lookupKev(cveId, deps.fetchJson) : await lookupKevPersistent(cveId);
   } else if (parsed.tool === "vendor_advisory_search") {
     if (vendor === null || query === null) throw new Error("vendor advisory search input is missing");
     result = await searchVendorAdvisories(vendor, query, deps.fetchDocument, candidateUrls);

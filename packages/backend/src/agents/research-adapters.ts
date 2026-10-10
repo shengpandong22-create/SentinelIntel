@@ -25,7 +25,7 @@ const NvdResponseSchema = z.object({
   })).default([]),
 }).passthrough();
 
-const KevResponseSchema = z.object({
+export const KevResponseSchema = z.object({
   catalogVersion: z.string(),
   dateReleased: z.string(),
   vulnerabilities: z.array(z.object({
@@ -190,7 +190,7 @@ export const VENDOR_ADVISORY_SOURCES: Record<VendorKey, VendorAdvisorySource> = 
   },
 };
 
-async function defaultFetchJson(url: string, maxBytes: number): Promise<unknown> {
+export async function defaultFetchJson(url: string, maxBytes: number): Promise<unknown> {
   const response = await guardedFetch(url, {
     timeoutMs: 20_000,
     maxBytes,
@@ -281,6 +281,11 @@ export async function lookupKev(cveInput: string, fetchJson: ResearchFetchJson =
   const cveId = CveIdSchema.parse(cveInput);
   const feedUrl = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json";
   const parsed = KevResponseSchema.parse(await fetchJson(feedUrl, 8 * 1024 * 1024));
+  return kevResultFromCatalog(cveId, parsed);
+}
+
+/** Builds the found/not-found adapter result for a CVE against an already-fetched KEV catalog. */
+export function kevResultFromCatalog(cveId: string, parsed: z.infer<typeof KevResponseSchema>): AdapterResult {
   const record = parsed.vulnerabilities.find((item) => item.cveID.toUpperCase() === cveId);
   if (!record) {
     return {
@@ -318,7 +323,7 @@ export async function lookupKev(cveInput: string, fetchJson: ResearchFetchJson =
     published_at: `${record.dateAdded}T00:00:00.000Z`,
     source_updated_at: null,
     retrieved_at: new Date().toISOString(),
-    provenance: { adapter: "cisa-kev-json", retrieved_from: feedUrl, external_network: true },
+    provenance: { adapter: "cisa-kev-json", retrieved_from: "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json", external_network: true },
   });
   return { output: { found: true, cve_id: cveId, catalog_version: parsed.catalogVersion }, evidence: [evidence], receiptIds: [] };
 }
