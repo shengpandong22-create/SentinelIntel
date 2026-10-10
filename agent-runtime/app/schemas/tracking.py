@@ -86,6 +86,10 @@ class TrackingEvidenceRef(StrictModel):
     content_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     retrieved_at: datetime
     observations: list[Literal["vendor_confirmation", "patch", "procurement_award", "material_update"]] = Field(max_length=4)
+    # Frozen evidence content (official title and the load-bearing excerpt) so independent reviewers
+    # can verify impact claims without network access. Empty for pure routing refs.
+    title: str = Field(default="", max_length=1_000)
+    excerpt: str = Field(default="", max_length=5_000)
 
 
 class TrackingChange(StrictModel):

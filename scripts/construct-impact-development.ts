@@ -9,11 +9,12 @@ import { ImpactEvalCaseSchema, validateImpactEvalCases, type ImpactEvalCase } fr
 
 const T = "2026-10-10T00:00:00Z";
 
-function evidence(id: string, sourceType: string, authority: "authoritative" | "primary" | "secondary", url: string) {
+function evidence(id: string, sourceType: string, authority: "authoritative" | "primary" | "secondary", url: string,
+  title = "", excerpt = "") {
   return {
     evidence_id: id, source_type: sourceType, authority_level: authority,
     canonical_url: url, content_hash: createHash("sha256").update(url).digest("hex"),
-    retrieved_at: T, observations: [] as string[],
+    retrieved_at: T, observations: [] as string[], title, excerpt,
   };
 }
 
@@ -68,11 +69,16 @@ const single = [
 ] as const;
 single.forEach((item, index) => {
   const evidenceId = `00000000-0000-4000-8000-10000000000${index}`;
+  const summaries = [
+    { title: `Cisco ${item.cve}: ASA and Firepower Threat Defense persistent vulnerability`, excerpt: "Affected: ASA 5500-X series running vulnerable releases. A successful exploit could allow the attacker to execute commands with root privileges. Cisco has released software updates that address this vulnerability." },
+    { title: `Fortinet ${item.cve}: FG-IR-24-015 FortiOS code weakness`, excerpt: "A use of a broken cryptographic algorithm in FortiOS may allow a remote attacker to execute unauthorized code. Affected models include FortGate appliances on 7.0.x through 7.4.x. Upgrade to a fixed release." },
+    { title: `Hikvision ${item.cve}: command injection vulnerability notification`, excerpt: "Some Hikvision IP cameras (including DS-2CD2xxx models) running outdated firmware allow remote command injection. Customers should upgrade to the latest firmware." },
+  ][index]!;
   cases.push(buildCase({
     id: `IMP-DEV-SINGLE-${String(index + 1).padStart(3, "0")}`, stratum: "single-product-cve",
     title: `${item.vendor} discloses ${item.cve}`, digest: `${item.product} affected; upgrade required.`,
     cve: item.cve, vendor: item.vendor,
-    evidence: [evidence(evidenceId, "vendor_advisory", "authoritative", item.url)],
+    evidence: [evidence(evidenceId, "vendor_advisory", "authoritative", item.url, summaries.title, summaries.excerpt)],
     drafts: [draft({
       vendor: item.vendor, product: item.product, models: item.models, cve: item.cve,
       affected: "<= latest-1", affectedSupported: false, fixed: "fixed-version", fixedSupported: false, confidence: "high", evidence: [evidenceId],
@@ -92,11 +98,15 @@ const multi = [
 ] as const;
 multi.forEach((item, index) => {
   const advisoryId = `00000000-0000-4000-8000-20000000000${index}`;
+  const advisory = {
+    title: `${item.vendor} ${item.cve}: multiple products affected`,
+    excerpt: `This advisory covers two affected product families: ${item.productA} and ${item.productB}. Versions 1.0 through 2.0 (exclusive) are affected; version 2.0 contains the fix.`,
+  };
   cases.push(buildCase({
     id: `IMP-DEV-MULTI-${String(index + 1).padStart(3, "0")}`, stratum: "multi-product-family",
     title: `${item.vendor} advisory covers multiple products (${item.cve})`, digest: null,
     cve: item.cve, vendor: item.vendor,
-    evidence: [evidence(advisoryId, "vendor_advisory", "authoritative", item.url)],
+    evidence: [evidence(advisoryId, "vendor_advisory", "authoritative", item.url, advisory.title, advisory.excerpt)],
     drafts: [
       draft({ vendor: item.vendor, product: item.productA, cve: item.cve, affected: ">=1.0,<2.0", affectedSupported: true, fixed: "2.0", confidence: "high", evidence: [advisoryId] }),
       draft({ vendor: item.vendor, product: item.productB, cve: item.cve, affected: ">=1.0,<2.0", affectedSupported: true, fixed: "2.0", confidence: "high", evidence: [advisoryId] }),
@@ -116,11 +126,15 @@ const alias = [
 ] as const;
 alias.forEach((item, index) => {
   const evidenceId = `00000000-0000-4000-8000-30000000000${index}`;
+  const advisory = {
+    title: `${item.vendor} ${item.cve}: affected models`,
+    excerpt: `Affected models include ${item.models.join(" and ")}. Versions 1.0 through 1.5 (exclusive) are affected; version 1.5 contains the fix.`,
+  };
   cases.push(buildCase({
     id: `IMP-DEV-ALIAS-${String(index + 1).padStart(3, "0")}`, stratum: "model-alias-conflict",
     title: `${item.vendor} ${item.cve} model alias check`, digest: null,
     cve: item.cve, vendor: item.vendor,
-    evidence: [evidence(evidenceId, "vendor_advisory", "authoritative", item.url)],
+    evidence: [evidence(evidenceId, "vendor_advisory", "authoritative", item.url, advisory.title, advisory.excerpt)],
     drafts: [draft({
       vendor: item.vendor, product: item.product, models: item.models, cve: item.cve,
       affected: ">=1.0,<1.5", affectedSupported: true, fixed: "1.5", confidence: "high", evidence: [evidenceId],
@@ -140,11 +154,15 @@ const unresolvable = [
 ] as const;
 unresolvable.forEach((item, index) => {
   const evidenceId = `00000000-0000-4000-8000-40000000000${index}`;
+  const advisory = {
+    title: `${item.vendor} ${item.cve}: affected builds`,
+    excerpt: "Devices running builds before 20240412 are affected by this vulnerability. This advisory does not list semantic versions for the affected range.",
+  };
   cases.push(buildCase({
     id: `IMP-DEV-UNRESOLV-${String(index + 1).padStart(3, "0")}`, stratum: "unresolvable-range",
     title: `${item.vendor} ${item.cve} has a vendor-only range format`, digest: null,
     cve: item.cve, vendor: item.vendor,
-    evidence: [evidence(evidenceId, "vendor_advisory", "authoritative", item.url)],
+    evidence: [evidence(evidenceId, "vendor_advisory", "authoritative", item.url, advisory.title, advisory.excerpt)],
     drafts: [draft({
       vendor: item.vendor, product: item.product, cve: item.cve,
       affected: "builds before 20240412", affectedSupported: false, fixed: null,
@@ -169,7 +187,8 @@ missing.forEach((item, index) => {
     id: `IMP-DEV-MISSING-${String(index + 1).padStart(3, "0")}`, stratum: "missing-advisory",
     title: `${item.vendor} ${item.cve} without an official advisory`, digest: null,
     cve: item.cve, vendor: item.vendor,
-    evidence: [evidence(evidenceId, "nvd", "primary", item.url)],
+    evidence: [evidence(evidenceId, "nvd", "primary", item.url, `NVD record for ${item.cve}`,
+      "NVD has published a record for this CVE. No official vendor advisory with product-impact details is referenced.")],
     drafts: [],
     draftUnknowns: ["No official vendor advisory was available for product-impact extraction."],
     expected: { decision: "insufficient_evidence", rows: [], known_exploited: "unknown", unknowns_min: 1 },
@@ -192,8 +211,12 @@ conflicting.forEach((item, index) => {
     title: `${item.vendor} ${item.cve} official statement vs wire report`, digest: null,
     cve: item.cve, vendor: item.vendor,
     evidence: [
-      evidence(advisoryId, "vendor_advisory", "authoritative", item.url),
-      evidence(wireId, "vendor_advisory", "primary", `${item.url}/mirror`),
+      evidence(advisoryId, "vendor_advisory", "authoritative", item.url,
+        `${item.vendor} ${item.cve}: official statement`,
+        "The official advisory states that versions 1.0 through 2.0 (exclusive) are affected and version 2.0 contains the fix."),
+      evidence(wireId, "vendor_advisory", "primary", `${item.url}/mirror`,
+        `Wire report on ${item.cve}`,
+        "The wire report claims effectively all versions are affected and provides no fixed version."),
     ],
     drafts: [
       draft({ vendor: item.vendor, product: `${item.vendor} platform ${index + 1}`, cve: item.cve, affected: ">=1.0,<2.0", affectedSupported: true, fixed: "2.0", confidence: "high", evidence: [advisoryId] }),
@@ -220,8 +243,14 @@ kev.forEach((item, index) => {
     title: `${item.vendor} ${item.cve} KEV listing check`, digest: null,
     cve: item.cve, vendor: item.vendor,
     evidence: [
-      evidence(advisoryId, "vendor_advisory", "authoritative", ADVISORY(`kev-${index}`)),
-      evidence(kevId, "cisa_kev", "authoritative", item.url),
+      evidence(advisoryId, "vendor_advisory", "authoritative", ADVISORY(`kev-${index}`),
+        `${item.vendor} ${item.cve}: official advisory`,
+        "Versions 1.0 through 2.0 (exclusive) are affected; version 2.0 contains the fix."),
+      evidence(kevId, "cisa_kev", "authoritative", item.url,
+        `CISA KEV catalog: ${item.cve}`,
+        item.listed
+          ? `This CVE was added to the CISA Known Exploited Vulnerabilities catalog and is actively exploited.`
+          : `This CVE is not present in the CISA Known Exploited Vulnerabilities catalog snapshot queried.`),
     ],
     drafts: [draft({
       vendor: item.vendor, product: `${item.vendor} product ${index + 1}`, cve: item.cve,
@@ -255,7 +284,9 @@ negative.forEach((item, index) => {
     id: `IMP-DEV-NEGATIVE-${String(index + 1).padStart(3, "0")}`, stratum: "non-security-negative",
     title: item.title, digest: "No vulnerability is discussed in this Story.",
     cve: item.cve, vendor: null,
-    evidence: [evidence(evidenceId, "vendor_advisory", "authoritative", ADVISORY(`negative-${index}`))],
+    evidence: [evidence(evidenceId, "vendor_advisory", "authoritative", ADVISORY(`negative-${index}`),
+      `${item.title} (corporate post)`,
+      "This post discusses business developments. It contains no vulnerability, affected product version, or security impact information.")],
     drafts: [],
     draftUnknowns: ["The Story does not describe a product security impact."],
     expected: { decision: "insufficient_evidence", rows: [], known_exploited: "unknown", unknowns_min: 1 },
