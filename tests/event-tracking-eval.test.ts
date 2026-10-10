@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   evaluateTracking,
   assessTrackingThresholds,
+  selectUnanimousHighAccept,
   TRACKING_STRATA,
   type TrackingEvalCase,
   type TrackingEvalResult,
@@ -76,6 +77,22 @@ test("pilot validator requires every tracking stratum", () => {
   const rows = TRACKING_STRATA.map((stratum, index) => row(index, stratum));
   assert.doesNotThrow(() => validateTrackingCases(rows, { pilot: true }));
   assert.throws(() => validateTrackingCases(rows.slice(1), { pilot: true }), /missing stratum/);
+});
+
+test("freeze selection keeps only unanimous high-confidence acceptances", () => {
+  const rows = TRACKING_STRATA.slice(0, 3).map((stratum, index) => row(index, stratum));
+  const verdict = (caseId: string, accept: boolean, confidence: "high" | "medium" | "low") => ({ case_id: caseId, accept, confidence });
+  const decisions = new Map([
+    [rows[0].case_id, [verdict(rows[0].case_id, true, "high"), verdict(rows[0].case_id, true, "high"), verdict(rows[0].case_id, true, "high")]],
+    [rows[1].case_id, [verdict(rows[1].case_id, true, "high"), verdict(rows[1].case_id, true, "medium"), verdict(rows[1].case_id, true, "high")]],
+    [rows[2].case_id, [verdict(rows[2].case_id, true, "high"), verdict(rows[2].case_id, false, "medium"), verdict(rows[2].case_id, true, "high")]],
+  ]);
+  const { accepted, rejected } = selectUnanimousHighAccept(rows, decisions);
+  assert.deepEqual(accepted.map((item) => item.case_id), [rows[0].case_id]);
+  assert.deepEqual(rejected, [
+    { case_id: rows[1].case_id, detail: "accept/high,accept/medium,accept/high" },
+    { case_id: rows[2].case_id, detail: "accept/high,reject/medium,accept/high" },
+  ]);
 });
 
 test("validator rejects a holdout represented as source-verified gold", () => {

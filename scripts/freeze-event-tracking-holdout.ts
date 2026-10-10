@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { z } from "zod";
-import { parseTrackingJsonl, TrackingEvalCaseSchema, validateTrackingCases } from "./event-tracking-eval-core.ts";
+import { parseTrackingJsonl, selectUnanimousHighAccept, TrackingEvalCaseSchema, validateTrackingCases, type TrackingReviewVerdict } from "./event-tracking-eval-core.ts";
 
 const { values } = parseArgs({ options: {
   candidate: { type: "string", default: ".data/event-tracking/holdout-candidate.jsonl" },
@@ -31,17 +31,25 @@ for (const { data } of reviewFiles) {
   byReviewer.set(data.reviewer, map);
 }
 for (const [reviewer, reviews] of byReviewer) if (reviews.size !== cases.length || cases.some((row) => !reviews.has(row.case_id))) throw new Error(`${reviewer}: incomplete holdout review`);
-const frozen = cases.map((row) => {
-  const decisions = reviewers.map((reviewer) => byReviewer.get(reviewer)!.get(row.case_id)!);
-  if (decisions.some((review) => !review.accept || review.confidence !== "high")) throw new Error(`${row.case_id}: freeze requires unanimous high-confidence acceptance`);
+const decisions = new Map<string, TrackingReviewVerdict[]>();
+for (const [reviewer, reviews] of byReviewer) for (const [caseId, review] of reviews) {
+  if (!cases.some((row) => row.case_id === caseId)) throw new Error(`${reviewer}: review covers unknown case ${caseId}`);
+  (decisions.get(caseId) ?? decisions.set(caseId, []).get(caseId)!).push({ case_id: caseId, accept: review.accept, confidence: review.confidence });
+}
+const { accepted, rejected } = selectUnanimousHighAccept(cases, decisions);
+const frozen = accepted.map((row) => {
+  const reviewReasons = reviewers.map((reviewer) => byReviewer.get(reviewer)!.get(row.case_id)!.reason);
   return TrackingEvalCaseSchema.parse({
     ...row,
     provenance: {
       ...row.provenance, label_method: "MODEL_REVIEWED", reviewers,
-      note: `${row.provenance.note} Independent review: ${decisions.map((review, index) => `${reviewers[index]}=high:${review.reason}`).join("; ")}`.slice(0, 2_000),
+      note: `${row.provenance.note} Independent review: ${reviewReasons.map((reason, index) => `${reviewers[index]}=high:${reason}`).join("; ")}`.slice(0, 2_000),
     },
   });
 });
+if (frozen.length < cases.length) {
+  process.stdout.write(`${JSON.stringify({ excluded_from_freeze: rejected })}\n`);
+}
 validateTrackingCases(frozen, { holdout: true });
 const body = `${frozen.map((row) => JSON.stringify(row)).join("\n")}\n`;
 const out = path.resolve(values.out!);
@@ -50,6 +58,7 @@ writeFileSync(out, body);
 const thresholds = readFileSync(path.resolve(values.thresholds!));
 const manifest = {
   schema_version: 1, frozen_at: new Date().toISOString(), cases: frozen.length,
+  candidate_cases: cases.length, excluded_cases: rejected,
   strata: Object.fromEntries([...new Set(frozen.map((row) => row.stratum))].map((stratum) => [stratum, frozen.filter((row) => row.stratum === stratum).length])),
   label_method: "MODEL_REVIEWED", reviewers,
   review_receipts: Object.fromEntries(reviewers.map((reviewer) => [reviewer, reviewFiles.filter((item) => item.data.reviewer === reviewer).map((item) => item.data.receipt_id)])),

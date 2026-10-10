@@ -52,6 +52,18 @@ review fails closed without an explicit flag and uses the existing receipt/budge
 requires three distinct complete reviewer sets and unanimous high-confidence acceptance for every case,
 then records dataset and threshold hashes and the `MODEL_REVIEWED`, not-human-gold limitation.
 
+Checkpoint 9 completed on 2026-10-10: the holdout was independently reviewed by three model families
+(`glm-5.3-flash`, `deepseek-v4.1-flash`, `kimi-k3-2`) over batches of one or two cases through receipts.
+Two early failed attempts are preserved as `unknown` receipts and were never counted as reviews. Reviewers
+uncovered a real defect — four original stale-or-nonmaterial candidates carried an NVD URL with the
+template's `cisa_advisory` source type — and those four reviewed labels were kept and excluded from the
+freeze. A disjoint six-case supplement with consistent advisory identities was constructed, reviewed by the
+same three models, and unanimously accepted. The freeze tooling now excludes non-unanimous cases (recorded
+in the manifest) and still enforces the 20-50 case and strata-coverage validation. The frozen 26-case
+holdout (`MODEL_REVIEWED`, not human gold) passed the single authorized final replay: all nine hard safety
+metrics zero, all five pre-registered quality gates at 1.0, `passed: true`. Results:
+`docs/evaluation/event-tracking-baseline.md`.
+
 This contract is written before Phase 5 implementation. Phase 5 adds bounded, evidence-backed active
 tracking to an existing Story. It does not replace the Story lifecycle, event grouping, digest generation,
 or pg-boss scheduling already owned by deterministic TypeScript code.

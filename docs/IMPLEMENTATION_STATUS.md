@@ -292,6 +292,49 @@ Phase 5 contract/evaluation test selection 10/10 pass. The repository-wide Windo
 known POSIX `SIGTERM` timeout cases, so canonical Linux CI remains the final platform gate after the
 holdout is frozen and the branch is ready for review.
 
+### Phase 5 implementation checkpoint 8 — paid holdout review executed
+
+The independent review used three model families — `glm-5.3-flash`, `deepseek-v4.1-flash`, `kimi-k3-2` —
+through the existing CodeBuddy receipt/budget boundary against a dedicated scratch review database
+(`sentinel_phase5-review-db`, port 55455). Batches were capped at one or two cases after the original
+six-case batch timed out (receipt 1, `unknown`, 180 s stream timeout) and a later two-case attempt died
+leaving a stale-pending receipt that the standard recovery path marked `unknown` (receipt 2). Both
+receipts are preserved as failure evidence; neither produced a review file and neither was counted.
+
+All three reviewers completed all 24 candidate cases (receipts 34-58, 59-70) plus a later supplement
+(receipts 71-79). Reviewers were not unanimous at high confidence for the four original
+`stale-or-nonmaterial` rows: their evidence carried an NVD URL while keeping the development template's
+`cisa_advisory` source type, a real source-identity defect the review surfaced. Those four reviewed labels
+were preserved unchanged and excluded from the freeze.
+
+A disjoint six-case `stale-or-nonmaterial` supplement (`holdout-candidate-supplement.jsonl`, built from
+the development template with consistent advisory identities, checked disjoint against development and the
+original candidate) was reviewed by the same three models and unanimously accepted at high confidence.
+
+### Phase 5 implementation checkpoint 9 — frozen holdout and final replay
+
+Freeze tooling was minimally extended: non-unanimous cases are now excluded from the frozen set and
+recorded in the manifest (`excluded_cases`, plus a new tested `selectUnanimousHighAccept` helper and a
+`fragment` validator mode for supplement files) instead of failing the whole freeze; the 20-50 case and
+strata-coverage validations still gate the frozen set. The frozen holdout contains 26 cases
+(`datasets/event-tracking/holdout.jsonl`, SHA256 `a5c6be8218d7af23ffe5b210fd1dddf5162cced8ad24cd4e1d20b0289a78ccea`;
+strata 4/4/4/4/4/6), labelled `MODEL_REVIEWED` — explicitly not human gold — with all 46 review receipt
+ids, the threshold hash, and the excluded cases in `holdout-manifest.json`.
+
+The single authorized final replay then ran: `python scripts/run-event-tracking-development.py --cases
+datasets/event-tracking/holdout.jsonl` (the runner already supported `--cases/--out`; verified, no fix
+needed) followed by `node scripts/eval-event-tracking.ts` against the pre-registered thresholds. Result:
+`passed: true`. All nine hard safety metrics are zero; material-change recall, supported-change
+precision, question-state accuracy, decision accuracy, and interval accuracy are all 1.00 (zero false
+positives, zero false negatives, zero open-question, stop/continue, or interval errors). Operations:
+16 ms total replay latency, 20 tool calls, 0.20 tool error rate from the four intentional tool-failure
+cases, 0 tokens, 0 receipts, $0. Review cost evidence: 46 completed receipts, 1,487,746 input and
+85,082 output tokens, no provider-reported cost. Full report:
+`docs/evaluation/event-tracking-baseline.md`. The frozen holdout is immutable from this point; any
+future remediation requires a new disjoint holdout.
+
+
+
 ### Historical Phase 4 record
 
 Planning was explicitly authorized on 2026-10-08. The contract was written before implementation and

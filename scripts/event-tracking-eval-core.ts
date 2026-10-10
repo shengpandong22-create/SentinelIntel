@@ -80,7 +80,7 @@ export function parseTrackingJsonl<T>(text: string, schema: z.ZodType<T>): T[] {
   });
 }
 
-export function validateTrackingCases(cases: TrackingEvalCase[], opts: { pilot?: boolean; holdout?: boolean; candidate?: boolean } = {}): void {
+export function validateTrackingCases(cases: TrackingEvalCase[], opts: { pilot?: boolean; holdout?: boolean; candidate?: boolean; fragment?: boolean } = {}): void {
   const errors: string[] = [];
   const ids = new Set<string>();
   for (const row of cases) {
@@ -102,14 +102,44 @@ export function validateTrackingCases(cases: TrackingEvalCase[], opts: { pilot?:
     if (opts.candidate && row.provenance.label_method !== "UNREVIEWED") errors.push(`${row.case_id}: candidate must remain explicitly unreviewed`);
     if (row.provenance.label_method === "MODEL_REVIEWED" && new Set(row.provenance.reviewers).size < 3) errors.push(`${row.case_id}: MODEL_REVIEWED requires three reviewers`);
   }
-  if (!opts.pilot && (cases.length < 20 || cases.length > 50)) errors.push(`benchmark must contain 20-50 cases, got ${cases.length}`);
-  for (const stratum of TRACKING_STRATA) {
+  if (!opts.fragment && !opts.pilot && (cases.length < 20 || cases.length > 50)) errors.push(`benchmark must contain 20-50 cases, got ${cases.length}`);
+  if (!opts.fragment) for (const stratum of TRACKING_STRATA) {
     const count = cases.filter((row) => row.stratum === stratum).length;
     if (!count) errors.push(`missing stratum: ${stratum}`);
     else if (!opts.pilot && !opts.holdout && count < 3) errors.push(`${stratum}: development requires at least 3 cases, got ${count}`);
   }
   if (opts.holdout && cases.some((row) => row.split !== "holdout")) errors.push("holdout file contains non-holdout case");
   if (errors.length) throw new Error(errors.join("\n"));
+}
+
+export interface TrackingReviewVerdict {
+  case_id: string;
+  accept: boolean;
+  confidence: "high" | "medium" | "low";
+}
+
+/**
+ * Freeze keeps only cases every reviewer accepted at high confidence; divergent or non-high cases are
+ * excluded from the frozen set instead of failing the whole freeze. The caller decides whether what
+ * remains is still a valid benchmark.
+ */
+export function selectUnanimousHighAccept<T extends { case_id: string }>(
+  cases: readonly T[],
+  decisions: ReadonlyMap<string, readonly TrackingReviewVerdict[]>,
+): { accepted: T[]; rejected: { case_id: string; detail: string }[] } {
+  const accepted: T[] = [];
+  const rejected: { case_id: string; detail: string }[] = [];
+  for (const row of cases) {
+    const verdicts = decisions.get(row.case_id) ?? [];
+    const missing = verdicts.length === 0;
+    const unanimous = !missing && verdicts.every((verdict) => verdict.accept && verdict.confidence === "high");
+    if (unanimous) accepted.push(row);
+    else rejected.push({
+      case_id: row.case_id,
+      detail: missing ? "no review" : verdicts.map((verdict) => `${verdict.accept ? "accept" : "reject"}/${verdict.confidence}`).join(","),
+    });
+  }
+  return { accepted, rejected };
 }
 
 const ratio = (numerator: number, denominator: number) => denominator === 0 ? 1 : numerator / denominator;
