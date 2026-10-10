@@ -266,6 +266,19 @@ accuracy. The evaluator applies these gates fail-closed, and a regression test p
 threshold fails. The development replay passes the preregistered gates. Next gate: construct a disjoint
 holdout, obtain independent review, freeze it, and run it exactly once.
 
+### Phase 5 implementation checkpoint 7 — unreviewed holdout candidate
+
+The deterministic candidate constructor now produces 24 holdout rows across the same six strata using
+source identities disjoint from development. It checks the disjointness directly, labels every row
+`UNREVIEWED`, writes only to ignored `.data`, and passes candidate validation. The formal evaluator
+allows `--candidate --validate-only` but refuses to score any unreviewed row, preventing accidental
+holdout consumption before adjudication.
+
+No holdout has been frozen or run. The remaining independent-review step requires either a human
+adjudicator or three separately identified model reviewers and, for model review, explicit paid calls
+through the existing receipt and budget boundary. This deferred participation item does not invalidate
+the completed implementation, development replay, or preregistered thresholds.
+
 ### Historical Phase 4 record
 
 Planning was explicitly authorized on 2026-10-08. The contract was written before implementation and

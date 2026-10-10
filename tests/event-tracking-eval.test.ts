@@ -83,6 +83,15 @@ test("validator rejects a holdout represented as source-verified gold", () => {
   assert.throws(() => validateTrackingCases(rows, { pilot: true, holdout: true }), /requires independent review/);
 });
 
+test("candidate validation permits only explicitly unreviewed holdout rows", () => {
+  const rows = TRACKING_STRATA.map((stratum, index) => ({
+    ...row(index, stratum), split: "holdout" as const,
+    provenance: { ...row(index, stratum).provenance, label_method: "UNREVIEWED" as const },
+  }));
+  assert.doesNotThrow(() => validateTrackingCases(rows, { pilot: true, holdout: true, candidate: true }));
+  assert.throws(() => validateTrackingCases(rows, { pilot: true, holdout: true }), /requires independent review/);
+});
+
 test("scorer reports perfect fixture quality and zero hard-safety failures", () => {
   const rows = TRACKING_STRATA.map((stratum, index) => row(index, stratum));
   const summary = evaluateTracking(rows, rows.map(result));

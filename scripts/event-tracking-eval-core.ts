@@ -35,7 +35,7 @@ export const TrackingEvalCaseSchema = z.object({
   provenance: z.object({
     source_urls: z.array(z.url()).min(1).max(30),
     collected_at: z.iso.datetime({ offset: true }),
-    label_method: z.enum(["SOURCE_VERIFIED", "HUMAN_ADJUDICATED", "MODEL_REVIEWED"]),
+    label_method: z.enum(["UNREVIEWED", "SOURCE_VERIFIED", "HUMAN_ADJUDICATED", "MODEL_REVIEWED"]),
     reviewers: z.array(z.string().min(1).max(200)).max(10),
     note: z.string().min(1).max(2_000),
   }).strict(),
@@ -80,7 +80,7 @@ export function parseTrackingJsonl<T>(text: string, schema: z.ZodType<T>): T[] {
   });
 }
 
-export function validateTrackingCases(cases: TrackingEvalCase[], opts: { pilot?: boolean; holdout?: boolean } = {}): void {
+export function validateTrackingCases(cases: TrackingEvalCase[], opts: { pilot?: boolean; holdout?: boolean; candidate?: boolean } = {}): void {
   const errors: string[] = [];
   const ids = new Set<string>();
   for (const row of cases) {
@@ -97,7 +97,9 @@ export function validateTrackingCases(cases: TrackingEvalCase[], opts: { pilot?:
         errors.push(`${row.case_id}/${change.change_type}: admissible source is absent from provenance`);
       }
     }
-    if (row.split === "holdout" && row.provenance.label_method === "SOURCE_VERIFIED") errors.push(`${row.case_id}: holdout requires independent review`);
+    if (row.split === "development" && row.provenance.label_method === "UNREVIEWED") errors.push(`${row.case_id}: development cannot be unreviewed`);
+    if (row.split === "holdout" && !opts.candidate && ["UNREVIEWED", "SOURCE_VERIFIED"].includes(row.provenance.label_method)) errors.push(`${row.case_id}: holdout requires independent review`);
+    if (opts.candidate && row.provenance.label_method !== "UNREVIEWED") errors.push(`${row.case_id}: candidate must remain explicitly unreviewed`);
     if (row.provenance.label_method === "MODEL_REVIEWED" && new Set(row.provenance.reviewers).size < 3) errors.push(`${row.case_id}: MODEL_REVIEWED requires three reviewers`);
   }
   if (!opts.pilot && (cases.length < 20 || cases.length > 50)) errors.push(`benchmark must contain 20-50 cases, got ${cases.length}`);

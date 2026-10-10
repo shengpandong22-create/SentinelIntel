@@ -42,6 +42,11 @@ error rate. Conservative quality thresholds and exact-zero safety thresholds wer
 before any holdout construction. These fixture-backed results establish contract behavior, not production
 generalization.
 
+Checkpoint 7 completed on 2026-10-10: deterministic tooling now constructs a 24-case holdout candidate
+whose source identities are disjoint from development. It remains only in `.data`, is explicitly marked
+`UNREVIEWED`, and the evaluator refuses to score it. Independent review and freeze are intentionally
+deferred; no holdout result has been observed.
+
 This contract is written before Phase 5 implementation. Phase 5 adds bounded, evidence-backed active
 tracking to an existing Story. It does not replace the Story lifecycle, event grouping, digest generation,
 or pg-boss scheduling already owned by deterministic TypeScript code.

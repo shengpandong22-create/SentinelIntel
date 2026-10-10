@@ -16,6 +16,10 @@ exists only for offline replay; it does not grant network access or fabricate Ev
 No holdout is present yet. A later independently reviewed holdout must use disjoint source identities,
 be frozen before the final run, and must never be edited after results are observed.
 
+`node scripts/construct-event-tracking-holdout.ts` writes an explicitly `UNREVIEWED` candidate under
+`.data/`. The evaluator permits validation of that candidate with `--candidate --validate-only`, but
+refuses to score it. Candidate construction is not a holdout freeze.
+
 `thresholds.json` was pre-registered from the development replay before holdout construction. Its safety
 gates are exact zero. Tool error rate is reported but is not a quality gate because four development
 cases deliberately inject a bounded gateway failure.
