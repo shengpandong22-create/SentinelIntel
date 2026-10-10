@@ -126,25 +126,31 @@ Deliberately not modified: `tests/analyze-shutdown.test.ts` and `tests/translate
 
 ## Current Phase
 
-Phase: **Phase 5 — Event Tracking Agent**
+Phase: **Phase 5 — Event Tracking Agent (ACCEPTED AND MERGED); Phase 6 — Product Impact Agent (planning)**
 
-Branch: `phase/5-event-tracking-agent`
+Phase 5 branch: `phase/5-event-tracking-agent`
 
-Base: `main` = `d4e1520` (Phase 4 merge)
+Phase 5 base: `main` = `d4e1520` (Phase 4 merge)
 
-Status: **IN_PROGRESS — REAL SOURCE ADAPTERS COMPLETE; DEVELOPMENT EVALUATION NEXT**
+Phase 5 status: **ACCEPTED AND MERGED — `main` = `7b829d4` (squash merge of pull request #7), both
+canonical GitHub checks (`check`, `docker`) passed on the pull request.** The frozen 26-case
+`MODEL_REVIEWED` holdout passed the single authorized final replay with all nine hard safety metrics
+zero and all five pre-registered quality gates at 1.0
+(`docs/evaluation/event-tracking-baseline.md`). The frozen holdout and the review evidence remain
+immutable.
 
-Implementation contract: `docs/00-sentinelintel/06-Phase5-Event-Tracking-Plan.md`.
+Phase 5 implementation contract: `docs/00-sentinelintel/06-Phase5-Event-Tracking-Plan.md`.
 
-Phase 4 was squash-merged into `main` at `d4e1520` after both canonical GitHub checks passed. Phase 5
-planning and implementation started from that clean merge. No paid Phase 5 model call or frozen holdout
-run has begun.
-
-The Phase 5 contract preserves the existing Story lifecycle and pg-boss scheduler, introduces only the
-active tracking state absent from AIHOT, and separates Python semantic reasoning from deterministic
-TypeScript scheduling, policy enforcement, validation, and persistence. Its acceptance gate requires the
+The Phase 5 contract preserved the existing Story lifecycle and pg-boss scheduler, introduced only the
+active tracking state absent from AIHOT, and separated Python semantic reasoning from deterministic
+TypeScript scheduling, policy enforcement, validation, and persistence. Its acceptance gate required the
 three migration-spec demonstrations, exact-zero safety failures, development-based threshold
 preregistration, an immutable independently reviewed holdout, and canonical Linux CI.
+
+Phase 6 — Product Impact Agent: the implementation contract is drafted at
+`docs/00-sentinelintel/07-Phase6-Product-Impact-Plan.md` from the merged Phase 5 state. Status:
+`PLANNING` — implementation has not begun and must not begin until the project owner accepts that
+contract as the Phase 6 boundary.
 
 ### Phase 5 implementation checkpoint 1 — deterministic tracking foundation
 
