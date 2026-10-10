@@ -132,7 +132,7 @@ Branch: `phase/5-event-tracking-agent`
 
 Base: `main` = `d4e1520` (Phase 4 merge)
 
-Status: **READY_FOR_IMPLEMENTATION_REVIEW**
+Status: **IN_PROGRESS — DETERMINISTIC TRACKING FOUNDATION COMPLETE**
 
 Implementation contract: `docs/00-sentinelintel/06-Phase5-Event-Tracking-Plan.md`.
 
@@ -145,6 +145,32 @@ active tracking state absent from AIHOT, and separates Python semantic reasoning
 TypeScript scheduling, policy enforcement, validation, and persistence. Its acceptance gate requires the
 three migration-spec demonstrations, exact-zero safety failures, development-based threshold
 preregistration, an immutable independently reviewed holdout, and canonical Linux CI.
+
+### Phase 5 implementation checkpoint 1 — deterministic tracking foundation
+
+Implemented on 2026-10-10 without external or paid calls:
+
+- matching strict Python/TypeScript schemas for plan snapshots, typed questions, declared observation
+  targets, stored Evidence references, material changes, question transitions, and continue/stop output;
+- additive migration `0042_event_tracking.sql` with one current plan per Story, stable due-plan indexing,
+  append-only material changes, optimistic versions, and per-run idempotency;
+- TypeScript plan creation, bounded stable due selection, stored-Evidence projection, proposal validation,
+  atomic plan advancement, stop-condition enforcement, and retry-safe commits;
+- an independently default-off `AGENT_TRACKING_ENABLED` switch and authenticated Python tracking route;
+- a deterministic LangGraph tracking graph that resolves only explicitly declared observations in stored
+  Evidence, otherwise preserves the question and extends the interval inside policy;
+- a manual TypeScript -> Python -> TypeScript replay and an `agent.tracking` pg-boss queue whose singleton
+  identity is plan id plus expected version; Python does not schedule or retry itself.
+
+Verification: empty scratch database migration through `0042`; Python tracking/API tests 6/6 and full
+Python runtime tests 21/21; TypeScript tracking contract/client/store tests 9/9; queue schedule tests 2/2;
+TypeScript typecheck; Docker Compose configuration; and a real local cross-runtime replay all pass. The
+replay committed one patch change, advanced the plan to version 2/stopped, and left Story version/digest
+unchanged.
+
+Next gate: reuse the Phase 4 bounded research gateway for evidence acquired since the last tracking
+snapshot, then add fixture-first vulnerability/procurement/no-progress replays. No model, paid call,
+development benchmark, or holdout has begun.
 
 ### Historical Phase 4 record
 

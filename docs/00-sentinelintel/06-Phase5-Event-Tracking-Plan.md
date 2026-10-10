@@ -1,6 +1,12 @@
 # Phase 5 — Event Tracking Agent implementation contract
 
-Status: `READY_FOR_IMPLEMENTATION_REVIEW`
+Status: `IN_PROGRESS`
+
+Checkpoint 1 completed on 2026-10-10: cross-runtime contracts, additive migration `0042`, durable plan
+and change stores, deterministic Evidence observation projection, optimistic concurrency, retry
+idempotency, the independently disabled Python tracking endpoint, manual TypeScript -> Python ->
+TypeScript replay, and the `agent.tracking` queue/schedule boundary are implemented. External research
+delta acquisition, benchmark construction, model evaluation, and holdout work remain later checkpoints.
 
 This contract is written before Phase 5 implementation. Phase 5 adds bounded, evidence-backed active
 tracking to an existing Story. It does not replace the Story lifecycle, event grouping, digest generation,
