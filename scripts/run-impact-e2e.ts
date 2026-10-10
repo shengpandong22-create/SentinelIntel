@@ -136,11 +136,13 @@ for (const item of cases) {
 
   const proposal = "proposal" in run ? run.proposal : null;
   const rowsText = impacts.map((row) => row.product.toLowerCase()).join(" | ");
-  const matched = item.expected.row_contains.filter((needle) =>
-    rowsText.includes(needle.toLowerCase()) || rowsText.includes(needle.toLowerCase().replace(/ /g, "")));
+  // row_contains lists alternative surface forms of the expected product (OR): any hit satisfies it.
   const rowRecall = item.expected.row_contains.length === 0
     ? 1
-    : matched.length / item.expected.row_contains.length;
+    : item.expected.row_contains.some((needle) =>
+        rowsText.includes(needle.toLowerCase()) || rowsText.includes(needle.toLowerCase().replace(/ /g, "")))
+      ? 1
+      : 0;
   quality.row_recall += rowRecall;
   const decision = "proposal" in run ? run.proposal.decision : null;
   if (decision !== null && item.expected.decisions.includes(decision as "propose" | "insufficient_evidence")) quality.decision += 1;

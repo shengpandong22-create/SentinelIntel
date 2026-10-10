@@ -58,6 +58,9 @@ const user = JSON.stringify({
     source_urls: row.provenance.source_urls, expected: row.expected,
   })),
 });
+// Kimi-family models on the codebuddy channel have repeatedly exceeded 180 s on 3-case batches;
+// give them (and any slow reviewer) a wider window.
+const timeoutMs = /kimi/i.test(values.reviewer!) ? 360_000 : 180_000;
 try {
   const result = values.provider === "direct"
     ? await chatJson({
@@ -68,7 +71,7 @@ try {
           if (start < 0 || end < start) throw new Error("review output contains no JSON object");
           return JSON.parse(content.slice(start, end + 1)) as unknown;
         },
-        maxTokens: 4_000, timeoutMs: 180_000, attemptTag: "phase6-e2e-holdout-review-v1",
+        maxTokens: 4_000, timeoutMs, attemptTag: "phase6-e2e-holdout-review-v1",
       })
     : await codeBuddyStructured({
         model: values.reviewer, purpose: "impact-e2e-holdout-review", subject: `phase6:e2e-holdout-review:${values.reviewer}`,
@@ -76,7 +79,7 @@ try {
         system,
         schema: BatchSchema,
         prompt: user, promptInArgument: true, useJsonSchema: true, jsonSchema: z.toJSONSchema(BatchSchema) as Record<string, unknown>,
-        timeoutMs: 180_000, attemptTag: "phase6-e2e-holdout-review-v1",
+        timeoutMs, attemptTag: "phase6-e2e-holdout-review-v1",
       });
   const ids = new Set(result.data.reviews.map((review) => review.case_id));
   if (ids.size !== cases.length || cases.some((row) => !ids.has(row.case_id))) throw new Error("review returned duplicate or missing case ids");
