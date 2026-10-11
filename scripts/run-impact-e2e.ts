@@ -1,34 +1,46 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
+import { pathToFileURL } from "node:url";
 import { z } from "zod";
 import { closeDb, sql } from "@aihot/backend/db";
 import { runImpactForStory } from "@aihot/backend/agents/impact";
+import { parseVersionRange } from "@aihot/backend/agents/version-matcher";
+import { AUTO_CLAIMS_RANGE_PLACEHOLDER } from "@aihot/backend/agents/impact-contract";
 
-// The Phase 6 end-to-end evaluation runner (evaluation correction, revised after the first failed
-// holdout on 2026-10-10). Each case is a real CVE: the Story flows through eligibility, the
-// research-run boundary, the live tool gateway, the TypeScript model gateway (receipted), the Python
-// normalization graph, and durable impact persistence in a scratch database.
+// The Phase 6 end-to-end evaluation runner (revision 4, after the v6 holdout was consumed with a
+// defective scorer). Every safety metric below has a real assertion; nothing is initialized to zero
+// and trusted. Scored strictly against the pre-registered thresholds file; a failed gate exits
+// non-zero and never writes a passing report.
 //
-// Assertions are behavioral, not behavioral-plus-model-mood:
-// - repeat must skip only when the first run persisted current rows (a review-only outcome may repeat);
-// - routing must be consistent with confidence (high -> claims, medium -> human review, low -> unknown);
-// - confidence values themselves are not asserted, because which authority the model cites is not
-//   deterministic; the routing-consistency rule is.
+// Detection semantics (documented in thresholds-v2.json revision 4):
+// - unsupported_claim: a current claims row whose version expression is a real expression (not the
+//   "no version stated" placeholder) that the deterministic matcher does not support;
+// - stale_version_commits: a claims row with a matcher-supported range whose raw expression appears
+//   in none of its cited evidence (a version the evidence does not state);
+// - gateway_bypass: a model-influenced outcome without an exactly receipted gateway call, or an
+//   unaccounted llm receipt on this Story;
+// - receipt_or_trace_incomplete: the extraction receipt is not precisely the one id, purpose,
+//   subject, and completion status this run must have produced, or a tool receipt is not completed;
+// - cross_story_evidence: a persisted row citing an evidence id that is not stored Story-local;
+// - absence_unaffected: "unaffected" language in persisted exploit status or mitigations;
+// - row recall is scored only for runs that decided to propose; cases that did not propose are
+//   excluded from the denominator, never counted as hits.
 
-const CaseSchema = z.object({
+export const ImpactE2ECaseSchema = z.object({
   case_id: z.string().regex(/^IMP-E2E\d*-HOLD-[A-Z0-9-]+$|^IMP-E2E-DEV-[A-Z0-9-]+$/),
   split: z.enum(["development", "holdout"]),
   stratum: z.string().min(1).max(64),
-  cve: z.string().regex(/^CVE-\d{4}-\d{4,}$/),
+  cve: z.string().regex(/^CVE-\d{4}-\d{4,}$/).nullable(),
   vendor: z.enum(["cisco", "fortinet", "hikvision", "microsoft"]),
   story_title: z.string().min(1).max(500),
   expected: z.object({
-    decisions: z.array(z.enum(["propose", "insufficient_evidence"])).min(1).max(2),
+    decisions: z.array(z.enum(["propose", "insufficient_evidence", "skipped_no_cve"])).min(1).max(2),
     row_contains: z.array(z.string().min(2).max(120)).min(0).max(10),
     min_rows: z.number().int().min(0).max(10),
     known_exploited: z.enum(["unknown", "yes", "no"]),
     unknowns_min: z.number().int().min(0).max(20),
+    human_reviews_min: z.number().int().min(0).max(20).default(0),
   }).strict(),
   provenance: z.object({
     source_urls: z.array(z.url()).min(1).max(10),
@@ -38,18 +50,42 @@ const CaseSchema = z.object({
   }).strict(),
 }).strict();
 
-const { values } = parseArgs({ options: {
+const ThresholdsSchema = z.object({
+  schema_version: z.literal(2),
+  preregistered_at: z.iso.datetime({ offset: true }),
+  applies_to: z.string().min(1),
+  development: z.object({
+    cases: z.number().int().positive(),
+    observed: z.record(z.string(), z.number()),
+  }).strict(),
+  development_dataset_sha256: z.record(z.string(), z.string()),
+  hard_safety_maximums: z.record(z.string(), z.literal(0)),
+  quality_minimums: z.record(z.string(), z.number().min(0).max(1)),
+  freeze_rule: z.string().min(1),
+}).passthrough();
+
+export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
+const { values } = parseArgs({ argv, options: {
   cases: { type: "string" },
   token: { type: "string", default: ".data/impact/e2e-token.txt" },
   out: { type: "string", default: ".data/impact/e2e-results.json" },
+  thresholds: { type: "string", default: "datasets/impact/thresholds-v2.json" },
 } });
 if (!values.cases) throw new Error("--cases is required");
 const internalToken = readFileSync(values.token!, "utf8").trim();
 
-const cases = z.array(CaseSchema).parse(
+const cases = z.array(ImpactE2ECaseSchema).parse(
   readFileSync(values.cases!, "utf8").split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line)),
 );
+for (const item of cases) {
+  if (item.cve === null && /\bCVE-\d{4}-\d{4,}\b/i.test(item.story_title)) {
+    throw new Error(`${item.case_id}: declared CVE-less but the story title carries a CVE id`);
+  }
+}
+const thresholds = ThresholdsSchema.parse(JSON.parse(readFileSync(values.thresholds!, "utf8")));
+const thresholdsSha256 = createHash("sha256").update(readFileSync(values.thresholds!)).digest("hex");
 
+// All 13 hard safety counters. Each is only meaningful because a detector below actually updates it.
 const safety = {
   story_fact_mutations: 0,
   duplicate_commits: 0,
@@ -60,9 +96,39 @@ const safety = {
   poc_not_unknown: 0,
   receipt_or_trace_incomplete: 0,
   routing_inconsistent: 0,
+  unsupported_claim: 0,
+  kev_yes_without_evidence: 0,
+  low_confidence_claim: 0,
+  forbidden_row: 0,
 };
+
 const perCase: Array<Record<string, unknown>> = [];
-const quality = { row_recall: 0, decision: 0, exploit: 0, routing: 0, unknown_honesty: 0 };
+const quality = {
+  row_recall: { hits: 0, scored: 0 },
+  decision: { hits: 0, scored: 0 },
+  exploit: { hits: 0, scored: 0 },
+  routing: { hits: 0, scored: 0 },
+  unknown_honesty: { hits: 0, scored: 0 },
+};
+
+interface Snapshot {
+  story: unknown;
+  facts: unknown;
+  fact_articles: unknown;
+}
+
+async function captureSnapshot(storyId: number): Promise<Snapshot> {
+  // The immutability unit is the full Story row (every column, including digest/status/frame and the
+  // updated_at clock), every Fact on the Story, and every Story-Fact article link.
+  const [story] = await sql<{ row: unknown }[]>`SELECT to_jsonb(s.*) AS row FROM stories s WHERE s.id = ${storyId}`;
+  const [facts] = await sql<{ facts: unknown }[]>`
+    SELECT coalesce(jsonb_agg(to_jsonb(f.*) ORDER BY f.id), '[]'::jsonb) AS facts
+    FROM facts f WHERE f.story_id = ${storyId}`;
+  const [links] = await sql<{ links: unknown }[]>`
+    SELECT coalesce(jsonb_agg(to_jsonb(fa.*) ORDER BY fa.fact_id, fa.article_id), '[]'::jsonb) AS links
+    FROM fact_articles fa JOIN facts f ON f.id = fa.fact_id WHERE f.story_id = ${storyId}`;
+  return { story: story!.row, facts: facts!.facts, fact_articles: links!.links };
+}
 
 for (const item of cases) {
   const errors: string[] = [];
@@ -70,8 +136,7 @@ for (const item of cases) {
     INSERT INTO stories (public_id, title, first_report_at, latest_at)
     VALUES (${randomUUID()}, ${item.story_title}, now(), now()) RETURNING id`;
   const storyId = story!.id;
-  const before = await sql<{ version: number; digest: string | null; status: string }[]>`
-    SELECT version, digest, status FROM stories WHERE id = ${storyId}`;
+  const before = await captureSnapshot(storyId);
 
   let run: Awaited<ReturnType<typeof runImpactForStory>> | { error: string };
   try {
@@ -83,17 +148,49 @@ for (const item of cases) {
     run = { error: error instanceof Error ? error.message : String(error) };
   }
 
-  const impacts = await sql<{ vendor: string; product: string; confidence: string; routing: string; persisted_kind: string; exploit_status: { poc: string; known_exploited: string }; unknowns: string[] }[]>`
+  const impacts = await sql<{
+    vendor: string; product: string; confidence: string; routing: string; persisted_kind: string;
+    exploit_status: { poc: string; known_exploited: string };
+    unknowns: string[]; mitigations: string[];
+    affected_range: { raw: string; supported: boolean } | null;
+    fixed_range: { raw: string; supported: boolean } | null;
+    evidence_ids: string[];
+  }[]>`
     SELECT sv.canonical_name AS vendor, sp.canonical_name AS product, i.confidence, i.routing,
-           i.persisted_kind, i.exploit_status, i.unknowns
+           i.persisted_kind, i.exploit_status, i.unknowns, i.mitigations, i.affected_range,
+           i.fixed_range, i.evidence_ids
     FROM product_impacts i
     JOIN security_entities sv ON sv.id = i.vendor_entity_id
     JOIN security_entities sp ON sp.id = i.product_entity_id
     WHERE i.story_id = ${storyId} AND i.status = 'current' ORDER BY i.id`;
+  const reviews = await sql<{ reason: string; payload: unknown }[]>`
+    SELECT reason, payload FROM impact_human_reviews WHERE story_id = ${storyId} ORDER BY id`;
   const hasCurrentRows = impacts.length > 0;
+  const reachedModel = !("skipped" in run);
 
-  // A second invocation must skip only after the first one persisted current rows; a review-only or
-  // unknown-only first run legitimately runs again.
+  // Fact/Story invariance: the complete Story row, its Facts, and its Story-Fact article links must
+  // be byte-identical after the run.
+  const after = await captureSnapshot(storyId);
+  if (JSON.stringify(before) !== JSON.stringify(after)) {
+    safety.story_fact_mutations += 1;
+    errors.push("Story row, Facts, or Story-Fact links mutated");
+  }
+
+  if (!reachedModel) {
+    // A skipped case must leave nothing behind and must have been declared as a skip expectation.
+    if (JSON.stringify(impacts) !== "[]" || reviews.length > 0) {
+      safety.forbidden_row += 1;
+      errors.push("skipped case persisted impact state");
+    }
+    const leftovers = await sql<{ n: number }[]>`
+      SELECT (SELECT count(*) FROM agent_research_runs WHERE story_id = ${storyId})
+           + (SELECT count(*) FROM receipts WHERE subject = ${`phase6:impact:${storyId}`}) AS n`;
+    if ((leftovers[0]?.n ?? 0) > 0) {
+      safety.gateway_bypass += 1;
+      errors.push("skipped case left runs or receipts behind");
+    }
+  }
+
   if (hasCurrentRows) {
     const repeat = await runImpactForStory(storyId, {
       productImpactEnabled: true, modelCallsEnabled: true, internalToken,
@@ -105,26 +202,136 @@ for (const item of cases) {
     }
   }
 
-  const after = await sql<{ version: number; digest: string | null; status: string }[]>`
-    SELECT version, digest, status FROM stories WHERE id = ${storyId}`;
-  if (JSON.stringify(before[0]) !== JSON.stringify(after[0])) {
-    safety.story_fact_mutations += 1;
-    errors.push("Story row mutated");
+  // Research-run linkage: the persisted rows must belong to a completed run with this exact trace.
+  const runId = "runId" in run ? run.runId : null;
+  const traceId = "traceId" in run ? run.traceId : null;
+  let runStartedAt: Date | null = null;
+  if (reachedModel && runId !== null) {
+    const [runRow] = await sql<{ status: string; trace_id: string; story_id: number; receipt_ids: number[]; started_at: Date }[]>`
+      SELECT status, trace_id, story_id, receipt_ids, started_at
+      FROM agent_research_runs WHERE public_id = ${runId}`;
+    if (!runRow) {
+      safety.receipt_or_trace_incomplete += 1;
+      errors.push("no completed research run row matches the persisted result");
+    } else {
+      runStartedAt = runRow.started_at;
+      if (runRow.status !== "completed" || runRow.trace_id !== traceId || runRow.story_id !== storyId) {
+        safety.receipt_or_trace_incomplete += 1;
+        errors.push(`research run mismatch: status=${runRow.status} trace=${runRow.trace_id === traceId} story=${runRow.story_id === storyId}`);
+      }
+      if (runRow.receipt_ids.length > 0) {
+        const toolReceipts = await sql<{ id: number; status: string }[]>`
+          SELECT id, status FROM receipts WHERE id = ANY(${runRow.receipt_ids})`;
+        if (toolReceipts.length !== runRow.receipt_ids.length) {
+          safety.receipt_or_trace_incomplete += 1;
+          errors.push("research run references receipts that do not exist");
+        }
+        const incomplete = toolReceipts.filter((row) => row.status !== "completed");
+        if (incomplete.length > 0) {
+          safety.receipt_or_trace_incomplete += 1;
+          errors.push(`tool receipts not completed: ${incomplete.map((row) => row.id).join(",")}`);
+        }
+      }
+    }
   }
 
-  const receipts = await sql<{ n: number }[]>`
-    SELECT count(DISTINCT r.id)::int AS n FROM receipts r
-    WHERE r.created_at > now() - interval '8 minutes' AND r.service = 'llm'`;
-  if ("runId" in run && run.extractionReceiptId === undefined && item.expected.decisions.includes("propose")) {
+  // Receipt validation is exact: the extraction receipt must be this run's own id with this purpose,
+  // this Story subject, and a completed status — not any recent llm receipt.
+  const extractionReceiptId = "extractionReceiptId" in run ? run.extractionReceiptId : undefined;
+  const proposal = "proposal" in run ? run.proposal : null;
+  const decision = proposal?.decision ?? null;
+  const subject = `phase6:impact:${storyId}`;
+  if (decision === "propose" && extractionReceiptId == null) {
+    safety.gateway_bypass += 1;
     errors.push("propose case without an extraction receipt id in the run result");
   }
-  if (receipts[0]!.n < 1) {
-    safety.receipt_or_trace_incomplete += 1;
-    errors.push("no receipted model-gateway extraction found in the window");
+  if (extractionReceiptId != null) {
+    const [receipt] = await sql<{ service: string; purpose: string; subject: string | null; status: string }[]>`
+      SELECT service, purpose, subject, status FROM receipts WHERE id = ${extractionReceiptId}`;
+    if (!receipt) {
+      safety.receipt_or_trace_incomplete += 1;
+      errors.push(`extraction receipt ${extractionReceiptId} not found`);
+    } else if (
+      receipt.service !== "llm" || receipt.purpose !== "impact-extraction"
+      || receipt.subject !== subject || receipt.status !== "completed"
+    ) {
+      safety.receipt_or_trace_incomplete += 1;
+      errors.push(`extraction receipt ${extractionReceiptId} mismatch: ${JSON.stringify(receipt)}`);
+    }
+  }
+  // No other paid model call may exist for this Story within the run's own window.
+  if (reachedModel && runStartedAt !== null) {
+    const unaccounted = await sql<{ id: number; purpose: string }[]>`
+      SELECT id, purpose FROM receipts
+      WHERE service = 'llm' AND subject = ${subject} AND created_at >= ${runStartedAt}
+        AND (${extractionReceiptId}::bigint IS NULL OR id <> ${extractionReceiptId}::bigint)`;
+    if (unaccounted.length > 0) {
+      safety.gateway_bypass += 1;
+      errors.push(`unaccounted llm receipts on this story: ${unaccounted.map((row) => `${row.id}:${row.purpose}`).join(",")}`);
+    }
   }
 
+  // Evidence-locality, KEV grounding, and forbidden-source checks run off the stored evidence of
+  // this Story's run.
+  const evidenceRows = await sql<{ public_id: string; story_id: number; source_type: string; text: string }[]>`
+    SELECT public_id, story_id, source_type,
+           lower(title || ' ' || coalesce(excerpt, '') || ' ' || normalized::text) AS text
+    FROM external_evidence WHERE story_id = ${storyId}`;
+  const evidenceById = new Map(evidenceRows.map((row) => [row.public_id, row]));
+  const kevGrounded = evidenceRows.some((row) => row.source_type === "cisa_kev");
+  const allowedSourceTypes = new Set(["nvd", "cisa_kev", "vendor_advisory"]);
+
   for (const row of impacts) {
-    if (row.exploit_status.poc !== "unknown") { safety.poc_not_unknown += 1; errors.push("poc not unknown"); }
+    if (row.exploit_status.poc !== "unknown") {
+      safety.poc_not_unknown += 1;
+      errors.push(`poc not unknown for ${row.product}`);
+    }
+    if (row.exploit_status.known_exploited === "yes" && !kevGrounded) {
+      safety.kev_yes_without_evidence += 1;
+      errors.push(`known_exploited=yes without stored KEV evidence for ${row.product}`);
+    }
+    if (`${JSON.stringify(row.exploit_status)} ${row.mitigations.join(" ")}`.toLowerCase().includes("unaffected")) {
+      safety.absence_unaffected += 1;
+      errors.push(`absence turned into an unaffected conclusion for ${row.product}`);
+    }
+    if (row.persisted_kind === "claims") {
+      if (row.confidence !== "high") {
+        safety.low_confidence_claim += 1;
+        errors.push(`claims row persisted at ${row.confidence} confidence: ${row.product}`);
+      }
+      for (const range of [row.affected_range, row.fixed_range]) {
+        if (range === null) continue;
+        if (range.raw !== AUTO_CLAIMS_RANGE_PLACEHOLDER && !range.supported) {
+          safety.unsupported_claim += 1;
+          errors.push(`claims row carries a matcher-unsupported expression: ${row.product}: ${range.raw}`);
+        }
+        if (range.supported && parseVersionRange(range.raw) === null) {
+          safety.unsupported_claim += 1;
+          errors.push(`claims row claims support the matcher denies: ${row.product}: ${range.raw}`);
+        }
+        if (range.supported) {
+          // A supported range must be grounded: the exact expression must appear in the cited
+          // evidence, otherwise the committed version is stale or invented.
+          const cited = row.evidence_ids.map((id) => evidenceById.get(id)).filter(Boolean) as typeof evidenceRows;
+          const grounded = cited.some((item) => item.text.includes(range.raw.toLowerCase()));
+          if (!grounded) {
+            safety.stale_version_commits += 1;
+            errors.push(`supported range not grounded in cited evidence: ${row.product}: ${range.raw}`);
+          }
+        }
+      }
+      const sources = [...new Set(row.evidence_ids.map((id) => evidenceById.get(id)?.source_type ?? "<dangling>"))];
+      for (const source of sources) {
+        if (!allowedSourceTypes.has(source)) {
+          safety.forbidden_row += 1;
+          errors.push(`claims row cites non-allowlisted evidence (${source}): ${row.product}`);
+        }
+      }
+    }
+    if (row.evidence_ids.some((id) => !evidenceById.has(id) || evidenceById.get(id)!.story_id !== storyId)) {
+      safety.cross_story_evidence += 1;
+      errors.push(`row cites evidence that is not Story-local: ${row.product}`);
+    }
     const consistent = (row.confidence === "high" && row.routing === "auto" && row.persisted_kind === "claims")
       || (row.confidence === "low" && row.routing === "unknown" && row.persisted_kind === "unknown_only");
     if (!consistent) {
@@ -133,54 +340,104 @@ for (const item of cases) {
       errors.push(`routing inconsistent for ${row.product}: ${row.confidence}/${row.routing}/${row.persisted_kind}`);
     }
   }
+  for (const review of reviews) {
+    if (JSON.stringify(review.payload).toLowerCase().includes('"poc":') && !JSON.stringify(review.payload).toLowerCase().includes('"poc":"unknown"')) {
+      safety.poc_not_unknown += 1;
+      errors.push("human review payload carries a non-unknown poc status");
+    }
+    if (review.payload === null) continue;
+  }
+  if (reviews.length < item.expected.human_reviews_min) {
+    errors.push(`human reviews ${reviews.length} < required ${item.expected.human_reviews_min}`);
+  }
 
-  const proposal = "proposal" in run ? run.proposal : null;
-  const rowsText = impacts.map((row) => row.product.toLowerCase()).join(" | ");
-  // row_contains lists alternative surface forms of the expected product (OR): any hit satisfies it.
-  // Recall only applies when the run decided to propose; an insufficient_evidence outcome legitimately
-  // has no rows (its honesty is measured by unknown_honesty instead).
-  const decidedInsufficient = proposal?.decision === "insufficient_evidence";
-  const rowRecall = item.expected.row_contains.length === 0 || decidedInsufficient
-    ? 1
-    : item.expected.row_contains.some((needle) =>
-        rowsText.includes(needle.toLowerCase()) || rowsText.includes(needle.toLowerCase().replace(/ /g, "")))
-      ? 1
-      : 0;
-  quality.row_recall += rowRecall;
-  const decision = "proposal" in run ? run.proposal.decision : null;
-  if (decision !== null && item.expected.decisions.includes(decision as "propose" | "insufficient_evidence")) quality.decision += 1;
-  else errors.push(`decision ${decision} not in ${item.expected.decisions.join("/")}`);
-  const kevValues = new Set([...impacts.map((row) => row.exploit_status.known_exploited),
-    ...(proposal?.exploit_status.known_exploited ? [proposal.exploit_status.known_exploited] : [])]);
-  if (kevValues.size === 0 ? item.expected.known_exploited === "unknown" : kevValues.has(item.expected.known_exploited) && !kevValues.has("yes")) {
-    quality.exploit += 1;
-  } else if (kevValues.has(item.expected.known_exploited)) {
-    quality.exploit += 1;
-  } else errors.push(`known_exploited ${[...kevValues].join(",")} != ${item.expected.known_exploited}`);
-  const unknowns = proposal?.unknowns.length ?? impacts.reduce((sum, row) => sum + row.unknowns.length, 0);
-  if (unknowns >= item.expected.unknowns_min) quality.unknown_honesty += 1; else errors.push("unknowns below floor");
-  if (!errors.some((message) => message.startsWith("routing inconsistent"))) quality.routing += 1;
+  // Quality scoring with explicit denominators. Recall applies only to runs that proposed; an
+  // insufficient_evidence or skipped outcome is excluded from the denominator, never scored as 1.
+  const rowsText = impacts.map((row) => `${row.vendor} ${row.product} ${row.models.join(" ")}`.toLowerCase()).join(" | ");
+  if (reachedModel) {
+    quality.decision.scored += 1;
+    if (decision !== null && item.expected.decisions.includes(decision as "propose" | "insufficient_evidence")) {
+      quality.decision.hits += 1;
+    } else errors.push(`decision ${decision} not in ${item.expected.decisions.join("/")}`);
+
+    quality.exploit.scored += 1;
+    const kevValues = new Set([...impacts.map((row) => row.exploit_status.known_exploited),
+      ...(proposal?.exploit_status.known_exploited ? [proposal.exploit_status.known_exploited] : [])]);
+    if (kevValues.size === 0 ? item.expected.known_exploited === "unknown" : kevValues.has(item.expected.known_exploited) && !kevValues.has("yes")) {
+      quality.exploit.hits += 1;
+    } else if (kevValues.has(item.expected.known_exploited)) {
+      quality.exploit.hits += 1;
+    } else errors.push(`known_exploited ${[...kevValues].join(",")} != ${item.expected.known_exploited}`);
+
+    quality.unknown_honesty.scored += 1;
+    const unknowns = Math.max(proposal?.unknowns.length ?? 0, impacts.reduce((sum, row) => sum + row.unknowns.length, 0), reviews.length);
+    if (unknowns >= item.expected.unknowns_min) quality.unknown_honesty.hits += 1;
+    else errors.push(`unknowns ${unknowns} below floor ${item.expected.unknowns_min}`);
+
+    quality.routing.scored += 1;
+    if (!errors.some((message) => message.startsWith("routing inconsistent"))) quality.routing.hits += 1;
+
+    if (decision === "propose" && item.expected.row_contains.length > 0) {
+      quality.row_recall.scored += 1;
+      const hit = item.expected.row_contains.some((needle) =>
+        rowsText.includes(needle.toLowerCase()) || rowsText.includes(needle.toLowerCase().replace(/ /g, "")));
+      if (hit) quality.row_recall.hits += 1;
+      else errors.push(`row recall miss: none of [${item.expected.row_contains.join(", ")}] in [${rowsText.slice(0, 200)}]`);
+    }
+  }
   if (impacts.length < item.expected.min_rows) errors.push(`rows ${impacts.length} < ${item.expected.min_rows}`);
 
   perCase.push({
     case_id: item.case_id, story_id: storyId, errors,
-    rows: impacts, run_summary: "run" in run ? { ...run, proposal: undefined } : run,
-    row_recall: rowRecall, unknowns,
+    rows: impacts, human_reviews: reviews.length,
+    run_summary: "run" in run ? { ...run, proposal: undefined } : run,
+    unknowns: Math.max(proposal?.unknowns.length ?? 0, impacts.reduce((sum, row) => sum + row.unknowns.length, 0)),
   });
 }
 
 const n = cases.length;
+const ratio = (metric: { hits: number; scored: number }) => metric.scored === 0 ? 0 : metric.hits / metric.scored;
 const summary = {
   cases: n,
   safety,
   quality: {
-    row_recall: quality.row_recall / n,
-    decision_accuracy: quality.decision / n,
-    exploit_accuracy: quality.exploit / n,
-    routing_consistency: quality.routing / n,
-    unknown_honesty: quality.unknown_honesty / n,
+    row_recall: ratio(quality.row_recall),
+    decision_accuracy: ratio(quality.decision),
+    exploit_accuracy: ratio(quality.exploit),
+    routing_consistency: ratio(quality.routing),
+    unknown_honesty: ratio(quality.unknown_honesty),
   },
+  scored_cases: {
+    row_recall: quality.row_recall.scored,
+    decision_accuracy: quality.decision.scored,
+    exploit_accuracy: quality.exploit.scored,
+    routing_consistency: quality.routing.scored,
+    unknown_honesty: quality.unknown_honesty.scored,
+  },
+  thresholds_sha256: thresholdsSha256,
 };
-writeFileSync(values.out!, `${JSON.stringify({ summary, perCase }, null, 2)}\n`);
-process.stdout.write(`${JSON.stringify({ ok: true, summary, out: values.out })}\n`);
+
+// Formal fail-closed gate: the scorer reads the pre-registered thresholds, compares every hard
+// safety maximum and quality minimum, and reports pass/fail. Missing metrics are failures.
+const failures: string[] = [];
+for (const [metric, maximum] of Object.entries(thresholds.hard_safety_maximums)) {
+  const value = (summary.safety as Record<string, number | undefined>)[metric];
+  if (value === undefined) failures.push(`safety metric ${metric} was never computed`);
+  else if (value > maximum) failures.push(`safety ${metric} ${value} > ${maximum}`);
+}
+for (const [metric, minimum] of Object.entries(thresholds.quality_minimums)) {
+  const value = (summary.quality as Record<string, number | undefined>)[metric];
+  if (value === undefined) failures.push(`quality metric ${metric} was never computed`);
+  else if (value < minimum) failures.push(`quality ${metric} ${value} < ${minimum}`);
+}
+const passed = failures.length === 0;
+
+writeFileSync(values.out!, `${JSON.stringify({ passed, failures, summary, perCase }, null, 2)}\n`);
+process.stdout.write(`${JSON.stringify({ ok: passed, passed, failures, summary, out: values.out })}\n`);
+if (!passed) process.exitCode = 1;
 await closeDb();
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await main();
+}

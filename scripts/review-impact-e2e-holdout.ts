@@ -25,11 +25,11 @@ if (values.provider === "direct") process.env.LLM_MODEL = values.reviewer;
 else process.env.LLM_MODEL = values.reviewer;
 
 const allCases = z.array(z.object({
-  case_id: z.string(), split: z.string(), stratum: z.string(), cve: z.string(), vendor: z.string(),
+  case_id: z.string(), split: z.string(), stratum: z.string(), cve: z.string().nullable(), vendor: z.string(),
   story_title: z.string(),
   expected: z.object({
     decisions: z.array(z.string()), row_contains: z.array(z.string()), min_rows: z.number(),
-    known_exploited: z.string(), unknowns_min: z.number(),
+    known_exploited: z.string(), unknowns_min: z.number(), human_reviews_min: z.number().optional(),
   }).strict(),
   provenance: z.object({
     source_urls: z.array(z.string()), label_method: z.string(), reviewers: z.array(z.string()), note: z.string(),
@@ -47,8 +47,13 @@ known_exploited = yes requires the CVE to genuinely be in the KEV catalog; a CVE
 row_contains keywords must match the products the official evidence names. An expected outcome set may legally include both
 "propose" (when official evidence names affected products) and "insufficient_evidence with preserved unknowns" (when the
 advisory states no product/version detail the pipeline can ground on); reject a label set only if neither allowed outcome
-could ever be conservative for that CVE. Confidence numbers are deliberately not asserted: routing consistency (high persists
-claims, medium routes to human review, low stays unknown) is enforced deterministically elsewhere. PoC is never claimed.
+could ever be conservative for that CVE. The decision "skipped_no_cve" is legal only for a Story whose title carries no CVE
+identifier; such a case must deterministically skip before any research run. Version semantics (revision 4): a version
+expression the deterministic closed-grammar matcher cannot parse (prose ranges, vendor firmware naming, date builds) routes
+the draft to human review with an explicit unknown and never persists as an auto claim, so a case whose official evidence
+states versions only in such prose must not require current claims rows; matcher-parseable expressions may persist and are
+grounding-checked verbatim against the cited evidence. Confidence numbers are deliberately not asserted: routing consistency
+(high persists claims, medium routes to human review, low stays unknown) is enforced deterministically elsewhere. PoC is never claimed.
 Return strict JSON only.`;
 const user = JSON.stringify({
   task: "Review every case independently against real public sources. Do not rewrite labels.",

@@ -49,9 +49,21 @@ test("matcher-unsupported ranges are rejected instead of being trusted", () => {
   bad.impact_rows[0]!.affected_range = { raw: "1.2.x", supported: true };
   assert.throws(() => validateImpactProposal(task(), bad), /not matcher-supported/);
 
-  const honest = structuredClone(fixture.proposal) as { impact_rows: Array<Record<string, unknown>> };
-  honest.impact_rows[0]!.affected_range = { raw: "firmware R-1.0 beta", supported: false };
-  assert.doesNotThrow(() => validateImpactProposal(task(), honest));
+  // An auto-claims row must never carry a real expression the matcher cannot parse; the honest
+  // representations are the "no version stated" placeholder or a human-review (medium) route.
+  const unsupportedClaim = structuredClone(fixture.proposal) as { impact_rows: Array<Record<string, unknown>> };
+  unsupportedClaim.impact_rows[0]!.affected_range = { raw: "firmware R-1.0 beta", supported: false };
+  assert.throws(() => validateImpactProposal(task(), unsupportedClaim), /matcher-unsupported affected expression/);
+
+  const placeholder = structuredClone(fixture.proposal) as { impact_rows: Array<Record<string, unknown>> };
+  placeholder.impact_rows[0]!.affected_range = { raw: "unresolvable version range", supported: false };
+  placeholder.impact_rows[0]!.fixed_range = null;
+  assert.doesNotThrow(() => validateImpactProposal(task(), placeholder));
+
+  const reviewRoute = structuredClone(fixture.proposal) as { impact_rows: Array<Record<string, unknown>> };
+  reviewRoute.impact_rows[0]!.confidence = "medium";
+  reviewRoute.impact_rows[0]!.affected_range = { raw: "firmware R-1.0 beta", supported: false };
+  assert.doesNotThrow(() => validateImpactProposal(task(), reviewRoute));
 });
 
 test("claims must cite task-local evidence and the task CVE", () => {

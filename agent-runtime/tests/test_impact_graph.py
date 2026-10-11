@@ -144,3 +144,23 @@ async def test_normalization_without_kev_evidence_stays_unknown() -> None:
     proposal = await run_impact_graph(task)
     assert proposal.exploit_status.known_exploited == "unknown"
     assert proposal.known_exploited_evidence_ids == []
+
+
+@pytest.mark.anyio
+async def test_unsupported_version_expression_routes_to_review_not_claims() -> None:
+    task = normalize_task()
+    main_draft = task.extraction.drafts[0]  # type: ignore[index]
+    task.extraction = task.extraction.model_copy(update={"drafts": [  # type: ignore[union-attr]
+        main_draft.model_copy(update={
+            "affected_range_raw": "builds before 20240412",
+            "affected_range_supported": False,
+            "fixed_range_raw": None,
+            "fixed_range_supported": False,
+        }),
+    ]})
+    proposal = await run_impact_graph(task)
+    assert proposal.decision == "propose"
+    assert [row.confidence for row in proposal.impact_rows] == ["medium"]  # high over authoritative, still review
+    assert proposal.impact_rows[0].affected_range.raw == "builds before 20240412"  # preserved for review
+    assert proposal.impact_rows[0].affected_range.supported is False
+    assert any("routed to human review" in item for item in proposal.unknowns)

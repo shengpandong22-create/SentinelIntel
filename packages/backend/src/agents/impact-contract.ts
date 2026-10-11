@@ -13,6 +13,12 @@ import { parseVersionRange } from "./version-matcher.ts";
 
 export const IMPACT_CONFIDENCE = ["high", "medium", "low"] as const;
 
+// Mirror of the Python graph's placeholder for "the evidence states no version expression at all".
+// Only this exact raw value may appear with supported=false on an auto-claims row; any real
+// expression the matcher cannot parse must be routed to human review instead (contract: unsupported
+// expressions surface as unknown + review, never as an auto claim).
+export const AUTO_CLAIMS_RANGE_PLACEHOLDER = "unresolvable version range";
+
 export const ImpactRangeSchema = z.object({
   raw: z.string().min(1).max(200),
   supported: z.boolean(),
@@ -156,6 +162,17 @@ export function validateImpactProposal(task: z.infer<typeof ImpactTaskSchema>, r
     }
     if (row.fixed_range && !rangeIsSupported(row.fixed_range) && row.fixed_range.supported) {
       throw new Error(`fixed range is not matcher-supported: ${row.product}`);
+    }
+    // Defense in depth for the Python graph's routing rule: an auto-claims row (high confidence,
+    // persisted as claims) must never carry a real version expression the matcher cannot support.
+    // Only the "no version stated" placeholder is honest with supported=false.
+    if (row.confidence === "high") {
+      if (!rangeIsSupported(row.affected_range) && row.affected_range.raw !== AUTO_CLAIMS_RANGE_PLACEHOLDER) {
+        throw new Error(`auto-claims row carries a matcher-unsupported affected expression: ${row.product}`);
+      }
+      if (row.fixed_range && !rangeIsSupported(row.fixed_range)) {
+        throw new Error(`auto-claims row carries a matcher-unsupported fixed expression: ${row.product}`);
+      }
     }
   }
   if (task.source_parameters.cve_id) {

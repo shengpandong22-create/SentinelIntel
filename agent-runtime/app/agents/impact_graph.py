@@ -125,6 +125,7 @@ def normalize_extraction(state: ImpactState) -> dict[str, ImpactProposal]:
     rows: list[ImpactRow] = []
     dropped: list[str] = []
     low_confidence: list[str] = []
+    review_routed: list[str] = []
     for draft in extraction.drafts:
         cited = [evidence_id for evidence_id in draft.evidence_ids if evidence_id in evidence_by_id]
         if not cited:
@@ -134,12 +135,23 @@ def normalize_extraction(state: ImpactState) -> dict[str, ImpactProposal]:
         confidence = draft.confidence
         if confidence == "high" and "authoritative" not in authorities:
             confidence = "medium" if "primary" in authorities else "low"
+        affected = draft.affected_range_raw
+        fixed = draft.fixed_range_raw
+        # Contract §7: a real version expression the deterministic matcher cannot parse never
+        # persists as an auto claim. Only the "no version stated" placeholder (affected absent) is
+        # honest with supported=false on a claims row; an unparsable expression routes the whole
+        # draft to human review and surfaces as an explicit unknown.
+        unsupported_version = (
+            (affected is not None and not draft.affected_range_supported)
+            or (fixed is not None and not draft.fixed_range_supported)
+        )
+        if unsupported_version and confidence == "high":
+            confidence = "medium"
+            review_routed.append(draft.product)
         if confidence == "low":
             # Design §12: Low confidence keeps the unknown and never carries a claim.
             low_confidence.append(draft.product)
             continue
-        affected = draft.affected_range_raw
-        fixed = draft.fixed_range_raw
         rows.append(ImpactRow(
             vendor=draft.vendor,
             product=draft.product,
@@ -188,6 +200,8 @@ def normalize_extraction(state: ImpactState) -> dict[str, ImpactProposal]:
         unknowns.append(f"Extraction drafts cited no task-local evidence and were dropped: {', '.join(sorted(dropped))}.")
     if low_confidence:
         unknowns.append(f"Low-confidence extraction kept as unknown without claims: {', '.join(sorted(low_confidence))}.")
+    if review_routed:
+        unknowns.append(f"Matcher-unsupported version expressions routed to human review: {', '.join(sorted(review_routed))}.")
     if dropped_conflict_names:
         unknowns.append(f"Conflicting drafts for a product were superseded by the most authoritative citation: {', '.join(dropped_conflict_names)}.")
     decision = "propose" if rows else "insufficient_evidence"
