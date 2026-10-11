@@ -65,7 +65,7 @@ const user = JSON.stringify({
 });
 // Kimi-family models on the codebuddy channel have repeatedly exceeded 180 s on 3-case batches;
 // give them (and any slow reviewer) a wider window.
-const timeoutMs = /kimi/i.test(values.reviewer!) ? 360_000 : 180_000;
+const timeoutMs = /kimi/i.test(values.reviewer!) ? 600_000 : 180_000;
 try {
   const result = values.provider === "direct"
     ? await chatJson({

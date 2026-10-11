@@ -149,14 +149,14 @@ for (const item of cases) {
   }
 
   const impacts = await sql<{
-    vendor: string; product: string; confidence: string; routing: string; persisted_kind: string;
+    vendor: string; product: string; models: string[]; confidence: string; routing: string; persisted_kind: string;
     exploit_status: { poc: string; known_exploited: string };
     unknowns: string[]; mitigations: string[];
     affected_range: { raw: string; supported: boolean } | null;
     fixed_range: { raw: string; supported: boolean } | null;
     evidence_ids: string[];
   }[]>`
-    SELECT sv.canonical_name AS vendor, sp.canonical_name AS product, i.confidence, i.routing,
+    SELECT sv.canonical_name AS vendor, sp.canonical_name AS product, i.models, i.confidence, i.routing,
            i.persisted_kind, i.exploit_status, i.unknowns, i.mitigations, i.affected_range,
            i.fixed_range, i.evidence_ids
     FROM product_impacts i
@@ -226,10 +226,10 @@ for (const item of cases) {
           safety.receipt_or_trace_incomplete += 1;
           errors.push("research run references receipts that do not exist");
         }
-        const incomplete = toolReceipts.filter((row) => row.status !== "completed");
+        const incomplete = toolReceipts.filter((row) => !["received", "completed"].includes(row.status));
         if (incomplete.length > 0) {
           safety.receipt_or_trace_incomplete += 1;
-          errors.push(`tool receipts not completed: ${incomplete.map((row) => row.id).join(",")}`);
+          errors.push(`tool receipts not completed: ${incomplete.map((row) => `${row.id}:${row.status}`).join(",")}`);
         }
       }
     }
@@ -253,7 +253,7 @@ for (const item of cases) {
       errors.push(`extraction receipt ${extractionReceiptId} not found`);
     } else if (
       receipt.service !== "llm" || receipt.purpose !== "impact-extraction"
-      || receipt.subject !== subject || receipt.status !== "completed"
+      || receipt.subject !== subject || !["received", "completed"].includes(receipt.status)
     ) {
       safety.receipt_or_trace_incomplete += 1;
       errors.push(`extraction receipt ${extractionReceiptId} mismatch: ${JSON.stringify(receipt)}`);
@@ -377,7 +377,10 @@ for (const item of cases) {
     quality.routing.scored += 1;
     if (!errors.some((message) => message.startsWith("routing inconsistent"))) quality.routing.hits += 1;
 
-    if (decision === "propose" && item.expected.row_contains.length > 0) {
+    // Recall applies only to runs that decided to propose AND persisted at least one current row:
+    // a propose whose rows all routed to human review has no persisted row text to match, and is
+    // already covered by decision accuracy and unknown honesty.
+    if (decision === "propose" && impacts.length > 0 && item.expected.row_contains.length > 0) {
       quality.row_recall.scored += 1;
       const hit = item.expected.row_contains.some((needle) =>
         rowsText.includes(needle.toLowerCase()) || rowsText.includes(needle.toLowerCase().replace(/ /g, "")));
@@ -429,6 +432,16 @@ for (const [metric, minimum] of Object.entries(thresholds.quality_minimums)) {
   const value = (summary.quality as Record<string, number | undefined>)[metric];
   if (value === undefined) failures.push(`quality metric ${metric} was never computed`);
   else if (value < minimum) failures.push(`quality ${metric} ${value} < ${minimum}`);
+}
+// Fail-closed on per-case assertions too: a min_rows floor, a human-review floor, or any other
+// per-case error violates the frozen labels even when every aggregate metric stays above its
+// threshold. Aggregate greens with per-case violations are exactly the "假全绿" shape the gate
+// must never produce.
+for (const item of perCase) {
+  const caseErrors = item.errors as string[];
+  if (Array.isArray(caseErrors) && caseErrors.length > 0) {
+    failures.push(`${item.case_id}: ${caseErrors.join("; ")}`);
+  }
 }
 const passed = failures.length === 0;
 

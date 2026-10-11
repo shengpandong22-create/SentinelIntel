@@ -192,13 +192,25 @@ denominator, and ends with a fail-closed scorer that reads the pre-registered th
 non-zero on any failure. Normalization semantics revision 4: a matcher-unsupported version expression
 routes to human review with an explicit unknown and never persists as an auto claim (the offline
 normalization fixture holdout keeps its pre-revision-4 frozen expectations as consumed evidence only).
-**Holdout v7 candidate** (`datasets/impact/e2e-holdout-v7-candidate.jsonl`, 4 cases, UNREVIEWED) is
-constructed to cover the four required demonstrations — full-record KEV claims (CVE-2023-20198),
-unsupported-version-format → review (CVE-2024-55591), stale-version rejection (CVE-2023-23397 with a
-stale version sentence in the title), and a non-security negative — with KEV membership verified
-against the official CISA feed (catalogVersion 2026.10.08). Remaining before Phase 6 closure: v7
-three-model review, freeze, the single authorized revision-4 run, then canonical Linux CI on the pull
-request.
+**Holdout v7 (consumed, FAILED — frozen)**: the candidate (4 cases) was unanimously accepted at high
+confidence by `glm-5.3-flash` / `deepseek-v4.1-flash` / `kimi-k2.8-preview` (review receipts 9-11 in
+`sentinel_phase6_v7_ci`; the Kimi call exceeded its 360 s window once and was resolved by one audited
+admin retry under the receipt protocol). After a development-set live smoke passed with all thirteen
+safety counters zero, the single authorized v7 run completed. Post-run per-case audit: the aggregate
+scorer was green, but (1) IMP-E2E7-HOLD-001 violated its frozen `min_rows: 1` — extraction verbatim-
+quoted the advisory's affected condition ("Cisco IOS XE Software if the web UI feature is enabled"),
+the matcher correctly refused it, and revision-4 semantics correctly routed the row to human review;
+the frozen label over-specified what model quoting behavior cannot guarantee; (2) the revision-4
+scorer still allowed aggregate metrics to stay green while a per-case assertion failed. v7 is
+consumed as a FAILED gate and stays frozen (`.data/impact/e2e-v7-results.json`,
+`docs/evaluation/impact-e2e-baseline.md`).
+
+**Remediation (revision 4a, committed before v8 construction)**: the scorer now fails on ANY per-case
+assertion error, and v8 labels use outcome sets robust to model quoting behavior with hard guarantees
+carried by the safety detectors and grounded-KEV expectations. **Holdout v8 candidate**
+(`datasets/impact/e2e-holdout-v8-candidate.jsonl`, UNREVIEWED) covers the four required
+demonstrations with all-new CVEs. Remaining before Phase 6 closure: v8 three-model review, freeze,
+the single authorized revision-4a run, then canonical Linux CI on the pull request.
 
 ### Phase 6 checkpoint 1 — contracts, matcher, migrations, stores
 
