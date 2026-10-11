@@ -169,15 +169,17 @@ fabricate) and the runner's repeat-skip assertion mishandled review-only outcome
 
 Holdout v2 review was paused mid-session by a local Application Control policy denying `codebuddy.exe`;
 the owner turned Smart App Control off (a machine-level, owner-made change) and the review resumed.
-Three end-to-end holdout generations have now been consumed, all retained frozen: v1 (3 cases,
-receipts 140-142, FAILED on thin MSRC evidence), v2 (2 of 3 frozen after a correct reviewer refusal,
-FAILED on a candidate construction defect: CVE ids swapped without syncing evidence content), and v3
-(2 of 3 frozen after excluding a reviewer-withheld case, FAILED on an expectation-keyword modeling
-defect: AND-semantics keywords that omitted the product word the model legitimately normalized to).
-Every v3 safety counter was zero and both frozen runs produced correctly routed, KEV-grounded rows.
-Phase 6 remains **NOT COMPLETE**. The carried remediation is development-only and recorded in
-`docs/evaluation/impact-e2e-baseline.md` (OR-semantics expectation keywords anchored on official NVD
-wording; no model-knowledge-limited CVEs in holdout candidacy).
+Four end-to-end holdout generations were consumed during the correction, all retained frozen: v1
+FAILED (thin MSRC evidence), v2 FAILED (candidate construction defect), v3 FAILED (expectation-keyword
+AND-semantics defect), v4 FAILED (KEV live-lookup instability — fixed by the catalog cache, migration
+`0045`, seeded from the official feed), and **v5 FAILED on row_recall 0.67 under the revision-2
+definition** (one case correctly took insufficient_evidence). The carried remediation
+(OR-semantics expectation keywords anchored on official NVD wording; row_recall applies to propose
+outcomes only; no model-knowledge-limited CVEs in candidacy) was applied, and **holdout v6 (2 cases,
+receipts 161-163, MODEL_REVIEWED, SHA256 `3d8f8038819660e15dd7cd0b3f0bfaaeb17efc882e4a4883cb326cfa4b108dee`)
+PASSED its single authorized end-to-end run: all nine safety counters zero and all five pre-registered
+quality metrics at 1.0** (`docs/evaluation/impact-e2e-baseline.md`). Every consumed holdout and receipt
+is retained as evidence. Remaining before Phase 6 closure: canonical Linux CI on the pull request.
 
 ### Phase 6 checkpoint 1 — contracts, matcher, migrations, stores
 
