@@ -98,7 +98,10 @@ export async function runImpactForStory(
           attempted_sources: finalResponse.proposal.tool_trace.map((trace) => trace.tool),
           reason: unknown,
         })),
-        evidence: [...acquisition.proposal.new_evidence, ...finalResponse.proposal.new_evidence],
+        evidence: [...new Map(
+          [...acquisition.proposal.new_evidence, ...finalResponse.proposal.new_evidence]
+            .map((item) => [item.evidence_id, item] as const),
+        ).values()],
         conflicts: [],
         tool_trace: finalResponse.proposal.tool_trace,
         summary: finalResponse.proposal.decision_reason,
