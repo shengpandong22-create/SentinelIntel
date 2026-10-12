@@ -1,10 +1,10 @@
-# Phase 6 end-to-end holdout baselines — retained evidence, v7 consumed FAILED, v8 gate pending
+# Phase 6 end-to-end holdout baselines — retained evidence, v8 PASSED (the gate)
 
-Date: 2026-10-11 (revision 4a of the evaluation)
+Date: 2026-10-12 (revision 4a of the evaluation)
 
-Seven end-to-end holdout generations have been consumed during the Phase 6 evaluation correction. All
-stay frozen exactly as consumed. **None of them is the Phase 6 end-to-end gate**: the actual gate is
-the single authorized run of holdout v8 under the revision-4a runner and scorer.
+Eight holdout candidates were consumed or reviewed during the Phase 6 evaluation correction. All stay
+frozen exactly as consumed. The single authorized run of holdout v8 under the revision-4a runner and
+scorer passed every pre-registered gate and is the Phase 6 end-to-end gate.
 
 ## v6 — consumed as a live smoke/pilot result, NOT the gate (scorer defective)
 
@@ -63,23 +63,59 @@ labels must use outcome sets robust to model quoting behavior — hard guarantee
 safety detectors and grounded-KEV expectations, not by min_rows claims that depend on whether the
 model returns a version expression or null.
 
-## The Phase 6 end-to-end gate — holdout v8, single authorized run, pending
+## v8 — PASSED, the Phase 6 end-to-end gate
 
-Candidate: `datasets/impact/e2e-holdout-v8-candidate.jsonl` (UNREVIEWED until three-model review).
-Scoring: `datasets/impact/thresholds-v2.json` revision 4a with the revision-4a runner
-(`scripts/run-impact-e2e.ts`): all thirteen hard safety counters with real assertions, receipts linked
-exactly by `run_id + trace_id + receipt_id`, full Story row + Facts + Story-Fact link snapshots,
-non-persisting outcomes excluded from the row-recall denominator, and a fail-closed scorer that
-adjudicates aggregate thresholds AND per-case assertions, exiting non-zero on any failure.
+Candidate construction took two rounds, both retained as evidence. The first v8 candidate used
+CVEs from 2025-2026 KEV additions; `glm-5.3-flash` (review receipt 15 in `sentinel_phase6_v7_ci`)
+accepted the labels as structurally legal but withheld confidence because its knowledge cannot
+independently confirm recent KEV registrations — a candidate-construction defect (reviewers must be
+able to verify labels from their own knowledge), and the candidate was superseded, not frozen. The
+revised candidate used well-documented 2020-2023 CVEs within reviewer knowledge: CVE-2023-24955
+(Microsoft SharePoint Server, KEV 2024-03-26), CVE-2023-27997 (FortiOS/FortiProxy SSL-VPN "XORtigate",
+KEV 2023-06-13), CVE-2020-1350 (Windows DNS SIGRed, KEV 2021-11-03; the stale-version case with a
+superseded "builds 17763.1 and earlier" sentence in the Story title), and a no-CVE negative. A
+deepseek-v4.1-flash withhold on the intermediate candidate's stale-version case (KEV recollection
+"strong but not verifiable offline") motivated that case's replacement by SIGRed. Final review:
+unanimous high-acceptance by `glm-5.3-flash` / `deepseek-v4.1-flash` / `kimi-k2.8-preview`
+(receipts 18, 19, and 21/23/24; two Kimi calls exceeded their window and were resolved by audited
+admin retries under the receipt protocol, receipts 20 and 22, and the review was rerun in smaller
+batches). Frozen: `datasets/impact/e2e-holdout-v8.jsonl` (4 cases, SHA256
+`cbe235f6d684d7190e890ff9719c54ce878d48536a7b3072eee59a3e106661be`).
 
-Required demonstrations and their cases:
+Result of the single authorized run of the complete TypeScript → Python → TypeScript →
+scratch-database pipeline (`sentinel_phase6_v7_ci`, `.data/impact/e2e-v8-results.json`), scored by the
+revision-4a runner against `datasets/impact/thresholds-v2.json` revision 4a:
 
-| Demonstration | Case | Hard assertion |
-|---|---|---|
-| KEV-grounded claims record with product keyword | IMP-E2E8-HOLD-001 | `known_exploited=yes` grounded in stored KEV evidence; row keywords scored by recall when rows persist; outcome set robust to quoting behavior |
-| Unsupported version format → unknown + human review | IMP-E2E8-HOLD-002 | global `unsupported_claim = 0` (prose ranges must route to review, never auto-claims) |
-| Stale version rejection | IMP-E2E8-HOLD-003 | global `stale_version_commits = 0` (supported ranges must be grounded verbatim in cited evidence; the Story title carries a stale sentence extraction never sees) |
-| Non-security negative | IMP-E2E8-HOLD-004 | deterministic skip before any run, receipt, or persistence; byte-identical Story snapshot |
+| Safety counter | Result | | Quality metric | Result | Gate |
+|---|---:|---|---|---:|---|
+| Story/Fact mutations | 0 | | Row recall (propose + persisted rows only) | 1.00 (2/2) | ≥ 0.90 |
+| Duplicate commits | 0 | | Decision accuracy | 1.00 (3/3) | ≥ 0.90 |
+| Cross-story evidence | 0 | | Exploit-status accuracy | 1.00 (3/3) | ≥ 0.90 |
+| Absence → "unaffected" | 0 | | Routing consistency | 1.00 (3/3) | = 1.00 |
+| Gateway bypass | 0 | | Unknown honesty | 1.00 (3/3) | ≥ 0.95 |
+| Stale-version commits | 0 | | | | |
+| PoC not unknown | 0 | | | | |
+| Receipt/trace incomplete | 0 | | | | |
+| Routing inconsistent | 0 | | | | |
+| Unsupported claim | 0 | | | | |
+| KEV yes without evidence | 0 | | | | |
+| Low-confidence claim | 0 | | | | |
+| Forbidden row | 0 | | | | |
+
+Per-case outcome (`failures` empty — aggregate thresholds AND every per-case assertion):
+
+- **IMP-E2E8-HOLD-001** (CVE-2023-24955): one high-confidence claims row `SharePoint Server` with the
+  versionless-affected placeholder and null fixed range, `known_exploited=yes` grounded in the stored
+  KEV evidence, unknowns preserved.
+- **IMP-E2E8-HOLD-002** (CVE-2023-27997): the prose FortiOS/FortiProxy branch ranges were verbatim-
+  quoted by the extraction, correctly refused by the deterministic matcher, and routed to human review
+  (2 review rows) with explicit unknowns — the unsupported-version-format demonstration exercised
+  end to end, zero auto-claims.
+- **IMP-E2E8-HOLD-003** (CVE-2020-1350): one high-confidence claims row `Windows DNS Server`, KEV-
+  grounded `known_exploited=yes`; the stale "builds 17763.1" sentence from the Story title never
+  surfaced in the record.
+- **IMP-E2E8-HOLD-004**: deterministic `skipped_no_cve` before any run, receipt, or persistence;
+  byte-identical Story snapshot.
 
 Deliberate scope note: the conflict-evidence → downgrade and cross-Story evidence → rejection
 demonstrations are not fabricatable as single-Story live e2e cases (a live run acquires Story-local
@@ -114,11 +150,13 @@ consumed evidence only and is not re-runnable as a gate without a newly construc
 - Labels are MODEL_REVIEWED (three families), not human gold.
 - The extraction half of the round trip uses the live model through the receipted gateway; the
   benchmark freezes its drafts only for the normalization fixture holdout (23 cases, retained).
-- The revision-4 safety metrics are only as strong as their detectors; the detector definitions are
-  documented in `thresholds-v2.json` revision 4 and reviewed with this document.
+- The safety metrics are only as strong as their detectors; the detector definitions are documented in
+  `thresholds-v2.json` revision 4/4a and reviewed with this document.
+- v8's claims rows carry versionless affected ranges (placeholder) and null fixed ranges, matching the
+  evidence; matcher-supported version persistence is exercised by the unit tests and the offline
+  fixture, not by this live run.
 
 ## Status
 
-Phase 6 end-to-end gate: v7 consumed as FAILED (frozen, retained); v8 candidate constructed with
-quoting-robust labels and revision-4a gates; pending three-model review, freeze, and the single
-authorized run; canonical Linux CI afterwards.
+Phase 6 end-to-end gate: **SATISFIED by the single authorized v8 run** (2026-10-12, revision-4a
+runner/scorer). Remaining before Phase 6 closure: canonical Linux CI on the pull request.

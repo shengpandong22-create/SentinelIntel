@@ -207,10 +207,22 @@ consumed as a FAILED gate and stays frozen (`.data/impact/e2e-v7-results.json`,
 
 **Remediation (revision 4a, committed before v8 construction)**: the scorer now fails on ANY per-case
 assertion error, and v8 labels use outcome sets robust to model quoting behavior with hard guarantees
-carried by the safety detectors and grounded-KEV expectations. **Holdout v8 candidate**
-(`datasets/impact/e2e-holdout-v8-candidate.jsonl`, UNREVIEWED) covers the four required
-demonstrations with all-new CVEs. Remaining before Phase 6 closure: v8 three-model review, freeze,
-the single authorized revision-4a run, then canonical Linux CI on the pull request.
+carried by the safety detectors and grounded-KEV expectations. **Holdout v8 (PASSED — the Phase 6
+end-to-end gate)**: the first candidate (2025/2026 KEV CVEs) was superseded in review when
+`glm-5.3-flash` correctly withheld confidence it could not verify from its own knowledge (receipt 15,
+retained); the revised candidate used well-documented 2020-2023 CVEs (CVE-2023-24955 SharePoint,
+CVE-2023-27997 XORtigate, CVE-2020-1350 SIGRed with a stale-version sentence in the title, and a no-CVE
+negative) and was unanimously accepted at high confidence by
+`glm-5.3-flash` / `deepseek-v4.1-flash` / `kimi-k2.8-preview` (receipts 18, 19, 21/23/24; two Kimi
+window overruns resolved by audited admin retries, receipts 20 and 22). The single authorized run on
+2026-10-12 (`sentinel_phase6_v7_ci`, `.data/impact/e2e-v8-results.json`) passed every gate: all
+thirteen safety counters zero, all five quality metrics 1.0, zero per-case failures under the
+revision-4a scorer. Outcome shape: one high claims row with KEV-grounded known_exploited=yes
+(SharePoint Server), the prose-version case routed end to end to human review with zero auto-claims
+(XORtigate), one KEV-grounded claims row with the stale title sentence provably absent from the record
+(SIGRed), and a deterministic no-CVE skip
+(`docs/evaluation/impact-e2e-baseline.md`). Remaining before Phase 6 closure: canonical Linux CI on
+the pull request.
 
 ### Phase 6 checkpoint 1 — contracts, matcher, migrations, stores
 
