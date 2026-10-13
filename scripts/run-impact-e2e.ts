@@ -52,6 +52,12 @@ export const ImpactE2ECaseSchema = z.object({
     // Revision 5a: the stale-rejection demonstration must not be passable by a completely empty
     // outcome — at least one persisted current row or one human review must exist.
     rows_or_reviews_min: z.number().int().min(0).max(20).default(0),
+    // Revision 6 product-level constraints for the unsupported-version-format demonstration:
+    // named products must be routed to human review with a matcher-unsupported range and must not
+    // persist as claims, while versionless claims rows for other products stay legal.
+    review_required_products: z.array(z.string().min(2).max(120)).max(10).default([]),
+    claims_forbidden_products: z.array(z.string().min(2).max(120)).max(10).default([]),
+    review_unknown_contains: z.array(z.string().min(2).max(120)).max(5).default([]),
   }).strict(),
   provenance: z.object({
     source_urls: z.array(z.url()).min(1).max(10),
@@ -74,6 +80,65 @@ const ThresholdsSchema = z.object({
   quality_minimums: z.record(z.string(), z.number().min(0).max(1)),
   freeze_rule: z.string().min(1),
 }).passthrough();
+
+export interface ProductReviewInput {
+  reviews: Array<{ reason: string; payload: unknown }>;
+  /** Product names of current claims rows (persisted_kind = 'claims'). */
+  claimsProducts: string[];
+  /** Proposal-level unknowns; empty when the run skipped before the model. */
+  proposalUnknowns: string[];
+}
+
+/**
+ * Revision 6 product-level constraints for the unsupported-version-format demonstration.
+ * Returns per-case assertion errors; an empty array means the constraints hold.
+ */
+export function evaluateProductConstraints(
+  expected: {
+    review_required_products: string[];
+    claims_forbidden_products: string[];
+    review_unknown_contains: string[];
+  },
+  input: ProductReviewInput,
+): string[] {
+  const errors: string[] = [];
+  const reviewProducts = input.reviews.map((review) => {
+    const payload = review.payload as { product?: unknown };
+    return typeof payload?.product === "string" ? payload.product.trim().toLowerCase() : "";
+  });
+  for (const product of expected.review_required_products) {
+    const key = product.trim().toLowerCase();
+    const routed = input.reviews.some((review, index) => {
+      if (reviewProducts[index] !== key) return false;
+      const payload = review.payload as {
+        affected_range?: { supported?: boolean } | null;
+        fixed_range?: { supported?: boolean } | null;
+      };
+      return payload.affected_range?.supported === false || payload.fixed_range?.supported === false;
+    });
+    if (!routed) {
+      errors.push(`review-required product '${product}' has no human review carrying a matcher-unsupported range`);
+    }
+  }
+  const claimKeys = new Set(input.claimsProducts.map((product) => product.trim().toLowerCase()));
+  for (const product of expected.claims_forbidden_products) {
+    if (claimKeys.has(product.trim().toLowerCase())) {
+      errors.push(`claims-forbidden product '${product}' persisted as a claims row`);
+    }
+  }
+  if (expected.review_unknown_contains.length > 0) {
+    const haystacks = [
+      input.proposalUnknowns.join("\n").toLowerCase(),
+      ...input.reviews.map((review) => review.reason.toLowerCase()),
+    ];
+    for (const needle of expected.review_unknown_contains) {
+      if (!haystacks.some((text) => text.includes(needle.toLowerCase()))) {
+        errors.push(`matcher-unsupported refusal not surfaced for '${needle}' in proposal unknowns or review reasons`);
+      }
+    }
+  }
+  return errors;
+}
 
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
 const { values } = parseArgs({ argv, options: {
@@ -272,10 +337,11 @@ for (const item of cases) {
   }
   // No other paid model call may exist for this Story within the run's own window.
   if (reachedModel && runStartedAt !== null) {
+    const extractionReceiptForQuery = extractionReceiptId ?? null;
     const unaccounted = await sql<{ id: number; purpose: string }[]>`
       SELECT id, purpose FROM receipts
       WHERE service = 'llm' AND subject = ${subject} AND created_at >= ${runStartedAt}
-        AND (${extractionReceiptId}::bigint IS NULL OR id <> ${extractionReceiptId}::bigint)`;
+        AND (${extractionReceiptForQuery}::bigint IS NULL OR id <> ${extractionReceiptForQuery}::bigint)`;
     if (unaccounted.length > 0) {
       safety.gateway_bypass += 1;
       errors.push(`unaccounted llm receipts on this story: ${unaccounted.map((row) => `${row.id}:${row.purpose}`).join(",")}`);
@@ -435,6 +501,12 @@ for (const item of cases) {
   if (productSignal < item.expected.rows_or_reviews_min) {
     errors.push(`product signal (current rows + human reviews) ${productSignal} < required ${item.expected.rows_or_reviews_min}`);
   }
+  // Revision 6 product-level constraints, asserted per case and folded into the gate.
+  errors.push(...evaluateProductConstraints(item.expected, {
+    reviews,
+    claimsProducts: impacts.filter((row) => row.persisted_kind === "claims").map((row) => row.product),
+    proposalUnknowns: proposal?.unknowns ?? [],
+  }));
 
   perCase.push({
     case_id: item.case_id, story_id: storyId, errors,

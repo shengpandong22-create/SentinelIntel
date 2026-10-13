@@ -33,6 +33,9 @@ const allCases = z.array(z.object({
     claims_rows_max: z.number().optional(), models_min: z.number().optional(),
     claims_require_versions: z.boolean().optional(), forbidden_strings: z.array(z.string()).optional(),
     rows_or_reviews_min: z.number().optional(),
+    review_required_products: z.array(z.string()).optional(),
+    claims_forbidden_products: z.array(z.string()).optional(),
+    review_unknown_contains: z.array(z.string()).optional(),
   }).strict(),
   provenance: z.object({
     source_urls: z.array(z.string()), label_method: z.string(), reviewers: z.array(z.string()), note: z.string(),
@@ -45,7 +48,7 @@ const cases = allCases.slice(skip, skip + count);
 const ReviewSchema = z.object({ case_id: z.string(), accept: z.boolean(), confidence: z.enum(["high", "medium", "low"]), reason: z.string().min(1).max(2_000) }).strict();
 const BatchSchema = z.object({ reviews: z.array(ReviewSchema).length(cases.length) }).strict();
 const system = `You independently review expected labels for an end-to-end Product Impact Agent holdout on real CVEs.
-Judge whether each expected label is supported by real public evidence for that exact CVE: the vendor advisory, the NVD record, and the CISA KEV catalog.
+Judge whether each expected label is supported ONLY by the official evidence URLs provided with each case: the vendor advisory, the NVD record, and the CISA KEV catalog. Do NOT rely on training-time knowledge of KEV membership or of any CVE; if the case states that KEV membership was verified against the official CISA catalog feed on a construction date, treat that verification as the evidence of record.
 known_exploited = yes requires the CVE to genuinely be in the KEV catalog; a CVE absent from the catalog must expect unknown, never no.
 row_contains keywords must match the products the official evidence names. An expected outcome set may legally include both
 "propose" (when official evidence names affected products) and "insufficient_evidence with preserved unknowns" (when the

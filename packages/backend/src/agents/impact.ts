@@ -43,7 +43,7 @@ export async function listImpactCandidates(limit = 50): Promise<Array<{ id: numb
 
 export async function runImpactForStory(
   storyId: number,
-  opts: AgentClientOptions & { productImpactEnabled?: boolean } = {},
+  opts: AgentClientOptions & { productImpactEnabled?: boolean; modelCallsEnabled?: boolean } = {},
 ) {
   const traceId = randomUUID();
   const [story] = await sql<{ id: number; title: string; digest: string | null; status: "active" | "watching" | "settled"; version: number }[]>`
