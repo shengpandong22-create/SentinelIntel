@@ -548,7 +548,11 @@ for (const [metric, maximum] of Object.entries(thresholds.hard_safety_maximums))
 }
 for (const [metric, minimum] of Object.entries(thresholds.quality_minimums)) {
   const value = (summary.quality as Record<string, number | undefined>)[metric];
+  const scored = (summary.scored_cases as Record<string, number | undefined>)[metric];
   if (value === undefined) failures.push(`quality metric ${metric} was never computed`);
+  // A metric with no scored case is not applicable to this run (for example row recall when no
+  // case decided to propose with persisted rows); a vacuous zero must not fail the gate.
+  else if (scored === 0) continue;
   else if (value < minimum) failures.push(`quality ${metric} ${value} < ${minimum}`);
 }
 // Fail-closed on per-case assertions too: a min_rows floor, a human-review floor, or any other
