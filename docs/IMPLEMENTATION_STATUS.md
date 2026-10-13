@@ -207,22 +207,45 @@ consumed as a FAILED gate and stays frozen (`.data/impact/e2e-v7-results.json`,
 
 **Remediation (revision 4a, committed before v8 construction)**: the scorer now fails on ANY per-case
 assertion error, and v8 labels use outcome sets robust to model quoting behavior with hard guarantees
-carried by the safety detectors and grounded-KEV expectations. **Holdout v8 (PASSED — the Phase 6
-end-to-end gate)**: the first candidate (2025/2026 KEV CVEs) was superseded in review when
-`glm-5.3-flash` correctly withheld confidence it could not verify from its own knowledge (receipt 15,
-retained); the revised candidate used well-documented 2020-2023 CVEs (CVE-2023-24955 SharePoint,
-CVE-2023-27997 XORtigate, CVE-2020-1350 SIGRed with a stale-version sentence in the title, and a no-CVE
-negative) and was unanimously accepted at high confidence by
+carried by the safety detectors and grounded-KEV expectations. **Holdout v8 (PASSED — retained as the
+E2E safety run, superseded as the closing gate)**: the first candidate (2025/2026 KEV CVEs) was
+superseded in review when `glm-5.3-flash` correctly withheld confidence it could not verify from its
+own knowledge (receipt 15, retained); the revised candidate used well-documented 2020-2023 CVEs
+(CVE-2023-24955 SharePoint, CVE-2023-27997 XORtigate, CVE-2020-1350 SIGRed with a stale-version
+sentence in the title, and a no-CVE negative) and was unanimously accepted at high confidence by
 `glm-5.3-flash` / `deepseek-v4.1-flash` / `kimi-k2.8-preview` (receipts 18, 19, 21/23/24; two Kimi
 window overruns resolved by audited admin retries, receipts 20 and 22). The single authorized run on
 2026-10-12 (`sentinel_phase6_v7_ci`, `.data/impact/e2e-v8-results.json`) passed every gate: all
 thirteen safety counters zero, all five quality metrics 1.0, zero per-case failures under the
-revision-4a scorer. Outcome shape: one high claims row with KEV-grounded known_exploited=yes
-(SharePoint Server), the prose-version case routed end to end to human review with zero auto-claims
-(XORtigate), one KEV-grounded claims row with the stale title sentence provably absent from the record
-(SIGRed), and a deterministic no-CVE skip
-(`docs/evaluation/impact-e2e-baseline.md`). Remaining before Phase 6 closure: canonical Linux CI on
-the pull request.
+revision-4a scorer
+(`docs/evaluation/impact-e2e-baseline.md`).
+
+**Owner acceptance audit on v8 (2026-10-12): not the closing gate.** v8 produced no contract-complete
+record (all claims rows versionless with empty models), its labels allowed any main outcome with zero
+floors, and revision 4a had been committed in the same commit as the v8 candidate (pre-registration
+order defect). Mandated minimal path: pre-register revision 5 alone, then a disjoint v9/v10.
+
+**Revision 5 (commit 6d3e120, standalone before the v9 candidate)**: extraction prompt v2 (closed
+grammar for machine-readable version bounds, verbatim prose otherwise, evidence-backed models), the
+stale-version grounding detector now requires every supported-range boundary to appear in cited
+evidence, and four hard label constraints folded into the per-case gate (claims_rows_max, models_min,
+claims_require_versions, forbidden_strings).
+
+**Holdout v9 (REVIEWED_NOT_RUN_INCOMPLETE_FREEZE)**: candidate commit 8996086 (strictly after 6d3e120);
+three-model review receipts 28-31 (glm 4/4 high, kimi 4/4 high, deepseek 2/4 high); HOLD-002/003
+excluded by deepseek medium whose written reasons affirm every label component. Owner ruling
+(2026-10-13): no reviewer-shopping, no post-review label changes, no partial-set run; partial freeze
+stays frozen (commit 7fa0c2c, SHA256 `4c0676ea...`); none of the v9 cases may be reused.
+
+**Revision 5a (standalone, before the v10 candidate)**: adds rows_or_reviews_min (a stale-rejection
+case must produce at least one persisted row or one human review) without modifying any revision-5
+constraint; v10 candidate construction must run a deterministic NVD-configuration inspection and
+disqualify any unsupported-format candidate with convertible structured boundaries before paid review.
+
+**Holdout v10 (the Phase 6 closing gate — pending)**: fully disjoint from every development dataset,
+every consumed holdout v1-v9, and the superseded v8 first candidate. Remaining before Phase 6 closure:
+v10 three-model review, freeze, the single authorized revision-5a run, then canonical Linux CI on the
+pull request.
 
 ### Phase 6 checkpoint 1 — contracts, matcher, migrations, stores
 

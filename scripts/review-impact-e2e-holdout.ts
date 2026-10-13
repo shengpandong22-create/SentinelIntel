@@ -32,6 +32,7 @@ const allCases = z.array(z.object({
     known_exploited: z.string(), unknowns_min: z.number(), human_reviews_min: z.number().optional(),
     claims_rows_max: z.number().optional(), models_min: z.number().optional(),
     claims_require_versions: z.boolean().optional(), forbidden_strings: z.array(z.string()).optional(),
+    rows_or_reviews_min: z.number().optional(),
   }).strict(),
   provenance: z.object({
     source_urls: z.array(z.string()), label_method: z.string(), reviewers: z.array(z.string()), note: z.string(),

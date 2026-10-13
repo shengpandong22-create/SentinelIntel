@@ -1,10 +1,12 @@
-# Phase 6 end-to-end holdout baselines — retained evidence, v8 PASSED (the gate)
+# Phase 6 end-to-end holdout baselines — retained evidence, v8 safety run PASSED, v9 incomplete freeze, v10 gate pending
 
-Date: 2026-10-12 (revision 4a of the evaluation)
+Date: 2026-10-13 (revision 5a of the evaluation)
 
-Eight holdout candidates were consumed or reviewed during the Phase 6 evaluation correction. All stay
-frozen exactly as consumed. The single authorized run of holdout v8 under the revision-4a runner and
-scorer passed every pre-registered gate and is the Phase 6 end-to-end gate.
+Nine holdout candidates have been reviewed during the Phase 6 evaluation correction. All stay frozen
+exactly as reviewed or consumed. Per the owner ruling of 2026-10-13: v8 is a consumed successful E2E
+**safety** run, not the closing gate (no contract-complete record, zero-floor labels); v9 is
+**REVIEWED_NOT_RUN_INCOMPLETE_FREEZE** (reviewed, never executed, 2-of-4 cases frozen); the Phase 6
+closing gate is the single authorized run of the fully disjoint v10 under the revision-5a runner.
 
 ## v6 — consumed as a live smoke/pilot result, NOT the gate (scorer defective)
 
@@ -63,7 +65,25 @@ labels must use outcome sets robust to model quoting behavior — hard guarantee
 safety detectors and grounded-KEV expectations, not by min_rows claims that depend on whether the
 model returns a version expression or null.
 
-## v8 — PASSED, the Phase 6 end-to-end gate
+## v9 — REVIEWED_NOT_RUN_INCOMPLETE_FREEZE (never executed, not a gate)
+
+Candidate (`datasets/impact/e2e-holdout-v9-candidate.jsonl`, commit 8996086, constructed strictly
+after the standalone revision-5 pre-registration commit 6d3e120): CVE-2023-48788 with hard
+contract-complete record constraints (propose, min_rows≥1, models_min≥1, claims_require_versions),
+CVE-2023-20109 with hard review-path constraints (human_reviews_min≥1, claims_rows_max=0),
+CVE-2022-44698 with forbidden_strings, and a no-CVE negative. Review receipts 28-31 in
+`sentinel_phase6_v7_ci`: glm-5.3-flash 4/4 high, kimi-k2.8-preview 4/4 high, deepseek-v4.1-flash 2/4
+high — HOLD-002 and HOLD-003 were accepted=true at medium, with written reasons that affirm every
+label component; the withhold reflects caution about predicting live model behavior, which the
+owner ruled is well-founded for HOLD-002 (structured NVD boundaries could legally produce claims
+rows against claims_rows_max=0). Owner ruling (2026-10-13): no reviewer-shopping, no post-review
+label changes, no partial-set run; v9 is REVIEWED_NOT_RUN_INCOMPLETE_FREEZE, its partial freeze
+(SHA256 `4c0676ea2d2ed918101739f2e8917c2c1ff8f60293017db0493e2ed562c77e51`, commit 7fa0c2c) stays
+frozen, and none of its cases may be reused. v10 must be fully disjoint, with a deterministic NVD
+configuration inspection at candidate construction (convertible structured boundaries disqualify an
+unsupported-format candidate before any paid review).
+
+## v8 — PASSED as an E2E safety run, superseded as the closing gate
 
 Candidate construction took two rounds, both retained as evidence. The first v8 candidate used
 CVEs from 2025-2026 KEV additions; `glm-5.3-flash` (review receipt 15 in `sentinel_phase6_v7_ci`)
@@ -158,5 +178,7 @@ consumed evidence only and is not re-runnable as a gate without a newly construc
 
 ## Status
 
-Phase 6 end-to-end gate: **SATISFIED by the single authorized v8 run** (2026-10-12, revision-4a
-runner/scorer). Remaining before Phase 6 closure: canonical Linux CI on the pull request.
+Phase 6 end-to-end gate: pending the single authorized v10 run (revision-5a runner/scorer, fully
+disjoint candidate, deterministic NVD-configuration inspection at construction). v8 remains a
+consumed successful E2E safety run; v9 is REVIEWED_NOT_RUN_INCOMPLETE_FREEZE. Remaining before
+Phase 6 closure: v10 review, freeze, single run, then canonical Linux CI on the pull request.

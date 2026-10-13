@@ -49,6 +49,9 @@ export const ImpactE2ECaseSchema = z.object({
     models_min: z.number().int().min(0).max(50).default(0),
     claims_require_versions: z.boolean().default(false),
     forbidden_strings: z.array(z.string().min(2).max(120)).max(5).default([]),
+    // Revision 5a: the stale-rejection demonstration must not be passable by a completely empty
+    // outcome — at least one persisted current row or one human review must exist.
+    rows_or_reviews_min: z.number().int().min(0).max(20).default(0),
   }).strict(),
   provenance: z.object({
     source_urls: z.array(z.url()).min(1).max(10),
@@ -427,6 +430,10 @@ for (const item of cases) {
         errors.push(`forbidden string surfaced in persisted state or review payload: ${forbidden}`);
       }
     }
+  }
+  const productSignal = impacts.length + reviews.length;
+  if (productSignal < item.expected.rows_or_reviews_min) {
+    errors.push(`product signal (current rows + human reviews) ${productSignal} < required ${item.expected.rows_or_reviews_min}`);
   }
 
   perCase.push({
