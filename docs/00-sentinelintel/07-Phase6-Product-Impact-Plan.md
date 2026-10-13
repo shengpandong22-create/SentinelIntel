@@ -256,3 +256,45 @@ Phase 6 is complete only when all items pass:
 
 A bounded Product Impact Agent with reproducible evidence-backed evaluation. Public exposure (Story page
 Product Impact block, admin review UI, REST/MCP) is Phase 7, not here.
+
+## 13. Revision 6 — limited range-union matcher and record-completeness semantics
+
+Owner ruling of 2026-10-13: the closed MVP grammar in §7 cannot express the version sets that real
+official evidence states. Vendor advisories for the allowlisted vendors state affected product sets as
+per-branch ranges (FortiOS 7.0.x / 7.2.x / 7.4.x; FortiProxy 1.x / 7.x; IOS trains), which are unions
+of contiguous ranges, and the offline union is the only faithful representation. The revision below
+extends the deterministic matcher — never the LLM's authority — and is committed alone, strictly before
+any code, thresholds, or holdout changes.
+
+1. **Union grammar.** An affected/fixed expression is a pipe-separated union of at most 8 branches.
+   Each branch must parse under the existing closed grammar on its own: exact version, the comparators
+   `< <= > >=`, a comma-separated comparator list (at most 4 clauses), or a closed `a..b` range.
+   Canonical form:
+
+   ```text
+   >=7.0.0,<7.0.10 | >=7.2.0,<7.2.3
+   ```
+
+   Limits: at most 8 branches, at most 240 characters per expression, at most 4 clauses per branch.
+   No nesting, no empty branches, no wildcards, no vendor-specific ordering, no free text. If any
+   branch fails to parse, the whole expression is `unknown` (supported = false) and the row routes to
+   human review; partial unions are never accepted.
+2. **Deterministic ownership.** The TypeScript matcher parses, normalizes, sorts branches
+   deterministically, and answers membership (`versionInRange` = true if any branch matches; null if
+   the version is unparsable and no branch already decided). The LLM only extracts branches; it never
+   computes, repairs, or orders ranges.
+3. **Evidence constraints.** Every boundary version of every branch must appear in the row's cited
+   Evidence (NVD `versionStart*` / `versionEnd*` fields may prove an *affected* boundary). A
+   `fixed_range` must come from an explicit vendor patched/fixed/upgrade-to statement; an NVD affected
+   boundary (including `versionEndExcluding`) never implies a fixed version. When the correspondence
+   between affected branches and fixed versions is not explicit in the official evidence, the row
+   routes to human review instead of guessing.
+4. **Models semantics.** `models` may only contain hardware model numbers, SKUs, appliance/model
+   identifiers, or editions that the vendor evidence explicitly identifies as models. Versions,
+   edition years used as version numbers, and product family names are never mechanically placed in
+   `models` to satisfy a metric. A case whose official evidence provides only a product family with
+   version branches cannot demonstrate the complete-model record.
+5. **Gate consequence.** The closing v10 holdout must contain at least one case that truly satisfies:
+   decision `propose`, `min_rows >= 1`, `models_min >= 1`, `claims_require_versions = true`, an
+   affected union whose branches are all matcher-supported and evidence-grounded, and a fixed union
+   likewise. This is a capability extension, not a relaxation of the acceptance standard.
