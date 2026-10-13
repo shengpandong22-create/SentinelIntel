@@ -476,7 +476,10 @@ export async function fetchVendorAdvisory(
   const $ = load(response.text);
   $("script,style,noscript,svg,nav,footer,header").remove();
   const title = cleanText($("h1").first().text() || $("meta[property='og:title']").attr("content") || $("title").first().text());
-  const body = cleanText($("main,article,[role='main']").first().text() || $("body").text());
+  // Some vendor pages put only a cookie banner inside main/article; a suspiciously short extraction
+  // falls back to the whole body (navigation and chrome are already removed).
+  const mainText = cleanText($("main,article,[role='main']").first().text());
+  const body = mainText.length >= 500 ? mainText : cleanText($("body").text());
   if (!title || body.length < 20) throw new Error("vendor advisory did not contain usable document text");
   const cves = [...new Set((`${title} ${body}`.match(/\bCVE-\d{4}-\d{4,}\b/gi) ?? []).map((item) => item.toUpperCase()))].slice(0, 50);
   const trackingObservations = ["vendor_confirmation"];
