@@ -15,7 +15,7 @@ import { parseVersionRange } from "./version-matcher.ts";
 // budgets, prompt version), and hands normalized drafts back to Python. Range expressions stay raw;
 // the deterministic matcher — never the model — decides support.
 
-export const IMPACT_EXTRACTION_PROMPT_VERSION = "phase6-impact-extraction-v1";
+export const IMPACT_EXTRACTION_PROMPT_VERSION = "phase6-impact-extraction-v2";
 
 const RawDraftsSchema = z.object({
   drafts: z.array(z.object({
@@ -34,7 +34,15 @@ const RawDraftsSchema = z.object({
 
 const ExtractionSystemPrompt = [
   "You extract product impact facts for security advisories from the supplied official evidence only.",
-  "Quote version expressions exactly as the evidence states them; never invent, order, or repair them.",
+  "Version ranges: when the evidence states bounds in machine-readable form (structured fields such as",
+  "versionStartIncluding/versionEndExcluding/versionEndIncluding, or explicit comparators), express the",
+  "range with the closed grammar: an exact version, <, <=, >, >=, a comma-separated comparator list, or",
+  "a closed a..b range. When the evidence states versions only in prose (vendor release trains, firmware",
+  "names, date builds), quote the expression verbatim instead; never invent, order, or repair one. When",
+  "the evidence states no version at all, return null for that range.",
+  "models: list the concrete model or edition identifiers the evidence states for the product family",
+  "(for example an appliance, client, or firmware line); leave empty only when the evidence names no",
+  "identity below the product family.",
   "A missing fact stays absent; absence of evidence never means a product is unaffected.",
   "Confidence is high only when an authoritative source states the claim verbatim.",
   "Return strict JSON only.",

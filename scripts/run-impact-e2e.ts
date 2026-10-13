@@ -41,6 +41,14 @@ export const ImpactE2ECaseSchema = z.object({
     known_exploited: z.enum(["unknown", "yes", "no"]),
     unknowns_min: z.number().int().min(0).max(20),
     human_reviews_min: z.number().int().min(0).max(20).default(0),
+    // Revision 5 label constraints: the contract-complete record demonstration hard-requires
+    // evidence-backed claims rows (supported affected AND fixed ranges, at least one model), the
+    // unsupported-format demonstration forbids auto-claims, and the stale demonstration names
+    // strings that must never surface anywhere in the persisted state or review payloads.
+    claims_rows_max: z.number().int().min(0).max(10).default(10),
+    models_min: z.number().int().min(0).max(50).default(0),
+    claims_require_versions: z.boolean().default(false),
+    forbidden_strings: z.array(z.string().min(2).max(120)).max(5).default([]),
   }).strict(),
   provenance: z.object({
     source_urls: z.array(z.url()).min(1).max(10),
@@ -310,13 +318,17 @@ for (const item of cases) {
           errors.push(`claims row claims support the matcher denies: ${row.product}: ${range.raw}`);
         }
         if (range.supported) {
-          // A supported range must be grounded: the exact expression must appear in the cited
-          // evidence, otherwise the committed version is stale or invented.
+          // A supported range must be grounded: every version boundary it asserts must appear in the
+          // cited evidence (a structured NVD field, an advisory sentence), otherwise the committed
+          // version boundary is stale or invented. Whole-expression verbatim matching cannot work
+          // for closed-grammar expressions derived from structured fields.
+          const boundaries = [...range.raw.matchAll(/\d+(?:\.\d+){0,3}/g)].map((match) => match[0]!.toLowerCase());
           const cited = row.evidence_ids.map((id) => evidenceById.get(id)).filter(Boolean) as typeof evidenceRows;
-          const grounded = cited.some((item) => item.text.includes(range.raw.toLowerCase()));
-          if (!grounded) {
+          const missing = boundaries.filter((boundary) =>
+            !cited.some((item) => item.text.includes(boundary)));
+          if (missing.length > 0) {
             safety.stale_version_commits += 1;
-            errors.push(`supported range not grounded in cited evidence: ${row.product}: ${range.raw}`);
+            errors.push(`supported range boundaries not grounded in cited evidence: ${row.product}: ${range.raw} (missing ${missing.join(", ")})`);
           }
         }
       }
@@ -389,6 +401,33 @@ for (const item of cases) {
     }
   }
   if (impacts.length < item.expected.min_rows) errors.push(`rows ${impacts.length} < ${item.expected.min_rows}`);
+
+  // Revision 5 label constraints, asserted per case and folded into the gate by the scorer.
+  const claimsRows = impacts.filter((row) => row.persisted_kind === "claims");
+  if (claimsRows.length > item.expected.claims_rows_max) {
+    errors.push(`claims rows ${claimsRows.length} > allowed ${item.expected.claims_rows_max}`);
+  }
+  const modelCount = new Set(claimsRows.flatMap((row) => row.models.map((model) => model.toLowerCase()))).size;
+  if (modelCount < item.expected.models_min) {
+    errors.push(`evidence-backed models ${modelCount} < required ${item.expected.models_min}`);
+  }
+  for (const row of claimsRows) {
+    if (item.expected.claims_require_versions
+      && !(row.affected_range?.supported === true && row.fixed_range !== null && row.fixed_range.supported === true)) {
+      errors.push(`contract-incomplete record: ${row.product} lacks a matcher-supported affected range and fixed version (affected ${JSON.stringify(row.affected_range)}, fixed ${JSON.stringify(row.fixed_range)})`);
+    }
+  }
+  if (item.expected.forbidden_strings.length > 0) {
+    const haystacks = [
+      JSON.stringify(impacts),
+      ...reviews.map((review) => JSON.stringify(review.payload)),
+    ].map((text) => text.toLowerCase());
+    for (const forbidden of item.expected.forbidden_strings) {
+      if (haystacks.some((text) => text.includes(forbidden.toLowerCase()))) {
+        errors.push(`forbidden string surfaced in persisted state or review payload: ${forbidden}`);
+      }
+    }
+  }
 
   perCase.push({
     case_id: item.case_id, story_id: storyId, errors,
