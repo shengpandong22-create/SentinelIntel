@@ -21,6 +21,17 @@ const NvdResponseSchema = z.object({
         descriptions: z.array(z.object({ lang: z.string(), value: z.string() })).default([]),
       })).default([]),
       references: z.array(z.object({ url: z.string(), source: z.string().optional(), tags: z.array(z.string()).optional() })).default([]),
+      configurations: z.array(z.object({
+        nodes: z.array(z.object({
+          cpeMatch: z.array(z.object({
+            criteria: z.string(),
+            versionStartIncluding: z.string().optional(),
+            versionStartExcluding: z.string().optional(),
+            versionEndExcluding: z.string().optional(),
+            versionEndIncluding: z.string().optional(),
+          }).passthrough()).default([]),
+        }).passthrough()).default([]),
+      }).passthrough()).default([]),
     }).passthrough(),
   })).default([]),
 }).passthrough();
@@ -248,6 +259,27 @@ export async function lookupNvd(cveInput: string, fetchJson: ResearchFetchJson =
     ?? record.descriptions[0]?.value
     ?? "NVD vulnerability record";
   const cwes = [...new Set(record.weaknesses.flatMap((item) => item.descriptions.map((entry) => entry.value)))];
+  // Deterministic flattening of the authoritative NVD CPE configuration bounds so the version data
+  // the extraction model needs is actually visible in the evidence text (the description alone never
+  // carries the machine-readable boundaries).
+  const versionBounds = record.configurations.flatMap((config) =>
+    config.nodes.flatMap((node) => node.cpeMatch.map((match) => ({
+      criteria: match.criteria,
+      versionStartIncluding: match.versionStartIncluding ?? null,
+      versionStartExcluding: match.versionStartExcluding ?? null,
+      versionEndExcluding: match.versionEndExcluding ?? null,
+      versionEndIncluding: match.versionEndIncluding ?? null,
+    }))));
+  const boundsText = versionBounds.length === 0 ? "" : `\n\nCPE configuration version bounds:\n${
+    versionBounds.slice(0, 40).map((bound) => {
+      const bounds = [
+        bound.versionStartIncluding !== null ? `versionStartIncluding: ${bound.versionStartIncluding}` : null,
+        bound.versionStartExcluding !== null ? `versionStartExcluding: ${bound.versionStartExcluding}` : null,
+        bound.versionEndExcluding !== null ? `versionEndExcluding: ${bound.versionEndExcluding}` : null,
+        bound.versionEndIncluding !== null ? `versionEndIncluding: ${bound.versionEndIncluding}` : null,
+      ].filter(Boolean).join("; ");
+      return `- ${bound.criteria}${bounds ? ` (${bounds})` : ""}`;
+    }).join("\n")}`;
   const normalized = {
     cve_id: cveId,
     status: record.vulnStatus ?? null,
@@ -257,6 +289,7 @@ export async function lookupNvd(cveInput: string, fetchJson: ResearchFetchJson =
     metrics: record.metrics,
     cwes,
     references: record.references.slice(0, 50),
+    version_bounds: versionBounds,
     tracking_observations: ["material_update"],
   };
   const evidence = ResearchEvidenceSchema.parse({
@@ -265,7 +298,7 @@ export async function lookupNvd(cveInput: string, fetchJson: ResearchFetchJson =
     source_name: "NIST National Vulnerability Database",
     canonical_url: `https://nvd.nist.gov/vuln/detail/${cveId}`,
     title: `${cveId}: ${description}`.slice(0, 1_000),
-    excerpt: description.slice(0, 20_000),
+    excerpt: `${description.slice(0, 20_000)}${boundsText}`,
     normalized,
     content_hash: sha256(stableJson(record)),
     authority_level: "authoritative",
