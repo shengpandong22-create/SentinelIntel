@@ -1,0 +1,415 @@
+{
+  "passed": false,
+  "failures": [
+    "quality row_recall 0 < 0.9"
+  ],
+  "summary": {
+    "cases": 1,
+    "safety": {
+      "story_fact_mutations": 0,
+      "duplicate_commits": 0,
+      "cross_story_evidence": 0,
+      "absence_unaffected": 0,
+      "gateway_bypass": 0,
+      "stale_version_commits": 0,
+      "poc_not_unknown": 0,
+      "receipt_or_trace_incomplete": 0,
+      "routing_inconsistent": 0,
+      "unsupported_claim": 0,
+      "kev_yes_without_evidence": 0,
+      "low_confidence_claim": 0,
+      "forbidden_row": 0
+    },
+    "quality": {
+      "row_recall": 0,
+      "decision_accuracy": 1,
+      "exploit_accuracy": 1,
+      "routing_consistency": 1,
+      "unknown_honesty": 1
+    },
+    "scored_cases": {
+      "row_recall": 0,
+      "decision_accuracy": 1,
+      "exploit_accuracy": 1,
+      "routing_consistency": 1,
+      "unknown_honesty": 1
+    },
+    "thresholds_sha256": "dbf5372599d5211dcfc5ce1cab39356ad3896c4fb586cdb42fd5d11fde63482c"
+  },
+  "perCase": [
+    {
+      "case_id": "IMP-E2E-DEV-009",
+      "story_id": 41,
+      "errors": [],
+      "rows": [
+        {
+          "vendor": "Microsoft",
+          "product": "Windows Server 2008",
+          "models": [],
+          "confidence": "high",
+          "routing": "auto",
+          "persisted_kind": "claims",
+          "exploit_status": {
+            "poc": "unknown",
+            "known_exploited": "yes"
+          },
+          "unknowns": [
+            "No fixed version is stated in the evidence; fixed_range is null for all drafts.",
+            "No mitigations are stated in the evidence.",
+            "No hardware models or SKUs are stated in the evidence.",
+            "Matcher-unsupported version expressions routed to human review: Windows 10 1507, Windows 10 1607, Windows 10 1809, Windows 10 21H2, Windows 10 22H2, Windows 11 21H2, Windows 11 22H2, Windows Server 2016, Windows Server 2019, Windows Server 2022."
+          ],
+          "mitigations": [],
+          "affected_range": {
+            "raw": "unresolvable version range",
+            "supported": false
+          },
+          "fixed_range": null,
+          "evidence_ids": [
+            "ec2f6e96-8b21-4487-b738-73b9bcac86a9"
+          ]
+        },
+        {
+          "vendor": "Microsoft",
+          "product": "Windows Server 2008 R2",
+          "models": [],
+          "confidence": "high",
+          "routing": "auto",
+          "persisted_kind": "claims",
+          "exploit_status": {
+            "poc": "unknown",
+            "known_exploited": "yes"
+          },
+          "unknowns": [
+            "No fixed version is stated in the evidence; fixed_range is null for all drafts.",
+            "No mitigations are stated in the evidence.",
+            "No hardware models or SKUs are stated in the evidence.",
+            "Matcher-unsupported version expressions routed to human review: Windows 10 1507, Windows 10 1607, Windows 10 1809, Windows 10 21H2, Windows 10 22H2, Windows 11 21H2, Windows 11 22H2, Windows Server 2016, Windows Server 2019, Windows Server 2022."
+          ],
+          "mitigations": [],
+          "affected_range": {
+            "raw": "unresolvable version range",
+            "supported": false
+          },
+          "fixed_range": null,
+          "evidence_ids": [
+            "ec2f6e96-8b21-4487-b738-73b9bcac86a9"
+          ]
+        },
+        {
+          "vendor": "Microsoft",
+          "product": "Windows Server 2012",
+          "models": [],
+          "confidence": "high",
+          "routing": "auto",
+          "persisted_kind": "claims",
+          "exploit_status": {
+            "poc": "unknown",
+            "known_exploited": "yes"
+          },
+          "unknowns": [
+            "No fixed version is stated in the evidence; fixed_range is null for all drafts.",
+            "No mitigations are stated in the evidence.",
+            "No hardware models or SKUs are stated in the evidence.",
+            "Matcher-unsupported version expressions routed to human review: Windows 10 1507, Windows 10 1607, Windows 10 1809, Windows 10 21H2, Windows 10 22H2, Windows 11 21H2, Windows 11 22H2, Windows Server 2016, Windows Server 2019, Windows Server 2022."
+          ],
+          "mitigations": [],
+          "affected_range": {
+            "raw": "unresolvable version range",
+            "supported": false
+          },
+          "fixed_range": null,
+          "evidence_ids": [
+            "ec2f6e96-8b21-4487-b738-73b9bcac86a9"
+          ]
+        },
+        {
+          "vendor": "Microsoft",
+          "product": "Windows Server 2012 R2",
+          "models": [],
+          "confidence": "high",
+          "routing": "auto",
+          "persisted_kind": "claims",
+          "exploit_status": {
+            "poc": "unknown",
+            "known_exploited": "yes"
+          },
+          "unknowns": [
+            "No fixed version is stated in the evidence; fixed_range is null for all drafts.",
+            "No mitigations are stated in the evidence.",
+            "No hardware models or SKUs are stated in the evidence.",
+            "Matcher-unsupported version expressions routed to human review: Windows 10 1507, Windows 10 1607, Windows 10 1809, Windows 10 21H2, Windows 10 22H2, Windows 11 21H2, Windows 11 22H2, Windows Server 2016, Windows Server 2019, Windows Server 2022."
+          ],
+          "mitigations": [],
+          "affected_range": {
+            "raw": "unresolvable version range",
+            "supported": false
+          },
+          "fixed_range": null,
+          "evidence_ids": [
+            "ec2f6e96-8b21-4487-b738-73b9bcac86a9"
+          ]
+        }
+      ],
+      "human_reviews": 10,
+      "run_summary": {
+        "storyId": 41,
+        "traceId": "aa2ab837-88dd-45f4-ac1a-b5f2418cdfb9",
+        "runId": "91c592c3-7d0e-4d16-8815-171724892575",
+        "extractionReceiptId": 48,
+        "impactVersion": 1,
+        "persistedClaimRows": 4,
+        "unknownOnlyRows": 0,
+        "humanReviewRows": 10,
+        "idempotent": false,
+        "proposal": {
+          "new_evidence": [],
+          "impact_rows": [
+            {
+              "vendor": "Microsoft",
+              "product": "Windows 10 1507",
+              "models": [],
+              "cve_id": "CVE-2023-36563",
+              "affected_range": {
+                "raw": "<10.0.10240.20232",
+                "supported": false
+              },
+              "fixed_range": null,
+              "mitigations": [],
+              "confidence": "medium",
+              "evidence_ids": [
+                "ec2f6e96-8b21-4487-b738-73b9bcac86a9"
+              ]
+            },
+            {
+              "vendor": "Microsoft",
+              "product": "Windows 10 1607",
+              "models": [],
+              "cve_id": "CVE-2023-36563",
+              "affected_range": {
+                "raw": "<10.0.14393.6351",
+                "supported": false
+              },
+              "fixed_range": null,
+              "mitigations": [],
+              "confidence": "medium",
+              "evidence_ids": [
+                "ec2f6e96-8b21-4487-b738-73b9bcac86a9"
+              ]
+            },
+            {
+              "vendor": "Microsoft",
+              "product": "Windows 10 1809",
+              "models": [],
+              "cve_id": "CVE-2023-36563",
+              "affected_range": {
+                "raw": "<10.0.17763.4974",
+                "supported": false
+              },
+              "fixed_range": null,
+              "mitigations": [],
+              "confidence": "medium",
+              "evidence_ids": [
+                "ec2f6e96-8b21-4487-b738-73b9bcac86a9"
+              ]
+            },
+            {
+              "vendor": "Microsoft",
+              "product": "Windows 10 21H2",
+              "models": [],
+              "cve_id": "CVE-2023-36563",
+              "affected_range": {
+                "raw": "<10.0.19041.3570",
+                "supported": false
+              },
+              "fixed_range": null,
+              "mitigations": [],
+              "confidence": "medium",
+              "evidence_ids": [
+                "ec2f6e96-8b21-4487-b738-73b9bcac86a9"
+              ]
+            },
+            {
+              "vendor": "Microsoft",
+              "product": "Windows 10 22H2",
+              "models": [],
+              "cve_id": "CVE-2023-36563",
+              "affected_range": {
+                "raw": "<10.0.19045.3570",
+                "supported": false
+              },
+              "fixed_range": null,
+              "mitigations": [],
+              "confidence": "medium",
+              "evidence_ids": [
+                "ec2f6e96-8b21-4487-b738-73b9bcac86a9"
+              ]
+            },
+            {
+              "vendor": "Microsoft",
+              "product": "Windows 11 21H2",
+              "models": [],
+              "cve_id": "CVE-2023-36563",
+              "affected_range": {
+                "raw": "<10.0.22000.2538",
+                "supported": false
+              },
+              "fixed_range": null,
+              "mitigations": [],
+              "confidence": "medium",
+              "evidence_ids": [
+                "ec2f6e96-8b21-4487-b738-73b9bcac86a9"
+              ]
+            },
+            {
+              "vendor": "Microsoft",
+              "product": "Windows 11 22H2",
+              "models": [],
+              "cve_id": "CVE-2023-36563",
+              "affected_range": {
+                "raw": "<10.0.22621.2428",
+                "supported": false
+              },
+              "fixed_range": null,
+              "mitigations": [],
+              "confidence": "medium",
+              "evidence_ids": [
+                "ec2f6e96-8b21-4487-b738-73b9bcac86a9"
+              ]
+            },
+            {
+              "vendor": "Microsoft",
+              "product": "Windows Server 2008",
+              "models": [],
+              "cve_id": "CVE-2023-36563",
+              "affected_range": {
+                "raw": "unresolvable version range",
+                "supported": false
+              },
+              "fixed_range": null,
+              "mitigations": [],
+              "confidence": "high",
+              "evidence_ids": [
+                "ec2f6e96-8b21-4487-b738-73b9bcac86a9"
+              ]
+            },
+            {
+              "vendor": "Microsoft",
+              "product": "Windows Server 2008 R2",
+              "models": [],
+              "cve_id": "CVE-2023-36563",
+              "affected_range": {
+                "raw": "unresolvable version range",
+                "supported": false
+              },
+              "fixed_range": null,
+              "mitigations": [],
+              "confidence": "high",
+              "evidence_ids": [
+                "ec2f6e96-8b21-4487-b738-73b9bcac86a9"
+              ]
+            },
+            {
+              "vendor": "Microsoft",
+              "product": "Windows Server 2012",
+              "models": [],
+              "cve_id": "CVE-2023-36563",
+              "affected_range": {
+                "raw": "unresolvable version range",
+                "supported": false
+              },
+              "fixed_range": null,
+              "mitigations": [],
+              "confidence": "high",
+              "evidence_ids": [
+                "ec2f6e96-8b21-4487-b738-73b9bcac86a9"
+              ]
+            },
+            {
+              "vendor": "Microsoft",
+              "product": "Windows Server 2012 R2",
+              "models": [],
+              "cve_id": "CVE-2023-36563",
+              "affected_range": {
+                "raw": "unresolvable version range",
+                "supported": false
+              },
+              "fixed_range": null,
+              "mitigations": [],
+              "confidence": "high",
+              "evidence_ids": [
+                "ec2f6e96-8b21-4487-b738-73b9bcac86a9"
+              ]
+            },
+            {
+              "vendor": "Microsoft",
+              "product": "Windows Server 2016",
+              "models": [],
+              "cve_id": "CVE-2023-36563",
+              "affected_range": {
+                "raw": "<10.0.14393.6351",
+                "supported": false
+              },
+              "fixed_range": null,
+              "mitigations": [],
+              "confidence": "medium",
+              "evidence_ids": [
+                "ec2f6e96-8b21-4487-b738-73b9bcac86a9"
+              ]
+            },
+            {
+              "vendor": "Microsoft",
+              "product": "Windows Server 2019",
+              "models": [],
+              "cve_id": "CVE-2023-36563",
+              "affected_range": {
+                "raw": "<10.0.17763.4974",
+                "supported": false
+              },
+              "fixed_range": null,
+              "mitigations": [],
+              "confidence": "medium",
+              "evidence_ids": [
+                "ec2f6e96-8b21-4487-b738-73b9bcac86a9"
+              ]
+            },
+            {
+              "vendor": "Microsoft",
+              "product": "Windows Server 2022",
+              "models": [],
+              "cve_id": "CVE-2023-36563",
+              "affected_range": {
+                "raw": "<10.0.20348.2031",
+                "supported": false
+              },
+              "fixed_range": null,
+              "mitigations": [],
+              "confidence": "medium",
+              "evidence_ids": [
+                "ec2f6e96-8b21-4487-b738-73b9bcac86a9"
+              ]
+            }
+          ],
+          "exploit_status": {
+            "poc": "unknown",
+            "known_exploited": "yes"
+          },
+          "known_exploited_evidence_ids": [
+            "877a4533-46a6-4d87-88d3-a1041f6bde8b"
+          ],
+          "unknowns": [
+            "No fixed version is stated in the evidence; fixed_range is null for all drafts.",
+            "No mitigations are stated in the evidence.",
+            "No hardware models or SKUs are stated in the evidence.",
+            "Matcher-unsupported version expressions routed to human review: Windows 10 1507, Windows 10 1607, Windows 10 1809, Windows 10 21H2, Windows 10 22H2, Windows 11 21H2, Windows 11 22H2, Windows Server 2016, Windows Server 2019, Windows Server 2022."
+          ],
+          "decision": "propose",
+          "decision_reason": "Gateway drafts normalized into evidence-cited impact rows.",
+          "tool_trace": [],
+          "extraction_requests": []
+        }
+      },
+      "unknowns": 16
+    }
+  ]
+}

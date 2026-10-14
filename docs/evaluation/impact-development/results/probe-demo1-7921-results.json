@@ -1,0 +1,620 @@
+{
+  "passed": false,
+  "failures": [
+    "quality row_recall 0 < 0.9"
+  ],
+  "summary": {
+    "cases": 1,
+    "safety": {
+      "story_fact_mutations": 0,
+      "duplicate_commits": 0,
+      "cross_story_evidence": 0,
+      "absence_unaffected": 0,
+      "gateway_bypass": 0,
+      "stale_version_commits": 0,
+      "poc_not_unknown": 0,
+      "receipt_or_trace_incomplete": 0,
+      "routing_inconsistent": 0,
+      "unsupported_claim": 0,
+      "kev_yes_without_evidence": 0,
+      "low_confidence_claim": 0,
+      "forbidden_row": 0
+    },
+    "quality": {
+      "row_recall": 0,
+      "decision_accuracy": 1,
+      "exploit_accuracy": 1,
+      "routing_consistency": 1,
+      "unknown_honesty": 1
+    },
+    "scored_cases": {
+      "row_recall": 0,
+      "decision_accuracy": 1,
+      "exploit_accuracy": 1,
+      "routing_consistency": 1,
+      "unknown_honesty": 1
+    },
+    "thresholds_sha256": "dbf5372599d5211dcfc5ce1cab39356ad3896c4fb586cdb42fd5d11fde63482c"
+  },
+  "perCase": [
+    {
+      "case_id": "IMP-E2E-DEV-008",
+      "story_id": 40,
+      "errors": [],
+      "rows": [
+        {
+          "vendor": "Hikvision",
+          "product": "DS-2CD2xx2F-I Series IP Camera",
+          "models": [
+            "DS-2CD2xx2F-I Series"
+          ],
+          "confidence": "high",
+          "routing": "auto",
+          "persisted_kind": "claims",
+          "exploit_status": {
+            "poc": "unknown",
+            "known_exploited": "yes"
+          },
+          "unknowns": [
+            "The evidence does not provide a fixed version for the DS-2CD63xx Series.",
+            "The evidence does not provide a fixed version for the DS-2CD2xx0F-I Series as named in the NVD description."
+          ],
+          "mitigations": [
+            "Update devices with the correct firmware."
+          ],
+          "affected_range": {
+            "raw": ">=5.2.0,<=5.4.0",
+            "range": {
+              "kind": "clauses",
+              "clauses": [
+                {
+                  "op": ">=",
+                  "version": "5.2.0"
+                },
+                {
+                  "op": "<=",
+                  "version": "5.4.0"
+                }
+              ]
+            },
+            "supported": true
+          },
+          "fixed_range": {
+            "raw": ">=5.4.41",
+            "range": {
+              "kind": "clauses",
+              "clauses": [
+                {
+                  "op": ">=",
+                  "version": "5.4.41"
+                }
+              ]
+            },
+            "supported": true
+          },
+          "evidence_ids": [
+            "69d94733-8707-424e-9a59-f2d5c6d1c232"
+          ]
+        },
+        {
+          "vendor": "Hikvision",
+          "product": "DS-2CD2xx0 Series IP Camera",
+          "models": [
+            "DS-2CD2xx0 Series"
+          ],
+          "confidence": "high",
+          "routing": "auto",
+          "persisted_kind": "claims",
+          "exploit_status": {
+            "poc": "unknown",
+            "known_exploited": "yes"
+          },
+          "unknowns": [
+            "The evidence does not provide a fixed version for the DS-2CD63xx Series.",
+            "The evidence does not provide a fixed version for the DS-2CD2xx0F-I Series as named in the NVD description."
+          ],
+          "mitigations": [
+            "Update devices with the correct firmware."
+          ],
+          "affected_range": {
+            "raw": ">=5.2.0,<=5.4.4",
+            "range": {
+              "kind": "clauses",
+              "clauses": [
+                {
+                  "op": ">=",
+                  "version": "5.2.0"
+                },
+                {
+                  "op": "<=",
+                  "version": "5.4.4"
+                }
+              ]
+            },
+            "supported": true
+          },
+          "fixed_range": {
+            "raw": ">=5.4.41",
+            "range": {
+              "kind": "clauses",
+              "clauses": [
+                {
+                  "op": ">=",
+                  "version": "5.4.41"
+                }
+              ]
+            },
+            "supported": true
+          },
+          "evidence_ids": [
+            "69d94733-8707-424e-9a59-f2d5c6d1c232"
+          ]
+        },
+        {
+          "vendor": "Hikvision",
+          "product": "DS-2CD4x2xFWD Series IP Camera",
+          "models": [
+            "DS-2CD4x2xFWD Series"
+          ],
+          "confidence": "high",
+          "routing": "auto",
+          "persisted_kind": "claims",
+          "exploit_status": {
+            "poc": "unknown",
+            "known_exploited": "yes"
+          },
+          "unknowns": [
+            "The evidence does not provide a fixed version for the DS-2CD63xx Series.",
+            "The evidence does not provide a fixed version for the DS-2CD2xx0F-I Series as named in the NVD description."
+          ],
+          "mitigations": [
+            "Update devices with the correct firmware."
+          ],
+          "affected_range": {
+            "raw": ">=5.2.0,<=5.4.0",
+            "range": {
+              "kind": "clauses",
+              "clauses": [
+                {
+                  "op": ">=",
+                  "version": "5.2.0"
+                },
+                {
+                  "op": "<=",
+                  "version": "5.4.0"
+                }
+              ]
+            },
+            "supported": true
+          },
+          "fixed_range": {
+            "raw": ">=5.4.41",
+            "range": {
+              "kind": "clauses",
+              "clauses": [
+                {
+                  "op": ">=",
+                  "version": "5.4.41"
+                }
+              ]
+            },
+            "supported": true
+          },
+          "evidence_ids": [
+            "69d94733-8707-424e-9a59-f2d5c6d1c232"
+          ]
+        },
+        {
+          "vendor": "Hikvision",
+          "product": "DS-2CD4xx5 Series IP Camera",
+          "models": [
+            "DS-2CD4xx5 Series"
+          ],
+          "confidence": "high",
+          "routing": "auto",
+          "persisted_kind": "claims",
+          "exploit_status": {
+            "poc": "unknown",
+            "known_exploited": "yes"
+          },
+          "unknowns": [
+            "The evidence does not provide a fixed version for the DS-2CD63xx Series.",
+            "The evidence does not provide a fixed version for the DS-2CD2xx0F-I Series as named in the NVD description."
+          ],
+          "mitigations": [
+            "Update devices with the correct firmware."
+          ],
+          "affected_range": {
+            "raw": ">=5.2.0,<=5.4.0",
+            "range": {
+              "kind": "clauses",
+              "clauses": [
+                {
+                  "op": ">=",
+                  "version": "5.2.0"
+                },
+                {
+                  "op": "<=",
+                  "version": "5.4.0"
+                }
+              ]
+            },
+            "supported": true
+          },
+          "fixed_range": {
+            "raw": ">=5.4.41",
+            "range": {
+              "kind": "clauses",
+              "clauses": [
+                {
+                  "op": ">=",
+                  "version": "5.4.41"
+                }
+              ]
+            },
+            "supported": true
+          },
+          "evidence_ids": [
+            "69d94733-8707-424e-9a59-f2d5c6d1c232"
+          ]
+        },
+        {
+          "vendor": "Hikvision",
+          "product": "DS-2CD2xx2FWD Series IP Camera",
+          "models": [
+            "DS-2CD2xx2FWD Series"
+          ],
+          "confidence": "high",
+          "routing": "auto",
+          "persisted_kind": "claims",
+          "exploit_status": {
+            "poc": "unknown",
+            "known_exploited": "yes"
+          },
+          "unknowns": [
+            "The evidence does not provide a fixed version for the DS-2CD63xx Series.",
+            "The evidence does not provide a fixed version for the DS-2CD2xx0F-I Series as named in the NVD description."
+          ],
+          "mitigations": [
+            "Update devices with the correct firmware."
+          ],
+          "affected_range": {
+            "raw": ">=5.3.1,<=5.4.4",
+            "range": {
+              "kind": "clauses",
+              "clauses": [
+                {
+                  "op": ">=",
+                  "version": "5.3.1"
+                },
+                {
+                  "op": "<=",
+                  "version": "5.4.4"
+                }
+              ]
+            },
+            "supported": true
+          },
+          "fixed_range": {
+            "raw": ">=5.4.41",
+            "range": {
+              "kind": "clauses",
+              "clauses": [
+                {
+                  "op": ">=",
+                  "version": "5.4.41"
+                }
+              ]
+            },
+            "supported": true
+          },
+          "evidence_ids": [
+            "69d94733-8707-424e-9a59-f2d5c6d1c232"
+          ]
+        },
+        {
+          "vendor": "Hikvision",
+          "product": "DS-2DEx Series IP Camera",
+          "models": [
+            "DS-2DEx Series"
+          ],
+          "confidence": "high",
+          "routing": "auto",
+          "persisted_kind": "claims",
+          "exploit_status": {
+            "poc": "unknown",
+            "known_exploited": "yes"
+          },
+          "unknowns": [
+            "The evidence does not provide a fixed version for the DS-2CD63xx Series.",
+            "The evidence does not provide a fixed version for the DS-2CD2xx0F-I Series as named in the NVD description."
+          ],
+          "mitigations": [
+            "Update devices with the correct firmware."
+          ],
+          "affected_range": {
+            "raw": ">=5.2.0,<=5.3.9",
+            "range": {
+              "kind": "clauses",
+              "clauses": [
+                {
+                  "op": ">=",
+                  "version": "5.2.0"
+                },
+                {
+                  "op": "<=",
+                  "version": "5.3.9"
+                }
+              ]
+            },
+            "supported": true
+          },
+          "fixed_range": {
+            "raw": ">=5.4.71",
+            "range": {
+              "kind": "clauses",
+              "clauses": [
+                {
+                  "op": ">=",
+                  "version": "5.4.71"
+                }
+              ]
+            },
+            "supported": true
+          },
+          "evidence_ids": [
+            "69d94733-8707-424e-9a59-f2d5c6d1c232"
+          ]
+        },
+        {
+          "vendor": "Hikvision",
+          "product": "DS-2DFx Series IP Camera",
+          "models": [
+            "DS-2DFx Series"
+          ],
+          "confidence": "high",
+          "routing": "auto",
+          "persisted_kind": "claims",
+          "exploit_status": {
+            "poc": "unknown",
+            "known_exploited": "yes"
+          },
+          "unknowns": [
+            "The evidence does not provide a fixed version for the DS-2CD63xx Series.",
+            "The evidence does not provide a fixed version for the DS-2CD2xx0F-I Series as named in the NVD description."
+          ],
+          "mitigations": [
+            "Update devices with the correct firmware."
+          ],
+          "affected_range": {
+            "raw": ">=5.2.0,<=5.4.5",
+            "range": {
+              "kind": "clauses",
+              "clauses": [
+                {
+                  "op": ">=",
+                  "version": "5.2.0"
+                },
+                {
+                  "op": "<=",
+                  "version": "5.4.5"
+                }
+              ]
+            },
+            "supported": true
+          },
+          "fixed_range": {
+            "raw": ">=5.4.71",
+            "range": {
+              "kind": "clauses",
+              "clauses": [
+                {
+                  "op": ">=",
+                  "version": "5.4.71"
+                }
+              ]
+            },
+            "supported": true
+          },
+          "evidence_ids": [
+            "69d94733-8707-424e-9a59-f2d5c6d1c232"
+          ]
+        }
+      ],
+      "human_reviews": 0,
+      "run_summary": {
+        "storyId": 40,
+        "traceId": "e4dbc700-9458-4896-ac8d-6276cd7a50cd",
+        "runId": "3754e4d4-d3f8-4a13-8f8c-0bbdb98449cb",
+        "extractionReceiptId": 47,
+        "impactVersion": 1,
+        "persistedClaimRows": 7,
+        "unknownOnlyRows": 0,
+        "humanReviewRows": 0,
+        "idempotent": false,
+        "proposal": {
+          "new_evidence": [],
+          "impact_rows": [
+            {
+              "vendor": "Hikvision",
+              "product": "DS-2CD2xx2F-I Series IP Camera",
+              "models": [
+                "DS-2CD2xx2F-I Series"
+              ],
+              "cve_id": "CVE-2017-7921",
+              "affected_range": {
+                "raw": ">=5.2.0,<=5.4.0",
+                "supported": true
+              },
+              "fixed_range": {
+                "raw": ">=5.4.41",
+                "supported": true
+              },
+              "mitigations": [
+                "Update devices with the correct firmware."
+              ],
+              "confidence": "high",
+              "evidence_ids": [
+                "69d94733-8707-424e-9a59-f2d5c6d1c232"
+              ]
+            },
+            {
+              "vendor": "Hikvision",
+              "product": "DS-2CD2xx0 Series IP Camera",
+              "models": [
+                "DS-2CD2xx0 Series"
+              ],
+              "cve_id": "CVE-2017-7921",
+              "affected_range": {
+                "raw": ">=5.2.0,<=5.4.4",
+                "supported": true
+              },
+              "fixed_range": {
+                "raw": ">=5.4.41",
+                "supported": true
+              },
+              "mitigations": [
+                "Update devices with the correct firmware."
+              ],
+              "confidence": "high",
+              "evidence_ids": [
+                "69d94733-8707-424e-9a59-f2d5c6d1c232"
+              ]
+            },
+            {
+              "vendor": "Hikvision",
+              "product": "DS-2CD4x2xFWD Series IP Camera",
+              "models": [
+                "DS-2CD4x2xFWD Series"
+              ],
+              "cve_id": "CVE-2017-7921",
+              "affected_range": {
+                "raw": ">=5.2.0,<=5.4.0",
+                "supported": true
+              },
+              "fixed_range": {
+                "raw": ">=5.4.41",
+                "supported": true
+              },
+              "mitigations": [
+                "Update devices with the correct firmware."
+              ],
+              "confidence": "high",
+              "evidence_ids": [
+                "69d94733-8707-424e-9a59-f2d5c6d1c232"
+              ]
+            },
+            {
+              "vendor": "Hikvision",
+              "product": "DS-2CD4xx5 Series IP Camera",
+              "models": [
+                "DS-2CD4xx5 Series"
+              ],
+              "cve_id": "CVE-2017-7921",
+              "affected_range": {
+                "raw": ">=5.2.0,<=5.4.0",
+                "supported": true
+              },
+              "fixed_range": {
+                "raw": ">=5.4.41",
+                "supported": true
+              },
+              "mitigations": [
+                "Update devices with the correct firmware."
+              ],
+              "confidence": "high",
+              "evidence_ids": [
+                "69d94733-8707-424e-9a59-f2d5c6d1c232"
+              ]
+            },
+            {
+              "vendor": "Hikvision",
+              "product": "DS-2CD2xx2FWD Series IP Camera",
+              "models": [
+                "DS-2CD2xx2FWD Series"
+              ],
+              "cve_id": "CVE-2017-7921",
+              "affected_range": {
+                "raw": ">=5.3.1,<=5.4.4",
+                "supported": true
+              },
+              "fixed_range": {
+                "raw": ">=5.4.41",
+                "supported": true
+              },
+              "mitigations": [
+                "Update devices with the correct firmware."
+              ],
+              "confidence": "high",
+              "evidence_ids": [
+                "69d94733-8707-424e-9a59-f2d5c6d1c232"
+              ]
+            },
+            {
+              "vendor": "Hikvision",
+              "product": "DS-2DEx Series IP Camera",
+              "models": [
+                "DS-2DEx Series"
+              ],
+              "cve_id": "CVE-2017-7921",
+              "affected_range": {
+                "raw": ">=5.2.0,<=5.3.9",
+                "supported": true
+              },
+              "fixed_range": {
+                "raw": ">=5.4.71",
+                "supported": true
+              },
+              "mitigations": [
+                "Update devices with the correct firmware."
+              ],
+              "confidence": "high",
+              "evidence_ids": [
+                "69d94733-8707-424e-9a59-f2d5c6d1c232"
+              ]
+            },
+            {
+              "vendor": "Hikvision",
+              "product": "DS-2DFx Series IP Camera",
+              "models": [
+                "DS-2DFx Series"
+              ],
+              "cve_id": "CVE-2017-7921",
+              "affected_range": {
+                "raw": ">=5.2.0,<=5.4.5",
+                "supported": true
+              },
+              "fixed_range": {
+                "raw": ">=5.4.71",
+                "supported": true
+              },
+              "mitigations": [
+                "Update devices with the correct firmware."
+              ],
+              "confidence": "high",
+              "evidence_ids": [
+                "69d94733-8707-424e-9a59-f2d5c6d1c232"
+              ]
+            }
+          ],
+          "exploit_status": {
+            "poc": "unknown",
+            "known_exploited": "yes"
+          },
+          "known_exploited_evidence_ids": [
+            "6c9536a4-8108-48bd-b8c8-85b0f6fd7731"
+          ],
+          "unknowns": [
+            "The evidence does not provide a fixed version for the DS-2CD63xx Series.",
+            "The evidence does not provide a fixed version for the DS-2CD2xx0F-I Series as named in the NVD description."
+          ],
+          "decision": "propose",
+          "decision_reason": "Gateway drafts normalized into evidence-cited impact rows.",
+          "tool_trace": [],
+          "extraction_requests": []
+        }
+      },
+      "unknowns": 14
+    }
+  ]
+}
