@@ -36,6 +36,7 @@ const allCases = z.array(z.object({
     review_required_products: z.array(z.string()).optional(),
     claims_forbidden_products: z.array(z.string()).optional(),
     review_unknown_contains: z.array(z.string()).optional(),
+    complete_claims_min: z.number().optional(),
   }).strict(),
   provenance: z.object({
     source_urls: z.array(z.string()), label_method: z.string(), reviewers: z.array(z.string()), note: z.string(),

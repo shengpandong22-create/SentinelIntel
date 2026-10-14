@@ -58,6 +58,11 @@ export const ImpactE2ECaseSchema = z.object({
     review_required_products: z.array(z.string().min(2).max(120)).max(10).default([]),
     claims_forbidden_products: z.array(z.string().min(2).max(120)).max(10).default([]),
     review_unknown_contains: z.array(z.string().min(2).max(120)).max(5).default([]),
+    // Revision 7a: at least this many current claims rows must carry a matcher-supported affected
+    // range AND a non-null matcher-supported fixed range (the version-bearing-claims requirement).
+    // Real advisories mix expressible and non-expressible branches, so this is a floor on complete
+    // version records, not a requirement that every claims row be complete.
+    complete_claims_min: z.number().int().min(0).max(10).default(0),
   }).strict(),
   provenance: z.object({
     source_urls: z.array(z.url()).min(1).max(10),
@@ -507,6 +512,12 @@ for (const item of cases) {
     claimsProducts: impacts.filter((row) => row.persisted_kind === "claims").map((row) => row.product),
     proposalUnknowns: proposal?.unknowns ?? [],
   }));
+  // Revision 7a: version-bearing claims floor — complete version records must actually persist.
+  const completeClaims = claimsRows.filter((row) =>
+    row.affected_range?.supported === true && row.fixed_range !== null && row.fixed_range.supported === true);
+  if (completeClaims.length < item.expected.complete_claims_min) {
+    errors.push(`complete version claims ${completeClaims.length} < required ${item.expected.complete_claims_min}`);
+  }
 
   perCase.push({
     case_id: item.case_id, story_id: storyId, errors,
