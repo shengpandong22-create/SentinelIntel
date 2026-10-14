@@ -1,12 +1,15 @@
-# Phase 6 end-to-end holdout baselines — retained evidence, v8 safety run PASSED, v9 incomplete freeze, v10 gate pending
+# Phase 6 end-to-end holdout baselines — retained evidence, v10 not freezable, v11 gate pending
 
-Date: 2026-10-13 (revision 5a of the evaluation)
+Date: 2026-10-14 (revision 7a of the evaluation)
 
-Nine holdout candidates have been reviewed during the Phase 6 evaluation correction. All stay frozen
-exactly as reviewed or consumed. Per the owner ruling of 2026-10-13: v8 is a consumed successful E2E
-**safety** run, not the closing gate (no contract-complete record, zero-floor labels); v9 is
-**REVIEWED_NOT_RUN_INCOMPLETE_FREEZE** (reviewed, never executed, 2-of-4 cases frozen); the Phase 6
-closing gate is the single authorized run of the fully disjoint v10 under the revision-5a runner.
+Ten holdout candidates have been reviewed during the Phase 6 evaluation correction. All stay frozen
+exactly as reviewed or consumed. Per the owner rulings: v8 is a consumed successful E2E **safety** run,
+not the closing gate; v9 is **REVIEWED_NOT_RUN_INCOMPLETE_FREEZE**; v10 is
+**DEVELOPMENT_PROBED_NOT_RUN_NOT_FREEZABLE** (its cases had been used as paid development probes, so it
+can never be a gate and its cases may not be reused). The Phase 6 closing gate is the single authorized
+run of the fully disjoint v11 under the revision-7a runner. The required demonstrations 1-3 are
+established as frozen development E2E evidence (`docs/evaluation/impact-development-demonstrations.md`)
+and are not holdout metrics.
 
 ## v6 — consumed as a live smoke/pilot result, NOT the gate (scorer defective)
 
@@ -64,6 +67,21 @@ committed before v8 construction): the scorer now fails on any per-case assertio
 labels must use outcome sets robust to model quoting behavior — hard guarantees are carried by the
 safety detectors and grounded-KEV expectations, not by min_rows claims that depend on whether the
 model returns a version expression or null.
+
+## v10 — DEVELOPMENT_PROBED_NOT_RUN_NOT_FREEZABLE (never executed, can never be a gate)
+
+Candidate `datasets/impact/e2e-holdout-v10-candidate.jsonl` (commit 004d8ea, after the standalone
+revision-6 pre-registration 36e23df): CVE-2017-7921 (contract-complete record), CVE-2023-36563
+(product-level unsupported-format), CVE-2023-36802 (stale rejection), and a no-CVE negative. Review
+receipts 49-53 in `sentinel_phase6_v7_ci`: glm 3/4 high (HOLD-003 medium), deepseek 1/4 high
+(HOLD-001/002/003 medium with written reasons affirming every label component), kimi 2/2 medium in the
+completed batch (batch B timed out twice; receipts 52/53 resolved as failed under the receipt
+protocol and not re-run). Owner ruling (2026-10-14): the candidate is development/debug data — its
+cases had already been used as paid development probes (probe12/13/14) whose results shaped the labels,
+and revision 6a changed the scorer after the candidate commit — so it can never be a final gate even
+if the mediums were reinterpreted. All assets retained unmodified. The three CVEs were converted into
+the frozen development demonstrations (`docs/evaluation/impact-development-demonstrations.md`), and the
+demonstrations — not this candidate — carry required demonstrations 1-3.
 
 ## v9 — REVIEWED_NOT_RUN_INCOMPLETE_FREEZE (never executed, not a gate)
 
@@ -178,7 +196,9 @@ consumed evidence only and is not re-runnable as a gate without a newly construc
 
 ## Status
 
-Phase 6 end-to-end gate: pending the single authorized v10 run (revision-5a runner/scorer, fully
-disjoint candidate, deterministic NVD-configuration inspection at construction). v8 remains a
-consumed successful E2E safety run; v9 is REVIEWED_NOT_RUN_INCOMPLETE_FREEZE. Remaining before
-Phase 6 closure: v10 review, freeze, single run, then canonical Linux CI on the pull request.
+Phase 6 end-to-end gate: the v11 candidate is constructed (version-claims generalization CVE-2024-21762,
+product-level unsupported-format CVE-2024-35250, stale rejection CVE-2023-38180, no-CVE negative),
+pending three-model review, freeze, and the single authorized revision-7a run; canonical Linux CI
+afterwards. Required demonstrations 1-3 are established as frozen development E2E evidence. v8 is a
+consumed successful E2E safety run; v9 is REVIEWED_NOT_RUN_INCOMPLETE_FREEZE; v10 is
+DEVELOPMENT_PROBED_NOT_RUN_NOT_FREEZABLE.

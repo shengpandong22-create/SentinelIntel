@@ -225,27 +225,47 @@ record (all claims rows versionless with empty models), its labels allowed any m
 floors, and revision 4a had been committed in the same commit as the v8 candidate (pre-registration
 order defect). Mandated minimal path: pre-register revision 5 alone, then a disjoint v9/v10.
 
-**Revision 5 (commit 6d3e120, standalone before the v9 candidate)**: extraction prompt v2 (closed
-grammar for machine-readable version bounds, verbatim prose otherwise, evidence-backed models), the
-stale-version grounding detector now requires every supported-range boundary to appear in cited
-evidence, and four hard label constraints folded into the per-case gate (claims_rows_max, models_min,
-claims_require_versions, forbidden_strings).
+**Revision 5 / 5a / 6 / 6a / 7 / 7a (each committed alone, strictly before its candidate)**: extraction
+prompt v2-v5 (closed-grammar expressions for machine-readable bounds, verbatim prose otherwise, fixed
+versions only from vendor patched/fixed statements, evidence-backed models), boundary grounding,
+four hard label constraints, `rows_or_reviews_min`, the bounded union matcher (contract revision 6:
+pipe-separated unions of at most 8 closed-grammar branches), product-level review constraints
+(`review_required_products` / `claims_forbidden_products` / `review_unknown_contains`),
+`complete_claims_min`, zero-denominator metrics as N/A with a required non-zero recall denominator,
+and an evidence-only reviewer rubric. Pipeline fixes along the way: NVD evidence now carries
+deterministically flattened CPE configuration bounds (the model could never see structured ranges
+before), and the vendor-advisory body extraction falls back past cookie banners.
 
-**Holdout v9 (REVIEWED_NOT_RUN_INCOMPLETE_FREEZE)**: candidate commit 8996086 (strictly after 6d3e120);
-three-model review receipts 28-31 (glm 4/4 high, kimi 4/4 high, deepseek 2/4 high); HOLD-002/003
-excluded by deepseek medium whose written reasons affirm every label component. Owner ruling
-(2026-10-13): no reviewer-shopping, no post-review label changes, no partial-set run; partial freeze
-stays frozen (commit 7fa0c2c, SHA256 `4c0676ea...`); none of the v9 cases may be reused.
+**v9 (REVIEWED_NOT_RUN_INCOMPLETE_FREEZE)**: reviewed by three models (receipts 28-31); HOLD-002/003
+excluded by deepseek medium whose written reasons affirm every label component; partial freeze retained
+(commit 7fa0c2c); no v9 case may be reused.
 
-**Revision 5a (standalone, before the v10 candidate)**: adds rows_or_reviews_min (a stale-rejection
-case must produce at least one persisted row or one human review) without modifying any revision-5
-constraint; v10 candidate construction must run a deterministic NVD-configuration inspection and
-disqualify any unsupported-format candidate with convertible structured boundaries before paid review.
+**v10 (DEVELOPMENT_PROBED_NOT_RUN_NOT_FREEZABLE)**: the candidate's cases had already been used as
+paid development probes, so the owner ruled it development/debug data that can never be a gate
+(2026-10-14). Candidate, review receipts 49-53, probe results, and reviewer verdicts are retained
+unmodified.
 
-**Holdout v10 (the Phase 6 closing gate — pending)**: fully disjoint from every development dataset,
-every consumed holdout v1-v9, and the superseded v8 first candidate. Remaining before Phase 6 closure:
-v10 three-model review, freeze, the single authorized revision-5a run, then canonical Linux CI on the
-pull request.
+**Required demonstrations 1-3: ESTABLISHED as frozen development E2E evidence** (owner ruling
+2026-10-14; `docs/evaluation/impact-development-demonstrations.md`):
+- Demonstration 1 (contract-complete record): CVE-2017-7921, extraction receipt 47, seven claims rows
+  each with evidence-backed models, matcher-supported affected range, matcher-supported fixed version,
+  and vendor-advisory Evidence; offline re-verification with the revision-6 logic passed with all
+  safety counters zero.
+- Demonstration 2 (unsupported version format → review): CVE-2023-36563, receipt 48, ten named
+  version-bearing products routed to human review with unsupported ranges, legal versionless claims
+  rows for products without version statements, no unsupported expression in claims.
+- Demonstration 3 (stale version rejection): CVE-2023-36802, receipt 54, the stale decoy surfaced
+  nowhere in persisted state, product signal present.
+- These are development evidence, not holdout metrics; the three CVEs may not be reused in any holdout.
+
+**Holdout v11 (the Phase 6 closing gate — candidate ready, review pending)**:
+`datasets/impact/e2e-holdout-v11-candidate.jsonl` (commit after revision-7/7a), fully disjoint from
+every development dataset and every candidate or consumed holdout v1-v10: version-claims
+generalization (CVE-2024-21762, `complete_claims_min=1`, KEV 2024-02-09), product-level
+unsupported-format (CVE-2024-35250, named targets Windows 10 1507 / 21H2 / Server 2022, KEV
+2024-12-16), stale rejection (CVE-2023-38180, forbidden string `17.2.5`, KEV 2023-08-09), and a
+no-CVE negative. Remaining before Phase 6 closure: v11 three-model review (unanimous high), freeze,
+the single authorized revision-7a run, then canonical Linux CI on the pull request.
 
 ### Phase 6 checkpoint 1 — contracts, matcher, migrations, stores
 
