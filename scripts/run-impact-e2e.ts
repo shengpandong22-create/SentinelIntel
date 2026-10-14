@@ -565,6 +565,11 @@ for (const item of perCase) {
     failures.push(`${item.case_id}: ${caseErrors.join("; ")}`);
   }
 }
+// Revision 7: at least one case must contribute a non-zero row-recall denominator, so the holdout
+// always measures row recall on at least one persisted-claims case.
+if ((summary.scored_cases as Record<string, number | undefined>).row_recall === 0) {
+  failures.push("no case contributed a row-recall denominator (revision 7 requires at least one)");
+}
 const passed = failures.length === 0;
 
 writeFileSync(values.out!, `${JSON.stringify({ passed, failures, summary, perCase }, null, 2)}\n`);

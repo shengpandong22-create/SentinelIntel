@@ -257,6 +257,34 @@ Phase 6 is complete only when all items pass:
 A bounded Product Impact Agent with reproducible evidence-backed evaluation. Public exposure (Story page
 Product Impact block, admin review UI, REST/MCP) is Phase 7, not here.
 
+## 14. Revision 7 — demonstrations vs holdout separation (owner ruling 2026-10-14)
+
+The v10 candidate was ruled `DEVELOPMENT_PROBED_NOT_RUN_NOT_FREEZABLE`: its cases had already been
+used as paid development probes, so it was development/debug data and could never be a final gate. The
+evaluation model is therefore split explicitly:
+
+1. **Required demonstrations** (the four demonstrations of §2) may be satisfied by frozen,
+   reproducible development end-to-end evidence on real public evidence — committed case files, result
+   files with hashes, receipt ids, and offline re-verification with the revision-6 assertion logic.
+   Demonstrations 1-3 are established this way (`docs/evaluation/impact-development-demonstrations.md`:
+   the CVE-2017-7921 contract-complete record with seven complete claims rows; the CVE-2023-36563
+   product-level matcher-unsupported review routing; the CVE-2023-36802 stale-version rejection). The
+   non-security negative may be re-demonstrated on a fresh disjoint case.
+2. **The final holdout (v11)** validates safety and generalization on unseen real sources. It does
+   NOT need to repeat the unique scarce CVE (CVE-2017-7921 is the only public advisory found that
+   carries device models together with machine-resolvable affected and fixed versions and is fetchable
+   by the pipeline). If no second such case exists in public evidence, v11 may instead verify **version
+   claims generalization** and **model extraction generalization** as separate cases; this fallback is
+   pre-authorized here, before any v11 result, and must not be retrofitted after the run.
+3. The holdout must keep every revision-6 mechanism: the thirteen hard safety gates, per-case
+   fail-closed scoring, product-level review constraints, the bounded union matcher, exact
+   receipt/trace linkage, Story/Fact immutability, and zero-denominator quality metrics recorded as
+   N/A — with at least one case required to contribute a non-zero row-recall denominator.
+4. v11 must be fully disjoint from every development dataset and every candidate or consumed holdout
+   v1-v10 (including the three demonstration CVEs) and must contain at least: one case that must
+   produce version-bearing claims; one case that must produce a specified-product review; one
+   stale/unsupported defense case; one no-CVE negative.
+
 ## 13. Revision 6 — limited range-union matcher and record-completeness semantics
 
 Owner ruling of 2026-10-13: the closed MVP grammar in §7 cannot express the version sets that real
