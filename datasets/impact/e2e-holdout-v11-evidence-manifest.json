@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "pack": "datasets\\impact\\e2e-holdout-v11-evidence.jsonl",
+  "pack_sha256": "bd641dab9dc8be3e2bc2aea6053b3da4f073ba8a38ab5eeac399c8a4b656ca57",
+  "constructed_at": "2026-10-14T15:43:04.014Z",
+  "kev_catalog_version": "2026.10.13",
+  "items": [
+    {
+      "case_id": "IMP-E2E11-HOLD-001",
+      "source_type": "nvd",
+      "url": "https://nvd.nist.gov/vuln/detail/CVE-2024-21762",
+      "content_sha256": "451a682b097aa6adc5c50dfccbb2cddf213713eb8f8c95df353bd62e825e0611",
+      "content_status": "ok"
+    },
+    {
+      "case_id": "IMP-E2E11-HOLD-001",
+      "source_type": "cisa_kev",
+      "url": "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+      "content_sha256": "ec389d3d238e2ae2a93bf7076aafdf5b924d885ed33698cbfe4142f38eeca732",
+      "content_status": "ok"
+    },
+    {
+      "case_id": "IMP-E2E11-HOLD-001",
+      "source_type": "vendor_advisory",
+      "url": "https://www.fortiguard.com/psirt/FG-IR-24-015",
+      "content_sha256": "a02cc00d3a9674b2a5143585ab9128c7115f578182a392d81ef9be9b2b42ac66",
+      "content_status": "ok"
+    },
+    {
+      "case_id": "IMP-E2E11-HOLD-002",
+      "source_type": "nvd",
+      "url": "https://nvd.nist.gov/vuln/detail/CVE-2024-35250",
+      "content_sha256": "585453257424da3328d52b8eb5307a5307545c3f647d39d937b6fc6e839a33f6",
+      "content_status": "ok"
+    },
+    {
+      "case_id": "IMP-E2E11-HOLD-002",
+      "source_type": "cisa_kev",
+      "url": "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+      "content_sha256": "b35461658f4f6b23096728e286f14d0a4063abf00ebb77f2397e0332f898ba4e",
+      "content_status": "ok"
+    },
+    {
+      "case_id": "IMP-E2E11-HOLD-002",
+      "source_type": "msrc_api",
+      "url": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2024-35250",
+      "content_sha256": "bd847c5fee16fc892f2bb94ea13438a9323c11353981de0a8ac4581a9ca8b4fc",
+      "content_status": "ok"
+    },
+    {
+      "case_id": "IMP-E2E11-HOLD-003",
+      "source_type": "nvd",
+      "url": "https://nvd.nist.gov/vuln/detail/CVE-2023-38180",
+      "content_sha256": "2ba5ac407b809d624733b36bbeb56f706ee5ff6f086cf50f8f9c13a605f947fa",
+      "content_status": "ok"
+    },
+    {
+      "case_id": "IMP-E2E11-HOLD-003",
+      "source_type": "cisa_kev",
+      "url": "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+      "content_sha256": "9555f72980468312d931544d9e826caa68060c029165ff5e44a2e20f4ff2c637",
+      "content_status": "ok"
+    },
+    {
+      "case_id": "IMP-E2E11-HOLD-003",
+      "source_type": "msrc_api",
+      "url": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2023-38180",
+      "content_sha256": "046360bd8bf2300722826246fc06c8d55fc7ccb6bfc14118271605146e2b32e9",
+      "content_status": "ok"
+    },
+    {
+      "case_id": "IMP-E2E11-HOLD-004",
+      "source_type": "vendor_announcement",
+      "url": "https://www.cisco.com/c/en/us/about/partner-summit.html",
+      "content_sha256": "31c18893214fa3f41e9bee3a3e6d4b7eb24282a0d8febc7c345f1a96bdb46134",
+      "content_status": "unfetchable"
+    }
+  ],
+  "note": "Frozen official evidence for the v11 holdout review (revision 7b). The CISA KEV entry is the actual catalog record. Reviewers judge only these excerpts; the pack hash and every item hash are validated before any paid request."
+}
