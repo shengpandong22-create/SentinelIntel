@@ -174,6 +174,7 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
   if (evidenceErrors.length > 0) throw new Error(`evidence pack validation failed:\n${evidenceErrors.join("\n")}`);
 
   const skip = Number.parseInt(values.skip!, 10), count = Number.parseInt(values.n!, 10);
+  if (count !== 1) throw new Error("revision 8a transport guard: review exactly one case per paid request (--n 1)");
   const cases = allCases.slice(skip, skip + count);
   const ReviewSchema = z.object({ case_id: z.string(), accept: z.boolean(), confidence: z.enum(["high", "medium", "low"]), reason: z.string().min(1).max(2_000) }).strict();
   const BatchSchema = z.object({ reviews: z.array(ReviewSchema).length(cases.length) }).strict();
@@ -189,9 +190,9 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
         .map((item) => ({ source_type: item.source_type, url: item.url, title: item.title, excerpt: item.excerpt })),
     })),
   });
-  // Kimi-family models on the codebuddy channel have repeatedly exceeded 180 s on 3-case batches;
-  // give them (and any slow reviewer) a wider window.
-  const timeoutMs = /kimi/i.test(values.reviewer!) ? 600_000 : 180_000;
+  // Revision 8a transport diagnosis: evidence-bearing reviews use stdin instead of a Windows
+  // command-line argument, one case per call, and the same 600 s hard bound for every family.
+  const timeoutMs = 600_000;
   try {
     const result = values.provider === "direct"
       ? await chatJson({
@@ -209,7 +210,7 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
           promptVersion: "impact-e2e-holdout-review-v3",
           system,
           schema: BatchSchema,
-          prompt: user, promptInArgument: true, useJsonSchema: true, jsonSchema: z.toJSONSchema(BatchSchema) as Record<string, unknown>,
+          prompt: user, promptInArgument: false, useJsonSchema: true, jsonSchema: z.toJSONSchema(BatchSchema) as Record<string, unknown>,
           timeoutMs, attemptTag: "phase6-e2e-holdout-review-v3",
         });
     const ids = new Set(result.data.reviews.map((review) => review.case_id));

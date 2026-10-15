@@ -346,3 +346,9 @@ unanimous-high reviewers, while every deterministic per-case assertion must pass
 Before any paid v12 review, an automated disjointness gate must reject every CVE appearing in any
 development dataset or v1-v11 candidate/holdout. The evidence pack and its manifest are frozen before
 review, and the existing rule remains: an incomplete unanimous-high semantic freeze is never run.
+
+Revision 8a is a transport-only correction made after v12 construction but before any usable v12
+verdict. It changes no candidate, Evidence, label, rubric, threshold, or scorer. Each paid review now
+contains exactly one case, sends its frozen Evidence through stdin rather than a Windows command-line
+argument, allows 600 seconds, and records stream event counts/bytes and stderr in any timeout. Earlier
+timeouts remain unknown receipts under the existing no-blind-retry recovery policy.

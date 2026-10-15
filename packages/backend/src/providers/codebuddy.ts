@@ -10,7 +10,14 @@ async function runCodeBuddyStream(args: string[], prompt: string | null, env: No
   return new Promise((resolve, reject) => {
     const child = spawn("codebuddy", args, { env, windowsHide: true });
     let stdout = "", stderr = "", settled = false;
-    const timer = setTimeout(() => finish(new Error(`CodeBuddy stream timed out after ${timeoutMs} ms`)), timeoutMs);
+    let streamBytes = 0, invalidLines = 0;
+    const eventTypes = new Map<string, number>();
+    const diagnostic = () => {
+      const events = [...eventTypes.entries()].map(([type, count]) => `${type}:${count}`).join(",") || "none";
+      const stderrSummary = stderr.trim().replace(/\s+/g, " ").slice(-500) || "none";
+      return `stream_bytes=${streamBytes}; events=${events}; invalid_lines=${invalidLines}; stderr=${stderrSummary}`;
+    };
+    const timer = setTimeout(() => finish(new Error(`CodeBuddy stream timed out after ${timeoutMs} ms (${diagnostic()})`)), timeoutMs);
     const finish = (error?: Error, envelope?: CodeBuddyEnvelope) => {
       if (settled) return;
       settled = true;
@@ -21,13 +28,19 @@ async function runCodeBuddyStream(args: string[], prompt: string | null, env: No
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
     child.stdout.on("data", (chunk: string) => {
+      streamBytes += Buffer.byteLength(chunk);
       stdout += chunk;
       const lines = stdout.split(/\r?\n/);
       stdout = lines.pop() ?? "";
-      for (const line of lines) try {
-        const row = JSON.parse(line) as Record<string, unknown>;
-        if (row.type === "result") finish(undefined, parseCodeBuddyStream(line));
-      } catch { /* wait for the terminal result event */ }
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const row = JSON.parse(line) as Record<string, unknown>;
+          const type = typeof row.type === "string" ? row.type : "untyped";
+          eventTypes.set(type, (eventTypes.get(type) ?? 0) + 1);
+          if (row.type === "result") finish(undefined, parseCodeBuddyStream(line));
+        } catch { invalidLines += 1; }
+      }
       if (!settled) try {
         const row = JSON.parse(stdout) as Record<string, unknown>;
         if (row.type === "result") finish(undefined, parseCodeBuddyStream(stdout));
@@ -40,7 +53,7 @@ async function runCodeBuddyStream(args: string[], prompt: string | null, env: No
     child.on("exit", (code) => {
       if (settled) return;
       try { finish(undefined, parseCodeBuddyOutput(stdout)); }
-      catch { finish(new Error(`CodeBuddy exited ${code ?? "without a code"}: ${stderr || `unusable output ${stdout.slice(0, 1000)}`}`)); }
+      catch { finish(new Error(`CodeBuddy exited ${code ?? "without a code"}: ${diagnostic()}; ${stderr || `unusable output ${stdout.slice(0, 1000)}`}`)); }
     });
   });
 }

@@ -34,6 +34,13 @@ test("can pass a bounded prompt as the final argument for CLI compatibility", ()
   assert.equal(args.at(-1), "bounded");
 });
 
+test("stdin mode keeps long evidence off the Windows command line", () => {
+  const prompt = "evidence".repeat(10_000);
+  const args = codeBuddyArgs({ model: "m", system: "s", prompt, jsonSchema: { type: "object" }, promptInArgument: false });
+  assert.equal(args.includes(prompt), false);
+  assert.equal(args[args.indexOf("--input-format") + 1], "text");
+});
+
 test("can use ordinary text output when the CLI native schema path is unavailable", () => {
   const args = codeBuddyArgs({ model: "m", system: "s", prompt: "bounded", jsonSchema: { type: "object" }, promptInArgument: true, useJsonSchema: false });
   assert.equal(args[args.indexOf("--output-format") + 1], "text");
