@@ -273,6 +273,16 @@ CVE-2025-24054 against every impact development and v1-v11 JSONL file. Candidate
 evidence pack were committed in separate ordered commits after revision 8. Remaining: three-model
 unanimous-high semantic review, full-set freeze, the single authorized final run, and canonical Linux CI.
 
+Review execution note (2026-10-15): the dedicated scratch database
+`sentinel_phase6_v12_ci` was migrated through `0045`. The frozen evidence gate and disjointness gate
+passed before every attempted request. CodeBuddy's simple CLI health probe succeeded, but the
+structured review channel returned no terminal result before its hard timeout for GLM-5.3-Flash,
+DeepSeek-V4.1-Flash, and a one-case GLM-5.3 retry; their receipts are `unknown`, not verdicts. A Kimi
+request interrupted during diagnosis remains subject to the normal stale-pending recovery path. No
+review output was accepted, no case was frozen, and the calls must not be blindly repeated before the
+receipt recovery policy releases them. This is an external review-channel blocker, not a Phase 6
+quality result.
+
 ### Phase 6 checkpoint 1 — contracts, matcher, migrations, stores
 
 Implemented on 2026-10-10 without external or paid calls: strict cross-runtime impact task/proposal
