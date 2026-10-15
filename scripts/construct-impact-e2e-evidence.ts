@@ -152,7 +152,7 @@ const manifest = EvidenceManifestSchema.parse({
     case_id: entry.case_id, source_type: entry.source_type, url: entry.url,
     content_sha256: entry.content_sha256, content_status: entry.content_status,
   })),
-  note: "Frozen official evidence for the v11 holdout review (revision 7b). The CISA KEV entry is the actual catalog record. Reviewers judge only these excerpts; the pack hash and every item hash are validated before any paid request.",
+  note: `Frozen official evidence for ${path.basename(values.cases!)}. The CISA KEV entry is the actual catalog record. Reviewers judge only semantic labels against these excerpts; the pack hash and every item hash are validated before any paid request.`,
 });
 writeFileSync(path.resolve(REPO_ROOT, values.manifest!), `${JSON.stringify(manifest, null, 2)}\n`);
 process.stdout.write(`${JSON.stringify({ ok: true, items: items.length, pack_sha256: packSha256, kev_catalog_version: manifest.kev_catalog_version, unfetchable: items.filter((entry) => entry.content_status === "unfetchable").length })}\n`);

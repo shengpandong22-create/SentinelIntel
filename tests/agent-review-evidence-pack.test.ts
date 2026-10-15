@@ -143,3 +143,18 @@ test("the frozen v11 evidence pack validates against the v11 candidate and its m
     assert.match(kev!.excerpt, new RegExp(item.cve!));
   }
 });
+
+test("the frozen v12 evidence pack validates against the disjoint v12 candidate", () => {
+  const cases = z.array(ReviewCaseSchema).parse(
+    readFileSync(path.join(REPO_ROOT, "datasets/impact/e2e-holdout-v12-candidate.jsonl"), "utf8")
+      .split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line)),
+  );
+  const packBytes = readFileSync(path.join(REPO_ROOT, "datasets/impact/e2e-holdout-v12-evidence.jsonl"));
+  const items = z.array(EvidenceItemSchema).parse(
+    packBytes.toString("utf8").split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line)),
+  );
+  const manifest = EvidenceManifestSchema.parse(
+    JSON.parse(readFileSync(path.join(REPO_ROOT, "datasets/impact/e2e-holdout-v12-evidence-manifest.json"), "utf8")),
+  );
+  assert.deepEqual(validateEvidencePack(cases, items, manifest, createHash("sha256").update(packBytes).digest("hex")), []);
+});
