@@ -9,8 +9,10 @@ import {
   EvidenceItemSchema,
   EvidenceManifestSchema,
   ReviewCaseSchema,
+  semanticExpected,
   validateEvidencePack,
 } from "../scripts/review-impact-e2e-holdout.ts";
+import { disjointnessErrors } from "../scripts/validate-impact-e2e-disjoint.ts";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -58,6 +60,21 @@ test("a complete evidence pack passes validation", () => {
   ];
   const manifest = makeManifest(items, createHash("sha256").update("pack-bytes").digest("hex"));
   assert.deepEqual(validateEvidencePack([makeCase()], items, manifest, manifest.pack_sha256), []);
+});
+
+test("semantic review input excludes deterministic behavior assertions", () => {
+  const semantic = semanticExpected(makeCase());
+  assert.deepEqual(Object.keys(semantic).sort(), [
+    "allowed_decisions", "forbidden_evidence_strings", "known_exploited", "product_keywords",
+  ]);
+  assert.ok(!("human_reviews_min" in semantic));
+  assert.ok(!("complete_claims_min" in semantic));
+});
+
+test("disjointness rejects CVEs already present in development or prior candidates", () => {
+  const row = makeCase() as never;
+  assert.match(disjointnessErrors([row], [{ file: "datasets/impact/development.jsonl", text: "CVE-2024-21762" }]).join("; "), /already appears/);
+  assert.deepEqual(disjointnessErrors([row], [{ file: "prior.jsonl", text: "CVE-2025-0001" }]), []);
 });
 
 test("a source URL without an evidence item fails closed", () => {

@@ -326,3 +326,23 @@ any code, thresholds, or holdout changes.
    decision `propose`, `min_rows >= 1`, `models_min >= 1`, `claims_require_versions = true`, an
    affected union whose branches are all matcher-supported and evidence-grounded, and a fixed union
    likewise. This is a capability extension, not a relaxation of the acceptance standard.
+
+## 15. Revision 8 — separate semantic adjudication from deterministic conformance
+
+Audit on 2026-10-15 found that v11 cannot close the phase. Two cases lacked unanimous-high review,
+and `CVE-2024-21762` was already present in `datasets/impact/development.jsonl`, contradicting the
+candidate's disjointness claim. v11 remains immutable as `REVIEWED_NOT_RUN_INCOMPLETE_FREEZE`; none of
+its cases may be reused.
+
+For v12, independent model review has one bounded responsibility: adjudicate semantic labels against
+the frozen official evidence pack — allowed conservative outcomes, evidence-named product keywords,
+CISA KEV status, and absence of explicitly forbidden evidence strings. A model reviewer is not asked
+to predict deterministic code behavior such as matcher support, routing, persistence, receipt
+linkage, counts, or safety detectors. Those assertions remain frozen in the candidate and are enforced
+by executable unit/integration tests and the final runner's thirteen fail-closed safety detectors.
+This is a separation of authorities, not a relaxation: semantic labels still require three distinct
+unanimous-high reviewers, while every deterministic per-case assertion must pass independently.
+
+Before any paid v12 review, an automated disjointness gate must reject every CVE appearing in any
+development dataset or v1-v11 candidate/holdout. The evidence pack and its manifest are frozen before
+review, and the existing rule remains: an incomplete unanimous-high semantic freeze is never run.
