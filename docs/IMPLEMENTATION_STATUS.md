@@ -258,14 +258,20 @@ unmodified.
   nowhere in persisted state, product signal present.
 - These are development evidence, not holdout metrics; the three CVEs may not be reused in any holdout.
 
-**Holdout v11 (the Phase 6 closing gate — candidate ready, review pending)**:
-`datasets/impact/e2e-holdout-v11-candidate.jsonl` (commit after revision-7/7a), fully disjoint from
-every development dataset and every candidate or consumed holdout v1-v10: version-claims
-generalization (CVE-2024-21762, `complete_claims_min=1`, KEV 2024-02-09), product-level
-unsupported-format (CVE-2024-35250, named targets Windows 10 1507 / 21H2 / Server 2022, KEV
-2024-12-16), stale rejection (CVE-2023-38180, forbidden string `17.2.5`, KEV 2023-08-09), and a
-no-CVE negative. Remaining before Phase 6 closure: v11 three-model review (unanimous high), freeze,
-the single authorized revision-7a run, then canonical Linux CI on the pull request.
+**Holdout v11 (REVIEWED_NOT_RUN_INCOMPLETE_FREEZE)**: receipts 55-58 produced unanimous-high
+semantic review only for HOLD-001/004; HOLD-002/003 were accepted at medium by at least one reviewer.
+No partial freeze was run. The 2026-10-15 audit additionally found that HOLD-001's
+`CVE-2024-21762` already appears in `datasets/impact/development.jsonl`, disproving the candidate's
+disjointness claim. v11 is immutable, is not a gate, and none of its cases may be reused.
+
+**Holdout v12 (closing gate candidate; review pending)**: revision 8 separates independent semantic
+evidence adjudication from executable deterministic conformance. The semantic reviewers see only
+allowed outcomes, evidence-named product keywords, KEV status, and forbidden evidence strings;
+matcher/routing/persistence/receipt/count behavior remains enforced by tests and the thirteen final-run
+detectors. The automated disjointness gate passed for CVE-2025-24472, CVE-2025-24993, and
+CVE-2025-24054 against every impact development and v1-v11 JSONL file. Candidate and frozen official
+evidence pack were committed in separate ordered commits after revision 8. Remaining: three-model
+unanimous-high semantic review, full-set freeze, the single authorized final run, and canonical Linux CI.
 
 ### Phase 6 checkpoint 1 — contracts, matcher, migrations, stores
 

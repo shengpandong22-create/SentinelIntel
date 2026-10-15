@@ -196,9 +196,12 @@ consumed evidence only and is not re-runnable as a gate without a newly construc
 
 ## Status
 
-Phase 6 end-to-end gate: the v11 candidate is constructed (version-claims generalization CVE-2024-21762,
-product-level unsupported-format CVE-2024-35250, stale rejection CVE-2023-38180, no-CVE negative),
-pending three-model review, freeze, and the single authorized revision-7a run; canonical Linux CI
-afterwards. Required demonstrations 1-3 are established as frozen development E2E evidence. v8 is a
-consumed successful E2E safety run; v9 is REVIEWED_NOT_RUN_INCOMPLETE_FREEZE; v10 is
-DEVELOPMENT_PROBED_NOT_RUN_NOT_FREEZABLE.
+Phase 6 end-to-end gate is now v12 under revision 8. v11 is
+`REVIEWED_NOT_RUN_INCOMPLETE_FREEZE`: two cases lacked unanimous-high review, and later audit found
+that CVE-2024-21762 was already present in the development dataset, so v11 was not disjoint and was
+never runnable as the closing gate. Revision 8 pre-registers separate authorities: three-model review
+adjudicates semantic evidence labels only, while executable tests and the final runner adjudicate all
+deterministic behavior. v12 uses the disjoint CVEs CVE-2025-24472, CVE-2025-24993, and
+CVE-2025-24054 plus a no-CVE negative; its frozen evidence pack is ready for review. Required
+demonstrations 1-3 remain established as frozen development E2E evidence. v8 is a consumed successful
+E2E safety run; v9 and v11 are incomplete freezes; v10 is development-probed and not freezable.
