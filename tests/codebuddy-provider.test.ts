@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { codeBuddyArgs, parseCodeBuddyEnvelope, parseCodeBuddyOutput, parseCodeBuddyStream } from "@aihot/backend/providers/codebuddy";
+import { codeBuddyArgs, parseCodeBuddyAssistantEvent, parseCodeBuddyEnvelope, parseCodeBuddyOutput, parseCodeBuddyStream } from "@aihot/backend/providers/codebuddy";
 
 test("parses CodeBuddy structured output and usage metadata", () => {
   const row = parseCodeBuddyEnvelope(JSON.stringify({
@@ -61,6 +61,18 @@ test("extracts fenced JSON from a successful CodeBuddy stream result", () => {
   const envelope = parseCodeBuddyStream(JSON.stringify({ type: "result", subtype: "success", is_error: false,
     result: "Here is the result:\n```json\n{\"decisions\":[]}\n```" }));
   assert.deepEqual(envelope.structured_output, { decisions: [] });
+});
+
+test("captures a complete structured assistant event when CodeBuddy omits the terminal result", () => {
+  const envelope = parseCodeBuddyAssistantEvent({
+    type: "assistant", session_id: "s2",
+    message: { content: [{ type: "text", text: "```json\n{\"reviews\":[]}\n```" }], usage: { input_tokens: 12 } },
+  });
+  assert.deepEqual(envelope?.structured_output, { reviews: [] });
+  assert.equal(envelope?.session_id, "s2");
+  assert.equal(envelope?.usage?.input_tokens, 12);
+  assert.equal(parseCodeBuddyAssistantEvent({ type: "assistant", message: { content: [{ type: "thinking", thinking: "wait" }] } }), null);
+  assert.equal(parseCodeBuddyAssistantEvent({ type: "assistant", message: { content: [{ type: "text", text: "partial {" }] } }), null);
 });
 
 test("extracts structured data from ordinary CodeBuddy JSON output", () => {

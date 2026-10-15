@@ -351,4 +351,7 @@ Revision 8a is a transport-only correction made after v12 construction but befor
 verdict. It changes no candidate, Evidence, label, rubric, threshold, or scorer. Each paid review now
 contains exactly one case, sends its frozen Evidence through stdin rather than a Windows command-line
 argument, allows 600 seconds, and records stream event counts/bytes and stderr in any timeout. Earlier
-timeouts remain unknown receipts under the existing no-blind-retry recovery policy.
+timeouts remain unknown receipts under the existing no-blind-retry recovery policy. A complete,
+schema-valid JSON assistant event is accepted when the CLI omits its terminal `result` event, after
+which the child is terminated; partial, thinking, malformed, and schema-invalid events remain
+fail-closed.
