@@ -224,6 +224,10 @@ for (const item of cases) {
     run = await runImpactForStory(storyId, {
       productImpactEnabled: true, modelCallsEnabled: true, internalToken,
       baseUrl: "http://127.0.0.1:8000",
+      // The production default is intentionally short, but an evaluation task performs several
+      // bounded official-source lookups before extraction. Keep the client alive for the task's
+      // pre-registered 60 s deadline instead of aborting every real replay after 5 s.
+      timeoutMs: 60_000,
     });
   } catch (error) {
     run = { error: error instanceof Error ? error.message : String(error) };

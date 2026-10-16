@@ -13,7 +13,7 @@ const { values } = parseArgs({ options: {
 if (!values.reviews) throw new Error("--reviews is required");
 const cases = readFileSync(values.candidate!, "utf8").split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line));
 const ReviewFileSchema = z.object({
-  schema_version: z.literal(1), reviewer: z.string().min(1), receipt_id: z.number().int().positive(),
+  schema_version: z.union([z.literal(1), z.literal(2)]), reviewer: z.string().min(1), receipt_id: z.number().int().positive(),
   reviews: z.array(z.object({ case_id: z.string(), accept: z.boolean(), confidence: z.enum(["high", "medium", "low"]), reason: z.string().min(1) }).strict()),
 }).passthrough();
 const reviewFiles = values.reviews.split(",").map((file) => file.trim()).filter(Boolean)
