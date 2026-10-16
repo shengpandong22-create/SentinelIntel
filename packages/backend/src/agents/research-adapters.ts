@@ -180,7 +180,9 @@ export const VENDOR_ADVISORY_SOURCES: Record<VendorKey, VendorAdvisorySource> = 
   fortinet: {
     name: "Fortinet",
     aliases: ["fortinet", "fortigate", "fortios"],
-    hosts: ["www.fortiguard.com"],
+    // NVD and Fortinet advisories use both official hostnames. The former commonly redirects to
+    // www, but it must pass the registry before the guarded fetch can follow that redirect.
+    hosts: ["www.fortiguard.com", "fortiguard.fortinet.com"],
     allowedPaths: [/^\/psirt\/FG-IR-/],
     searchUrl: (query) => `https://www.fortiguard.com/psirt?filter=1&search=${encodeURIComponent(query)}`,
   },

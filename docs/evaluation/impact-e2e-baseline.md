@@ -196,12 +196,21 @@ consumed evidence only and is not re-runnable as a gate without a newly construc
 
 ## Status
 
-Phase 6 end-to-end gate is now v12 under revision 8. v11 is
+Phase 6 end-to-end v12 under revision 8 is now **consumed and FAILED**. v11 is
 `REVIEWED_NOT_RUN_INCOMPLETE_FREEZE`: two cases lacked unanimous-high review, and later audit found
 that CVE-2024-21762 was already present in the development dataset, so v11 was not disjoint and was
 never runnable as the closing gate. Revision 8 pre-registers separate authorities: three-model review
 adjudicates semantic evidence labels only, while executable tests and the final runner adjudicate all
 deterministic behavior. v12 uses the disjoint CVEs CVE-2025-24472, CVE-2025-24993, and
-CVE-2025-24054 plus a no-CVE negative; its frozen evidence pack is ready for review. Required
-demonstrations 1-3 remain established as frozen development E2E evidence. v8 is a consumed successful
-E2E safety run; v9 and v11 are incomplete freezes; v10 is development-probed and not freezable.
+CVE-2025-24054 plus a no-CVE negative. All four were unanimously accepted at high confidence by
+three model families and frozen at SHA256
+`88e257d8e23ed98fa6bbae0f0ba42d7f8f871725247985dada9492a6faf264c4`. The clean-scratch final run
+had all thirteen safety counters at zero and all five aggregate quality metrics at 1.0, but failed
+HOLD-001's `complete_claims_min=1`: live acquisition stored NVD and KEV evidence and produced
+supported affected ranges for FortiOS/FortiProxy, but no fixed range. Root cause: NVD references the
+official advisory at `fortiguard.fortinet.com`, while the controlled registry allowed only
+`www.fortiguard.com`, so the advisory fetch never ran. The official hostname is now added to the same
+Fortinet allowlist with a regression test. v12 remains immutable and cannot be rerun; Phase 6 needs a
+new disjoint holdout after this remediation. Required demonstrations 1-3 remain established as frozen
+development E2E evidence. v8 is a consumed successful E2E safety run; v9 and v11 are incomplete
+freezes; v10 is development-probed and not freezable.

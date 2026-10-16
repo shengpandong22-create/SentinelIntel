@@ -264,14 +264,24 @@ No partial freeze was run. The 2026-10-15 audit additionally found that HOLD-001
 `CVE-2024-21762` already appears in `datasets/impact/development.jsonl`, disproving the candidate's
 disjointness claim. v11 is immutable, is not a gate, and none of its cases may be reused.
 
-**Holdout v12 (closing gate candidate; review pending)**: revision 8 separates independent semantic
+**Holdout v12 (consumed, FAILED — frozen)**: revision 8 separates independent semantic
 evidence adjudication from executable deterministic conformance. The semantic reviewers see only
 allowed outcomes, evidence-named product keywords, KEV status, and forbidden evidence strings;
 matcher/routing/persistence/receipt/count behavior remains enforced by tests and the thirteen final-run
 detectors. The automated disjointness gate passed for CVE-2025-24472, CVE-2025-24993, and
 CVE-2025-24054 against every impact development and v1-v11 JSONL file. Candidate and frozen official
-evidence pack were committed in separate ordered commits after revision 8. Remaining: three-model
-unanimous-high semantic review, full-set freeze, the single authorized final run, and canonical Linux CI.
+evidence pack were committed in separate ordered commits after revision 8. After the CodeBuddy
+streaming correction below, all four cases received unanimous high acceptance from
+`deepseek-v4.1-flash`, `glm-5.3-flash`, and `kimi-k2.8-preview` (receipts 10-21) and froze at SHA256
+`88e257d8e23ed98fa6bbae0f0ba42d7f8f871725247985dada9492a6faf264c4`. The valid clean-scratch run
+passed all thirteen safety counters at zero and all five aggregate quality metrics at 1.0, but FAILED
+the pre-registered per-case gate: CVE-2025-24472 produced two supported affected-range claims and a
+KEV-grounded exploit status, but no claim carried a fixed range (`complete_claims_min=1`). The live
+pipeline acquired NVD and KEV only because NVD's official Fortinet reference uses
+`fortiguard.fortinet.com`, while the controlled registry allowed only `www.fortiguard.com`; the
+advisory containing the fixed releases was therefore rejected before fetch. v12 remains frozen and
+cannot be rerun or relabelled. Remediation adds that official hostname to the existing Fortinet
+registry with a regression test; a new disjoint holdout is required before Phase 6 can close.
 
 Review execution note (2026-10-15): the dedicated scratch database
 `sentinel_phase6_v12_ci` was migrated through `0045`. The frozen evidence gate and disjointness gate
@@ -281,7 +291,12 @@ DeepSeek-V4.1-Flash, and a one-case GLM-5.3 retry; their receipts are `unknown`,
 request interrupted during diagnosis remains subject to the normal stale-pending recovery path. No
 review output was accepted, no case was frozen, and the calls must not be blindly repeated before the
 receipt recovery policy releases them. This is an external review-channel blocker, not a Phase 6
-quality result.
+quality result. Revision 8a then accepted a complete schema-valid assistant event when CodeBuddy
+omitted its terminal `result` event; the one-case retry returned in seconds and the remaining reviews
+completed normally. Two preflight attempts of the final runner were discarded before evaluation:
+one had the Python product-impact switch disabled, and one used the production 5-second Agent client
+timeout; neither reached extraction or produced model receipts. The runner now uses the task's
+pre-registered 60-second deadline. The subsequent clean-scratch run is the consumed v12 result above.
 
 ### Phase 6 checkpoint 1 — contracts, matcher, migrations, stores
 
