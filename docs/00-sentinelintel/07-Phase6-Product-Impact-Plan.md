@@ -355,3 +355,21 @@ timeouts remain unknown receipts under the existing no-blind-retry recovery poli
 schema-valid JSON assistant event is accepted when the CLI omits its terminal `result` event, after
 which the child is terminated; partial, thinking, malformed, and schema-invalid events remain
 fail-closed.
+
+## 16. Revision 9 — production-adapter preflight before v13
+
+The consumed v12 run passed every aggregate metric and all thirteen safety gates, but failed its
+pre-registered complete-version assertion. Its frozen review evidence pack could fetch the Fortinet
+advisory, while the live production registry rejected NVD's official `fortiguard.fortinet.com` URL
+before fetch because only `www.fortiguard.com` was registered. v12 stays frozen and is never rerun or
+relabelled. The official alternate hostname is now part of the same bounded Fortinet registry.
+
+Before v13 construction, freeze, or paid review, its version-claims case must pass a deterministic
+production-adapter preflight with no model call: the advisory URL must come from the CVE's NVD
+references, pass `assertVendorAdvisoryUrl`, survive `vendor_advisory_search` as a validated candidate,
+and produce authoritative `vendor_advisory` Evidence through `evidence_fetch` whose usable text
+contains both affected-version and explicit fixed/upgrade wording. Evidence-pack reachability alone
+does not satisfy this gate. v13 otherwise preserves revision 8 unchanged: complete disjointness from
+development and v1-v12, three-family unanimous-high semantic review, immutable freeze, all thirteen
+safety counters at zero, every quality threshold, every per-case assertion, and a non-zero recall
+denominator.
