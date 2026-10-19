@@ -214,3 +214,24 @@ Fortinet allowlist with a regression test. v12 remains immutable and cannot be r
 new disjoint holdout after this remediation. Required demonstrations 1-3 remain established as frozen
 development E2E evidence. v8 is a consumed successful E2E safety run; v9 and v11 are incomplete
 freezes; v10 is development-probed and not freezable.
+
+### v13 — consumed failure after production-adapter preflight
+
+Revision 9 and its model-free production-adapter preflight were committed before v13 construction.
+The preflight proved the live registry/search/fetch path could retrieve Fortinet FG-IR-25-254 from
+NVD's official reference. The disjoint four-case candidate was unanimously accepted at high
+confidence by three model families (review receipts 1-12) and frozen at SHA256
+`6e20a4baffedc387f74fd8c5eac6abe0f55bc29871ec6780865cb24f9043b130`.
+
+The single clean-scratch run (`sentinel_phase6_v13_final_ci`,
+`.data/impact/e2e-v13-results.json`) failed. All thirteen safety counters remained zero. HOLD-001
+successfully acquired the official advisory and extracted five evidence-grounded drafts containing
+supported affected and fixed ranges, but the normalizer treated duplicate NVD/advisory drafts for
+the same product as conflicts even when the authoritative advisory merely added the fixed version;
+all five rows became medium human reviews, leaving no claims row. HOLD-002 routed all thirteen
+four-part Windows build expressions to human review, but the explicit `matcher-unsupported` text was
+not added when extraction had already assigned medium confidence. HOLD-003 was rejected fail-closed
+because the model returned an unexpected top-level `type` key. Decision and exploit accuracy were
+0.667; row recall had no denominator; routing consistency and unknown honesty were 1.0. v13 remains
+frozen and is not rerunnable. A later candidate is prohibited until duplicate-draft conflict semantics
+and unsupported-range unknown surfacing are fixed and verified on development data.

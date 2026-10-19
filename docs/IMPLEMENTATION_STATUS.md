@@ -283,7 +283,7 @@ advisory containing the fixed releases was therefore rejected before fetch. v12 
 cannot be rerun or relabelled. Remediation adds that official hostname to the existing Fortinet
 registry with a regression test; a new disjoint holdout is required before Phase 6 can close.
 
-**Holdout v13 (frozen; final run pending)**: revision 9 was committed alone before construction. It adds a
+**Holdout v13 (consumed, FAILED — frozen)**: revision 9 was committed alone before construction. It adds a
 deterministic, model-free production-adapter preflight for the version-claims case; evidence-pack
 reachability alone is no longer accepted as proof that the live pipeline can acquire the advisory.
 The preflight passed for CVE-2025-32756 and Fortinet advisory FG-IR-25-254: the URL occurs in NVD's
@@ -294,7 +294,16 @@ files. Candidate and frozen official evidence pack were committed separately aft
 three-family one-case-at-a-time semantic review completed with all 12 verdicts high-accept
 (`deepseek-v4.1-flash` receipts 1-4, `glm-5.3-flash` 5-8, `kimi-k2.8-preview` 9-12). All four cases
 froze as `MODEL_REVIEWED`, not human gold, at SHA256
-`6e20a4baffedc387f74fd8c5eac6abe0f55bc29871ec6780865cb24f9043b130`. No v13 execution has occurred.
+`6e20a4baffedc387f74fd8c5eac6abe0f55bc29871ec6780865cb24f9043b130`. The single clean-scratch run
+kept all thirteen safety counters at zero but failed the quality/per-case gate. HOLD-001 acquired the
+official Fortinet advisory and extracted five complete affected+fixed drafts, but duplicate
+NVD/advisory drafts for the same products were all treated as conflicts and capped to medium, routing
+every row to review (`min_rows` and `complete_claims_min` failed). HOLD-002 correctly routed thirteen
+four-part Windows builds to review, but an already-medium extraction did not add the expected explicit
+`matcher-unsupported` unknown. HOLD-003's model response carried an unexpected top-level `type` key and
+was rejected fail-closed as unusable. v13 is immutable and will not be rerun or relabelled. The first
+two findings are development defects to fix and verify before any new holdout; the third remains
+recorded provider/model-output variance.
 
 Review execution note (2026-10-15): the dedicated scratch database
 `sentinel_phase6_v12_ci` was migrated through `0045`. The frozen evidence gate and disjointness gate
