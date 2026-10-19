@@ -388,3 +388,17 @@ normalization defects rather than evidence or label defects:
 Both corrections require focused Python regression tests plus a development replay before another
 holdout is constructed. v13 remains immutable. Any subsequent holdout must remain disjoint from all
 development data and v1-v13 and otherwise preserve revision 9's gates.
+
+## 18. Revision 11 — same-evidence release branches after v14
+
+The frozen, consumed v14 result is not rerun or relabelled. It passed every aggregate quality metric
+except row recall and kept all thirteen safety counters at zero, but its version case routed the sole
+product to review: multiple matcher-supported release branches from the same authoritative advisory
+were still classified as contradictory drafts.
+
+For one vendor/product/CVE, different matcher-supported version expressions that share at least one
+Evidence id are branches of the same evidence-backed affected or fixed set and are deterministically
+merged with the already-supported finite-union syntax. Different assertions backed only by disjoint
+Evidence remain conflicts and cap confidence at medium. A focused test must prove both cases, and the
+full 24-case development replay must retain zero safety failures before v15 construction. v14 remains
+immutable; v15 must be disjoint from development and v1-v14 and preserves all prior gates.

@@ -185,19 +185,33 @@ def normalize_extraction(state: ImpactState) -> dict[str, ImpactProposal]:
             best[key] = (rank[authority], row_item, authority, False)
             continue
         current_row = current[1]
+        shared_evidence = bool(set(current_row.evidence_ids) & set(row_item.evidence_ids))
+        affected_differ = (
+            current_row.affected_range.raw != row_item.affected_range.raw
+            or current_row.affected_range.supported != row_item.affected_range.supported
+        )
+        fixed_differ = (
+            current_row.fixed_range is not None
+            and row_item.fixed_range is not None
+            and (
+                current_row.fixed_range.raw != row_item.fixed_range.raw
+                or current_row.fixed_range.supported != row_item.fixed_range.supported
+            )
+        )
+        # An official advisory commonly emits one draft per release branch. Branches citing the
+        # same Evidence and accepted by the matcher form a finite union, not a contradiction.
+        merge_affected_union = (
+            affected_differ and shared_evidence
+            and current_row.affected_range.supported and row_item.affected_range.supported
+        )
+        merge_fixed_union = (
+            fixed_differ and shared_evidence
+            and current_row.fixed_range is not None and current_row.fixed_range.supported
+            and row_item.fixed_range is not None and row_item.fixed_range.supported
+        )
         ranges_conflict = (
-            (
-                current_row.affected_range.raw != row_item.affected_range.raw
-                or current_row.affected_range.supported != row_item.affected_range.supported
-            )
-            or (
-                current_row.fixed_range is not None
-                and row_item.fixed_range is not None
-                and (
-                    current_row.fixed_range.raw != row_item.fixed_range.raw
-                    or current_row.fixed_range.supported != row_item.fixed_range.supported
-                )
-            )
+            (affected_differ and not merge_affected_union)
+            or (fixed_differ and not merge_fixed_union)
         )
         cves_conflict = (
             current_row.cve_id is not None
@@ -229,8 +243,25 @@ def normalize_extraction(state: ImpactState) -> dict[str, ImpactProposal]:
             if (rank[authority], incoming_completeness) > (current[0], current_completeness)
             else (current_row, row_item)
         )
+        affected_range = preferred.affected_range
+        if merge_affected_union:
+            affected_range = preferred.affected_range.model_copy(update={
+                "raw": "|".join(dict.fromkeys([
+                    *preferred.affected_range.raw.split("|"),
+                    *other.affected_range.raw.split("|"),
+                ])),
+            })
+        fixed_range = preferred.fixed_range or other.fixed_range
+        if merge_fixed_union and preferred.fixed_range is not None and other.fixed_range is not None:
+            fixed_range = preferred.fixed_range.model_copy(update={
+                "raw": "|".join(dict.fromkeys([
+                    *preferred.fixed_range.raw.split("|"),
+                    *other.fixed_range.raw.split("|"),
+                ])),
+            })
         merged = preferred.model_copy(update={
-            "fixed_range": preferred.fixed_range or other.fixed_range,
+            "affected_range": affected_range,
+            "fixed_range": fixed_range,
             "models": list(dict.fromkeys([*preferred.models, *other.models])),
             "mitigations": list(dict.fromkeys([*preferred.mitigations, *other.mitigations])),
             "evidence_ids": list(dict.fromkeys([*preferred.evidence_ids, *other.evidence_ids])),

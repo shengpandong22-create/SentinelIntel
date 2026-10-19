@@ -318,6 +318,22 @@ no invalid result was accepted. The deterministic unsupported-medium behavior is
 focused runtime regression. No v14 candidate may be built until this revision is committed; v13 stays
 frozen and consumed.
 
+**Holdout v14 (consumed, FAILED — frozen)**: after revision 10, a fully disjoint four-case candidate
+and official evidence pack were frozen. DeepSeek-V4.1-Flash, GLM-5.3-Flash, and Kimi-K2.8-Preview
+returned 12/12 high-accept verdicts; all four cases froze as `MODEL_REVIEWED` at SHA256
+`394086a87eea35e359897cb2dc5230941d58734f56a0adbd406318916b9f728d`. The unique clean-scratch run
+kept all thirteen safety counters at zero and scored decision, exploit, routing, and unknown honesty
+at 1.0. The unsupported-version and stale-input cases passed. The version case correctly extracted a
+complete FortiWeb affected/fixed record but still capped it to medium because different release
+branches from the same advisory were treated as conflicting rather than as a finite union; therefore
+row recall had no denominator and the run failed. v14 is immutable and will not be rerun or relabelled.
+
+**Post-v14 development correction (revision 11)**: matcher-supported affected/fixed branches sharing
+the same Evidence are merged with the frozen finite-union syntax. Differing assertions from disjoint
+Evidence remain conflicts. Focused tests cover union merge and true cross-source conflict; the full
+24-case development replay retains all safety counts at zero and 1.0 vendor/product/version/decision/
+exploit/unknown metrics. A fresh disjoint v15 is required for the final gate.
+
 Review execution note (2026-10-15): the dedicated scratch database
 `sentinel_phase6_v12_ci` was migrated through `0045`. The frozen evidence gate and disjointness gate
 passed before every attempted request. CodeBuddy's simple CLI health probe succeeded, but the

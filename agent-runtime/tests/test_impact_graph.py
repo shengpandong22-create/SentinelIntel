@@ -217,9 +217,30 @@ async def test_compatible_duplicate_drafts_merge_without_false_conflict() -> Non
 async def test_contradictory_duplicate_drafts_remain_review_routed() -> None:
     task = normalize_task()
     main_draft = task.extraction.drafts[0]  # type: ignore[index]
-    conflicting = main_draft.model_copy(update={"affected_range_raw": ">=3.0,<4.0"})
+    conflicting = main_draft.model_copy(update={
+        "affected_range_raw": ">=3.0,<4.0",
+        "evidence_ids": [task.evidence[-1].evidence_id],
+    })
     task.extraction = task.extraction.model_copy(update={"drafts": [main_draft, conflicting]})  # type: ignore[union-attr]
     proposal = await run_impact_graph(task)
     assert len(proposal.impact_rows) == 1
     assert proposal.impact_rows[0].confidence == "medium"
     assert any("Conflicting drafts" in item for item in proposal.unknowns)
+
+
+@pytest.mark.anyio
+async def test_same_evidence_version_branches_merge_as_supported_union() -> None:
+    task = normalize_task()
+    main_draft = task.extraction.drafts[0]  # type: ignore[index]
+    second_branch = main_draft.model_copy(update={
+        "affected_range_raw": ">=3.0,<=3.4",
+        "fixed_range_raw": ">=3.5",
+    })
+    task.extraction = task.extraction.model_copy(update={"drafts": [main_draft, second_branch]})  # type: ignore[union-attr]
+    proposal = await run_impact_graph(task)
+    assert len(proposal.impact_rows) == 1
+    row = proposal.impact_rows[0]
+    assert row.confidence == "high"
+    assert row.affected_range.raw == ">=1.0,<2.3.5|>=3.0,<=3.4"
+    assert row.fixed_range is not None and row.fixed_range.raw == "2.3.5|>=3.5"
+    assert not any("Conflicting drafts" in item for item in proposal.unknowns)
