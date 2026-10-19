@@ -6,6 +6,7 @@ import {
   parseVendorKey,
   searchVendorAdvisories,
 } from "@aihot/backend/agents/research-adapters";
+import { fetchVendorAdvisoryPersistent } from "@aihot/backend/agents/research-source-cache";
 
 const { values } = parseArgs({ options: {
   cve: { type: "string" },
@@ -35,7 +36,9 @@ if (!candidates.some((item) => item && typeof item === "object" && (item as { ur
   throw new Error("production vendor search did not retain the official advisory candidate");
 }
 
-const fetched = await fetchVendorAdvisory(vendor, advisory);
+const fetched = process.env.DATABASE_URL
+  ? await fetchVendorAdvisoryPersistent(vendor, advisory, fetchVendorAdvisory)
+  : await fetchVendorAdvisory(vendor, advisory);
 const evidence = fetched.evidence.find((entry) => entry.source_type === "vendor_advisory" && entry.authority_level === "authoritative");
 if (!evidence?.excerpt) throw new Error("production advisory fetch returned no authoritative usable text");
 const hasAffected = /affected|through|all versions/i.test(evidence.excerpt);

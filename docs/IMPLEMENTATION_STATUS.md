@@ -334,6 +334,23 @@ Evidence remain conflicts. Focused tests cover union merge and true cross-source
 24-case development replay retains all safety counts at zero and 1.0 vendor/product/version/decision/
 exploit/unknown metrics. A fresh disjoint v15 is required for the final gate.
 
+**Holdout v15 (consumed, FAILED — frozen)**: the disjoint candidate received 12/12 high-accept verdicts
+from the same three independent model families and froze at SHA256
+`0d1ef2ba93b7e0c8971220fc3f7939f7dbccb53d87ecec31c131049ea58d50d6`. The unique clean-scratch run
+kept all thirteen safety counters at zero and scored all five aggregate quality metrics at 1.0,
+including non-zero row recall. Its sole failure was `complete_claims_min`: the FortiWeb affected-range
+union persisted correctly at high confidence, but the official advisory fetch timed out/rejected after
+the earlier production preflight had succeeded, so the model saw only cached NVD/KEV and honestly left
+the fixed range null. v15 is immutable and will not be rerun or relabelled.
+
+**Post-v15 reliability correction (revision 12)**: migration `0046` extends the existing source cache
+to registry-validated official vendor advisories. A successful live fetch is cached; only a subsequent
+live failure may use it, with a new Evidence id and explicit cache provenance. The production tool
+gateway uses this persistent path while injected test fetches remain isolated. The model-free advisory
+preflight now warms the same cache when `DATABASE_URL` is configured. A scratch-database test proves
+live success followed by transient failure still returns the exact official advisory. The next final
+database must be migrated and prewarmed before the v16 run.
+
 Review execution note (2026-10-15): the dedicated scratch database
 `sentinel_phase6_v12_ci` was migrated through `0045`. The frozen evidence gate and disjointness gate
 passed before every attempted request. CodeBuddy's simple CLI health probe succeeded, but the

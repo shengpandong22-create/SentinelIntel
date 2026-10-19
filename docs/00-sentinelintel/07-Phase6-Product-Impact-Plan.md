@@ -402,3 +402,19 @@ merged with the already-supported finite-union syntax. Different assertions back
 Evidence remain conflicts and cap confidence at medium. A focused test must prove both cases, and the
 full 24-case development replay must retain zero safety failures before v15 construction. v14 remains
 immutable; v15 must be disjoint from development and v1-v14 and preserves all prior gates.
+
+## 19. Revision 12 — durable official-advisory cache after v15
+
+The frozen, consumed v15 result is not rerun or relabelled. It passed all thirteen safety counters and
+all five aggregate quality metrics at 1.0, including a non-zero recall denominator, but failed the
+complete-version per-case assertion because the live vendor-advisory fetch timed out after the earlier
+production preflight had succeeded. NVD and KEV evidence remained available from their persistent
+source caches, while the equally authoritative vendor advisory had no such fallback.
+
+The existing bounded `research_source_cache` is extended additively to registry-validated official
+vendor-advisory URLs. A successful live fetch stores the normalized Evidence; only a later live failure
+may fall back to that cached Evidence, with a fresh Evidence id and explicit cache provenance. Tests
+must prove fail-closed behavior without a cache and successful replay after prewarming. Before any v16
+final run, its clean scratch database is migrated and the already-required model-free production
+adapter preflight must also prewarm this cache. This changes no labels, prompts, scorer, thresholds, or
+model routing. v15 remains immutable; v16 remains disjoint from development and v1-v15.
