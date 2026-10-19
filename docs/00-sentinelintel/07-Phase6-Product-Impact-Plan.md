@@ -373,3 +373,18 @@ does not satisfy this gate. v13 otherwise preserves revision 8 unchanged: comple
 development and v1-v12, three-family unanimous-high semantic review, immutable freeze, all thirteen
 safety counters at zero, every quality threshold, every per-case assertion, and a non-zero recall
 denominator.
+
+## 17. Revision 10 — v13 deterministic normalization corrections
+
+The frozen, consumed v13 result is not rerun or relabelled. Its first two failures exposed deterministic
+normalization defects rather than evidence or label defects:
+
+1. multiple drafts for one product are conflicts only when their CVE or non-null version assertions
+   contradict; corroborating drafts and drafts that add a fixed range, models, mitigations, or citations
+   are merged and retain the most authoritative complete draft's confidence;
+2. every real version expression rejected by the matcher is recorded explicitly as matcher-unsupported
+   and routed to review, including drafts that entered normalization at medium confidence.
+
+Both corrections require focused Python regression tests plus a development replay before another
+holdout is constructed. v13 remains immutable. Any subsequent holdout must remain disjoint from all
+development data and v1-v13 and otherwise preserve revision 9's gates.

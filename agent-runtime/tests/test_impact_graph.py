@@ -164,3 +164,62 @@ async def test_unsupported_version_expression_routes_to_review_not_claims() -> N
     assert proposal.impact_rows[0].affected_range.raw == "builds before 20240412"  # preserved for review
     assert proposal.impact_rows[0].affected_range.supported is False
     assert any("routed to human review" in item for item in proposal.unknowns)
+
+
+@pytest.mark.anyio
+async def test_medium_unsupported_version_still_records_matcher_review_reason() -> None:
+    task = normalize_task()
+    main_draft = task.extraction.drafts[0]  # type: ignore[index]
+    task.extraction = task.extraction.model_copy(update={"drafts": [  # type: ignore[union-attr]
+        main_draft.model_copy(update={
+            "affected_range_raw": "10.0.19045.4291",
+            "affected_range_supported": False,
+            "fixed_range_raw": None,
+            "fixed_range_supported": False,
+            "confidence": "medium",
+        }),
+    ]})
+    proposal = await run_impact_graph(task)
+    assert proposal.impact_rows[0].confidence == "medium"
+    assert any(
+        "Matcher-unsupported version expressions routed to human review: CamFirm Platform" in item
+        for item in proposal.unknowns
+    )
+
+
+@pytest.mark.anyio
+async def test_compatible_duplicate_drafts_merge_without_false_conflict() -> None:
+    task = normalize_task()
+    main_draft = task.extraction.drafts[0]  # type: ignore[index]
+    advisory_draft = main_draft.model_copy(update={
+        "models": ["CAM-200"],
+        "fixed_range_raw": ">=2.3.5",
+        "fixed_range_supported": True,
+        "mitigations": ["Upgrade to 2.3.5."],
+    })
+    nvd_draft = main_draft.model_copy(update={
+        "models": ["CAM-100"],
+        "fixed_range_raw": None,
+        "fixed_range_supported": False,
+        "mitigations": [],
+    })
+    task.extraction = task.extraction.model_copy(update={"drafts": [nvd_draft, advisory_draft]})  # type: ignore[union-attr]
+    proposal = await run_impact_graph(task)
+    assert len(proposal.impact_rows) == 1
+    row = proposal.impact_rows[0]
+    assert row.confidence == "high"
+    assert row.fixed_range is not None and row.fixed_range.raw == ">=2.3.5"
+    assert row.models == ["CAM-200", "CAM-100"]
+    assert not any("Conflicting drafts" in item for item in proposal.unknowns)
+
+
+@pytest.mark.anyio
+async def test_contradictory_duplicate_drafts_remain_review_routed() -> None:
+    task = normalize_task()
+    main_draft = task.extraction.drafts[0]  # type: ignore[index]
+    conflicting = main_draft.model_copy(update={"affected_range_raw": ">=3.0,<4.0"})
+    task.extraction = task.extraction.model_copy(update={"drafts": [main_draft, conflicting]})  # type: ignore[union-attr]
+    proposal = await run_impact_graph(task)
+    assert len(proposal.impact_rows) == 1
+    assert proposal.impact_rows[0].confidence == "medium"
+    assert any("Conflicting drafts" in item for item in proposal.unknowns)

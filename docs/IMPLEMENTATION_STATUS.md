@@ -305,6 +305,19 @@ was rejected fail-closed as unusable. v13 is immutable and will not be rerun or 
 two findings are development defects to fix and verify before any new holdout; the third remains
 recorded provider/model-output variance.
 
+**Post-v13 development correction (revision 10)**: normalization now distinguishes contradictory
+version assertions from compatible duplicate drafts. Compatible NVD/advisory drafts merge their
+models, mitigations, Evidence ids and complementary fixed range without an automatic confidence cap;
+genuine contradictory ranges still cap the survivor to medium and record a conflict. Matcher-rejected
+expressions now always add the explicit review-routing unknown even when the incoming draft is already
+medium. Focused Python regressions cover compatible merge, genuine conflict, and already-medium
+unsupported routing. A fresh development E2E replay of CVE-2017-7921 produced seven high-confidence,
+auto-routed, evidence-backed product claims with every safety detector at zero; a CVE-2023-36563 replay
+was attempted twice but the paid provider returned schema-invalid UUID fields before normalization, so
+no invalid result was accepted. The deterministic unsupported-medium behavior is verified by the
+focused runtime regression. No v14 candidate may be built until this revision is committed; v13 stays
+frozen and consumed.
+
 Review execution note (2026-10-15): the dedicated scratch database
 `sentinel_phase6_v12_ci` was migrated through `0045`. The frozen evidence gate and disjointness gate
 passed before every attempted request. CodeBuddy's simple CLI health probe succeeded, but the

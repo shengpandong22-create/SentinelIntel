@@ -145,9 +145,10 @@ def normalize_extraction(state: ImpactState) -> dict[str, ImpactProposal]:
             (affected is not None and not draft.affected_range_supported)
             or (fixed is not None and not draft.fixed_range_supported)
         )
-        if unsupported_version and confidence == "high":
-            confidence = "medium"
+        if unsupported_version:
             review_routed.append(draft.product)
+            if confidence == "high":
+                confidence = "medium"
         if confidence == "low":
             # Design §12: Low confidence keeps the unknown and never carries a claim.
             low_confidence.append(draft.product)
@@ -169,9 +170,10 @@ def normalize_extraction(state: ImpactState) -> dict[str, ImpactProposal]:
             confidence=confidence,
             evidence_ids=cited,
         ))
-    # One product, one row: when drafts collide, the most authoritative citation governs and the
-    # losing drafts become an explicit conflict unknown instead of a duplicate claim. A surviving
-    # row with superseded conflicting drafts caps at medium: the conflict itself lowers confidence.
+    # One product, one row. Repeated drafts are not automatically conflicts: official sources often
+    # corroborate the same affected range while one adds a fixed range, model, mitigation, or
+    # evidence citation. Compatible drafts are merged; only contradictory version assertions cap
+    # the surviving row at medium and surface an explicit conflict unknown.
     best: dict[tuple[str, str], tuple[int, ImpactRow, str, bool]] = {}
     conflicted: set[tuple[str, str]] = set()
     rank = {"authoritative": 2, "primary": 1, "secondary": 0}
@@ -182,11 +184,59 @@ def normalize_extraction(state: ImpactState) -> dict[str, ImpactProposal]:
         if current is None:
             best[key] = (rank[authority], row_item, authority, False)
             continue
-        conflicted.add(key)
-        if rank[authority] > current[0]:
-            best[key] = (rank[authority], row_item, authority, True)
-        else:
-            best[key] = (current[0], current[1], current[2], True)
+        current_row = current[1]
+        ranges_conflict = (
+            (
+                current_row.affected_range.raw != row_item.affected_range.raw
+                or current_row.affected_range.supported != row_item.affected_range.supported
+            )
+            or (
+                current_row.fixed_range is not None
+                and row_item.fixed_range is not None
+                and (
+                    current_row.fixed_range.raw != row_item.fixed_range.raw
+                    or current_row.fixed_range.supported != row_item.fixed_range.supported
+                )
+            )
+        )
+        cves_conflict = (
+            current_row.cve_id is not None
+            and row_item.cve_id is not None
+            and current_row.cve_id != row_item.cve_id
+        )
+        if ranges_conflict or cves_conflict:
+            conflicted.add(key)
+            if rank[authority] > current[0]:
+                best[key] = (rank[authority], row_item, authority, True)
+            else:
+                best[key] = (current[0], current_row, current[2], True)
+            continue
+
+        current_completeness = (
+            int(current_row.fixed_range is not None)
+            + int(current_row.affected_range.supported)
+            + len(current_row.models)
+            + len(current_row.mitigations)
+        )
+        incoming_completeness = (
+            int(row_item.fixed_range is not None)
+            + int(row_item.affected_range.supported)
+            + len(row_item.models)
+            + len(row_item.mitigations)
+        )
+        preferred, other = (
+            (row_item, current_row)
+            if (rank[authority], incoming_completeness) > (current[0], current_completeness)
+            else (current_row, row_item)
+        )
+        merged = preferred.model_copy(update={
+            "fixed_range": preferred.fixed_range or other.fixed_range,
+            "models": list(dict.fromkeys([*preferred.models, *other.models])),
+            "mitigations": list(dict.fromkeys([*preferred.mitigations, *other.mitigations])),
+            "evidence_ids": list(dict.fromkeys([*preferred.evidence_ids, *other.evidence_ids])),
+        })
+        merged_authority = authority if preferred is row_item else current[2]
+        best[key] = (max(current[0], rank[authority]), merged, merged_authority, current[3])
     rows = []
     for key, (_, row_item, _authority, had_conflict) in best.items():
         if had_conflict and row_item.confidence == "high":
