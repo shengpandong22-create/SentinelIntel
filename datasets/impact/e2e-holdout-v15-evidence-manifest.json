@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "pack": "datasets\\impact\\e2e-holdout-v15-evidence.jsonl",
+  "pack_sha256": "e8927bb76da5860ec53ea87348b8204dce98f71b5728a4ccf1fa2d0e5c744bdd",
+  "constructed_at": "2026-10-19T14:12:13.046Z",
+  "kev_catalog_version": "2026.10.16",
+  "items": [
+    {
+      "case_id": "IMP-E2E15-HOLD-001",
+      "source_type": "nvd",
+      "url": "https://nvd.nist.gov/vuln/detail/CVE-2025-58034",
+      "content_sha256": "aedc16589f35f062d22da260a9bdf97ada9e1cd7485d7acf8865e1fad23424f4",
+      "content_status": "ok"
+    },
+    {
+      "case_id": "IMP-E2E15-HOLD-001",
+      "source_type": "cisa_kev",
+      "url": "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+      "content_sha256": "5f0fcccc68a580c946f701bad952549c79d558cd0b8efe69bf8dcd2537c302bf",
+      "content_status": "ok"
+    },
+    {
+      "case_id": "IMP-E2E15-HOLD-001",
+      "source_type": "vendor_advisory",
+      "url": "https://fortiguard.fortinet.com/psirt/FG-IR-25-513",
+      "content_sha256": "ca657f80e22f6d9d923cc691692df29ba12a173fba2dfd223f4e89ba731ee081",
+      "content_status": "ok"
+    },
+    {
+      "case_id": "IMP-E2E15-HOLD-002",
+      "source_type": "nvd",
+      "url": "https://nvd.nist.gov/vuln/detail/CVE-2025-24984",
+      "content_sha256": "9f4986dcf2f0459aa0054ed240e13f7d722d11de620ca6edce7ec769468246a2",
+      "content_status": "ok"
+    },
+    {
+      "case_id": "IMP-E2E15-HOLD-002",
+      "source_type": "cisa_kev",
+      "url": "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+      "content_sha256": "21b34708d62dd110633e844ed61efd00a23346c9e670a591daa72ca936d749be",
+      "content_status": "ok"
+    },
+    {
+      "case_id": "IMP-E2E15-HOLD-002",
+      "source_type": "msrc_api",
+      "url": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-24984",
+      "content_sha256": "e0d646f6b643a3f70c0fb4aae94e33309e65a4a54a5a509365196003d9160b8b",
+      "content_status": "ok"
+    },
+    {
+      "case_id": "IMP-E2E15-HOLD-003",
+      "source_type": "nvd",
+      "url": "https://nvd.nist.gov/vuln/detail/CVE-2025-32706",
+      "content_sha256": "26b1f5c5c6ee29298d650ab813fff5a13ef305b8dbdfac37ac4d282fe9da8eab",
+      "content_status": "ok"
+    },
+    {
+      "case_id": "IMP-E2E15-HOLD-003",
+      "source_type": "cisa_kev",
+      "url": "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+      "content_sha256": "db20519f8f58cb17fcc43d0f030101dc73e846e3c01433fe3f6db47f39ce243e",
+      "content_status": "ok"
+    },
+    {
+      "case_id": "IMP-E2E15-HOLD-003",
+      "source_type": "msrc_api",
+      "url": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-32706",
+      "content_sha256": "5a889a324c2bc2e5ae2947485de7a65c3b245ba5752907b6c089339966eabc88",
+      "content_status": "ok"
+    },
+    {
+      "case_id": "IMP-E2E15-HOLD-004",
+      "source_type": "vendor_announcement",
+      "url": "https://www.cisco.com/c/en/us/about/purpose.html",
+      "content_sha256": "9388227ef05aeca79c75ea8cb03faee64d093eaa20e4859fa811f11848670866",
+      "content_status": "ok"
+    }
+  ],
+  "note": "Frozen official evidence for e2e-holdout-v15-candidate.jsonl. The CISA KEV entry is the actual catalog record. Reviewers judge only semantic labels against these excerpts; the pack hash and every item hash are validated before any paid request."
+}
