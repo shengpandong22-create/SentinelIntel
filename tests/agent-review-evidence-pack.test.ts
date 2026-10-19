@@ -158,3 +158,22 @@ test("the frozen v12 evidence pack validates against the disjoint v12 candidate"
   );
   assert.deepEqual(validateEvidencePack(cases, items, manifest, createHash("sha256").update(packBytes).digest("hex")), []);
 });
+
+test("the frozen v13 evidence pack validates and carries the preflighted version advisory", () => {
+  const cases = z.array(ReviewCaseSchema).parse(
+    readFileSync(path.join(REPO_ROOT, "datasets/impact/e2e-holdout-v13-candidate.jsonl"), "utf8")
+      .split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line)),
+  );
+  const packBytes = readFileSync(path.join(REPO_ROOT, "datasets/impact/e2e-holdout-v13-evidence.jsonl"));
+  const items = z.array(EvidenceItemSchema).parse(
+    packBytes.toString("utf8").split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line)),
+  );
+  const manifest = EvidenceManifestSchema.parse(
+    JSON.parse(readFileSync(path.join(REPO_ROOT, "datasets/impact/e2e-holdout-v13-evidence-manifest.json"), "utf8")),
+  );
+  assert.deepEqual(validateEvidencePack(cases, items, manifest, createHash("sha256").update(packBytes).digest("hex")), []);
+  const advisory = items.find((item) => item.case_id === "IMP-E2E13-HOLD-001" && item.source_type === "vendor_advisory");
+  assert.equal(advisory?.content_status, "ok");
+  assert.match(advisory!.excerpt, /affected|through/i);
+  assert.match(advisory!.excerpt, /solution|upgrade to|fixed/i);
+});
