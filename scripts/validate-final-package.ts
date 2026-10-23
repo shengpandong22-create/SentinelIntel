@@ -7,6 +7,7 @@
 // The registry JSON is the single source of truth for every final number; its Markdown rendering is
 // generated here and compared, so the two can never drift silently.
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -39,23 +40,16 @@ export const REQUIRED_FILES = [
   "README.md",
 ] as const;
 
-/** Frozen evaluation artifacts: their Git blobs must be identical to the Phase 8 base commit. */
-export const FROZEN_ARTIFACTS = [
-  "datasets/selection/candidates.jsonl",
-  "datasets/selection/tier-calibration.jsonl",
-  "datasets/event-relations/dev.jsonl",
-  "datasets/event-relations/holdout.jsonl",
-  "datasets/security-research/holdout-v4.jsonl",
-  "datasets/security-research/thresholds-v4.json",
-  "datasets/event-tracking/holdout.jsonl",
-  "datasets/event-tracking/thresholds.json",
-  "datasets/impact/holdout.jsonl",
-  "datasets/impact/thresholds.json",
-  "datasets/impact/e2e-holdout-v16.jsonl",
-  "datasets/impact/e2e-holdout-v16-candidate.jsonl",
-  "datasets/impact/e2e-holdout-v16-evidence.jsonl",
-  "datasets/impact/thresholds-v2.json",
-] as const;
+/**
+ * Every file Git tracked under `datasets/` at the Phase 8 base commit. Derived from the commit instead
+ * of a hand-written list: the frozen set includes the consumed security-research v1-v3 and impact
+ * v1-v15 corpora, their candidates, manifests and evidence packs, and every threshold file. A new file
+ * under `datasets/` is reported as a warning; a changed or deleted one is an error.
+ */
+export function frozenArtifacts(root = REPO_ROOT): string[] {
+  const listed = execFileSync("git", ["ls-tree", "-r", "--name-only", BASE_COMMIT, "--", "datasets"], { cwd: root, encoding: "utf8" });
+  return listed.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).sort();
+}
 
 const EntrySchema = z.object({
   id: z.string().regex(/^[A-Z0-9-]+$/),
@@ -198,6 +192,78 @@ function baseBlobId(root: string, file: string): string {
   return gitBlobId(root, `${BASE_COMMIT}:${file}`);
 }
 
+/** SHA-256 of the bytes Git stores for a path at the base commit (LF, no EOL conversion). */
+export function sha256OfBaseBlob(root: string, file: string): string {
+  const bytes = execFileSync("git", ["cat-file", "blob", `${BASE_COMMIT}:${file}`], { cwd: root, maxBuffer: 1 << 28 });
+  return createHash("sha256").update(bytes).digest("hex");
+}
+
+/**
+ * Recomputed hash of every dataset the registry cites. Comparing a hand-written hash against another
+ * hand-written hash proves nothing: the bytes come from the committed blob, so the comparison is
+ * platform-independent and detects both a transcription error and a swapped file.
+ */
+export function checkDatasetHashes(registry: Registry, root = REPO_ROOT): { errors: string[]; warnings: string[]; hashed: number } {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const cache = new Map<string, string>();
+  let hashed = 0;
+  for (const entry of registry.entries) {
+    if (!entry.dataset) {
+      if (entry.dataset_sha256) errors.push(`${entry.id}: records a dataset_sha256 without a dataset path`);
+      continue;
+    }
+    if (entry.dataset.startsWith(".data/")) {
+      warnings.push(`${entry.id}: dataset lives outside Git (${entry.dataset}); its hash cannot be verified offline and it is development evidence only`);
+      continue;
+    }
+    if (!entry.dataset_sha256) {
+      errors.push(`${entry.id}: dataset ${entry.dataset} is cited without a dataset_sha256`);
+      continue;
+    }
+    let actual = cache.get(entry.dataset);
+    if (actual === undefined) {
+      try {
+        actual = sha256OfBaseBlob(root, entry.dataset);
+      } catch {
+        errors.push(`${entry.id}: dataset path is not tracked at ${BASE_COMMIT}: ${entry.dataset}`);
+        continue;
+      }
+      cache.set(entry.dataset, actual);
+    }
+    hashed += 1;
+    if (actual !== entry.dataset_sha256) {
+      errors.push(`${entry.id}: dataset_sha256 mismatch for ${entry.dataset}: registry ${entry.dataset_sha256} != committed blob ${actual}`);
+    }
+  }
+  return { errors, warnings, hashed };
+}
+
+/**
+ * Blob-identity check for the frozen corpus. The artifact list comes from the base commit, so a
+ * consumed holdout or its manifest that disappears from the list cannot silently escape the gate.
+ */
+export function checkFrozenArtifacts(root = REPO_ROOT, artifacts = frozenArtifacts(root)): { errors: string[]; warnings: string[] } {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const frozen = new Set(artifacts);
+  for (const artifact of artifacts) {
+    if (!existsSync(path.join(root, artifact))) {
+      errors.push(`frozen artifact deleted: ${artifact}`);
+      continue;
+    }
+    const base = baseBlobId(root, artifact);
+    const current = worktreeBlobId(root, artifact);
+    if (base !== current) errors.push(`frozen artifact changed since ${BASE_COMMIT}: ${artifact} (${base} != ${current})`);
+  }
+  const tracked = execFileSync("git", ["ls-files", "--", "datasets"], { cwd: root, encoding: "utf8" })
+    .split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  for (const file of tracked) {
+    if (!frozen.has(file)) warnings.push(`new dataset file not covered by the frozen set: ${file}`);
+  }
+  return { errors, warnings };
+}
+
 // A paragraph may mention human labelling only while negating it ("not human gold", "never
 // presented as human-labelled", "humanGold is false", "human gold remains deferred"). The scan is
 // per paragraph, not per line, because these documents wrap sentences across lines.
@@ -266,7 +332,7 @@ export function checkReadmeNumbers(registryText: string, readme: string): string
 export interface ValidationResult {
   errors: string[];
   warnings: string[];
-  summary: { entries: number; byStatus: Record<string, number>; requiredFiles: number; frozenArtifacts: number };
+  summary: { entries: number; byStatus: Record<string, number>; requiredFiles: number; frozenArtifacts: number; datasetsHashed: number };
 }
 
 export function validateRepository(root = REPO_ROOT): ValidationResult {
@@ -283,7 +349,7 @@ export function validateRepository(root = REPO_ROOT): ValidationResult {
   try {
     registry = loadRegistry(root);
   } catch (error) {
-    return { errors: [...errors, `evidence registry does not parse: ${(error as Error).message}`], warnings, summary: { entries: 0, byStatus: {}, requiredFiles: REQUIRED_FILES.length, frozenArtifacts: FROZEN_ARTIFACTS.length } };
+    return { errors: [...errors, `evidence registry does not parse: ${(error as Error).message}`], warnings, summary: { entries: 0, byStatus: {}, requiredFiles: REQUIRED_FILES.length, frozenArtifacts: 0, datasetsHashed: 0 } };
   }
   const expectedMarkdown = renderRegistryMarkdown(registry);
   const committedMarkdownPath = path.join(root, REGISTRY_MD);
@@ -299,12 +365,6 @@ export function validateRepository(root = REPO_ROOT): ValidationResult {
     if (entry.value !== null && entry.denominator === null && !entry.denominator_note) {
       errors.push(`${entry.id}: a recorded value needs a denominator or a denominator_note`);
     }
-    if (entry.dataset && !entry.dataset.startsWith(".data/") && !existsSync(path.join(root, entry.dataset))) {
-      errors.push(`${entry.id}: dataset path does not exist: ${entry.dataset}`);
-    }
-    if (entry.dataset?.startsWith(".data/")) {
-      warnings.push(`${entry.id}: dataset lives outside Git (${entry.dataset}); treated as development evidence only`);
-    }
   }
   for (const proposal of registry.gate3_proposals) {
     for (const target of proposal.target_entries) {
@@ -318,22 +378,16 @@ export function validateRepository(root = REPO_ROOT): ValidationResult {
     if (!existsSync(path.join(root, file))) errors.push(`${entry.id}: source report missing: ${file}`);
   }
 
-  // 4. Frozen artifacts unchanged vs the base commit.
-  for (const artifact of FROZEN_ARTIFACTS) {
-    if (!existsSync(path.join(root, artifact))) {
-      errors.push(`frozen artifact missing: ${artifact}`);
-      continue;
-    }
-    let base: string;
-    try {
-      base = baseBlobId(root, artifact);
-    } catch {
-      errors.push(`frozen artifact absent from ${BASE_COMMIT}: ${artifact}`);
-      continue;
-    }
-    const current = worktreeBlobId(root, artifact);
-    if (base !== current) errors.push(`frozen artifact changed since ${BASE_COMMIT}: ${artifact} (${base} != ${current})`);
-  }
+  // 3b. Every recorded dataset hash is recomputed from the committed blob bytes.
+  const datasetHashCheck = checkDatasetHashes(registry, root);
+  errors.push(...datasetHashCheck.errors);
+  warnings.push(...datasetHashCheck.warnings);
+
+  // 4. Frozen artifacts unchanged vs the base commit (complete list, derived from the commit).
+  const artifacts = frozenArtifacts(root);
+  const frozenCheck = checkFrozenArtifacts(root, artifacts);
+  errors.push(...frozenCheck.errors);
+  warnings.push(...frozenCheck.warnings);
 
   // 5. Canonical summaries: one final gate per capability, and honest wording.
   const CAPABILITY_SUMMARIES = new Set([
@@ -368,7 +422,13 @@ export function validateRepository(root = REPO_ROOT): ValidationResult {
   return {
     errors: [...new Set(errors)],
     warnings: [...new Set(warnings)],
-    summary: { entries: registry.entries.length, byStatus, requiredFiles: REQUIRED_FILES.length, frozenArtifacts: FROZEN_ARTIFACTS.length },
+    summary: {
+      entries: registry.entries.length,
+      byStatus,
+      requiredFiles: REQUIRED_FILES.length,
+      frozenArtifacts: artifacts.length,
+      datasetsHashed: datasetHashCheck.hashed,
+    },
   };
 }
 
