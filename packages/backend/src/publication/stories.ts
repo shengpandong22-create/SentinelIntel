@@ -7,6 +7,7 @@ import { latestHotRanking, rankingExtras } from "../events/hot-read.ts";
 import { behindSources, sourceClocks } from "../events/hot.ts";
 import { storyStatusFor } from "../events/digest.ts";
 import { itemUrl, storyApiUrl, storyUrl } from "./links.ts";
+import { loadStoryAgentIntelligence } from "./agent-intelligence.ts";
 import { SITE } from "@aihot/industry/site";
 
 export type StoryLookup = { kind: "found"; storyId: number; publicId: string } | { kind: "merged"; target: string } | { kind: "not_found" };
@@ -163,6 +164,9 @@ export async function loadStoryDetail(storyId: number, now = new Date()): Promis
     timeline: reports.slice(0, 100).map(reportView),
     heat: heat.map((h): HeatPoint => ({ hour: h.hour.toISOString(), heat: Number(h.heat), participants: h.participants })),
     related: related.map((r) => ({ publicId: r.public_id, title: r.title, relation: r.relation, latestAt: r.latest_at?.toISOString() ?? null })),
+    // Phase 7: agent intelligence from the unified read model; present=false for stories without
+    // any agent data. Additive — old clients ignore the field.
+    agentIntelligence: await loadStoryAgentIntelligence(storyId),
   };
 }
 
@@ -323,6 +327,8 @@ export async function v1Story(storyId: number) {
       })),
       storyline: neighbors.filter((n) => n.relation === "storyline"),
       related: neighbors.filter((n) => n.relation === "related"),
+      // Phase 7: the same unified read model the website uses; absent fields stay absent.
+      agentIntelligence: await loadStoryAgentIntelligence(storyId),
     },
   };
 }
