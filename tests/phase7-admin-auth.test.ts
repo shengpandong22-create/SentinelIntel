@@ -34,6 +34,15 @@ test("a forged session cookie is still rejected", async () => {
   assert.equal(res.statusCode, 401);
 });
 
+test("impact review commands reject unauthenticated callers", async () => {
+  const res = await app.inject({
+    method: "POST",
+    url: "/api/admin/human-reviews/1/resolve",
+    payload: { action: "dismiss", reason: "not authorized", version: 1 },
+  });
+  assert.equal(res.statusCode, 401);
+});
+
 test("public story endpoints answer without any session and carry no admin fields", async () => {
   const missing = await app.inject({ method: "GET", url: `/api/v1/stories/${"0".repeat(8)}-0000-0000-0000-000000000000` });
   assert.equal(missing.statusCode, 404);

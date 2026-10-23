@@ -2147,3 +2147,23 @@ model, API exposure, Story sections, read-only admin views, MCP `get_story` exte
 `docs/00-sentinelintel/08-Phase7-UI-Admin-MCP-Plan.md` §7 for the acceptance matrix). Canonical Linux
 CI on the Phase 7 pull request is the final post-push check before Phase 7 may be marked complete.
 Phase 8 (final evaluation) must not begin before Phase 7 closes.
+
+## Post-Phase-8 interview-readiness hardening
+
+This work is maintenance after the accepted Phase 8 closeout, not a new Phase and not a revision of
+any frozen evaluation result.
+
+- **P0 runtime wiring:** the Docker agent now receives the default-off Product Impact feature gate,
+  and the Security Research Agent has a production queue, scheduler and TypeScript orchestrator.
+  Both research network gates remain required; no model or network call is enabled by default.
+- **P1 human review loop:** open `impact_human_reviews` can now be dismissed or, for an immutable
+  medium-confidence row only, accepted through an authenticated CSRF-protected admin command. Accept
+  reparses the stored row, verifies every Evidence id belongs to the same Story, requires a completed
+  Phase 6 source run, appends a product-specific current impact row, preserves exploit status as
+  `unknown`, and never mutates Story or Fact state. Pure-unknown reviews cannot be accepted.
+- Review resolution uses an optimistic version, records actor/reason/time on the review, appends an
+  `impact_human_review_actions` audit row, and also writes the common admin audit log. Concurrent or
+  repeated resolution fails closed.
+- Verification: migration `0047` applies on an empty PostgreSQL 17 database; the focused backend
+  review/API/auth/view tests pass (13 tests including the transactional and API command cases), the production
+  web build and five admin-view tests pass, TypeScript typecheck passes, and Compose config validates.

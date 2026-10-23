@@ -32,7 +32,7 @@ const PLANS = [{
 const REVIEWS = [{
   id: 5, publicId: "review-5", storyId: 7, storyTitle: "Fortinet advisory story", runId: "run-42",
   reason: "medium-confidence impact row needs review: FortiOS", status: "open", payload: { product: "FortiOS", confidence: "medium" },
-  createdAt: "2026-10-20T10:00:00.000Z", resolvedAt: null,
+  createdAt: "2026-10-20T10:00:00.000Z", resolvedAt: null, resolvedBy: null, resolutionReason: null, version: 1,
 }];
 const IMPACT_REVIEW = {
   rows: [{
@@ -144,6 +144,8 @@ test("signed-in admin sees tracking plans, reviews and impact review", async () 
   assert.ok(reviews.includes("人工复核"));
   assert.ok(reviews.includes("medium-confidence impact row needs review: FortiOS"));
   assert.ok(reviews.includes("FortiOS"), "payload is visible to the admin");
+  assert.ok(reviews.includes("接受"), "medium-confidence rows expose the audited accept command");
+  assert.ok(reviews.includes("忽略"), "open rows expose the dismiss command");
 
   const impact = await (await fetch(`${origin}/admin/product-impact-review`, { headers: { cookie: "aihot_admin=test" } })).text();
   assert.ok(impact.includes("产品影响复核"));
