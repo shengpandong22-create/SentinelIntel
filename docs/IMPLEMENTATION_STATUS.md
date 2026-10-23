@@ -126,8 +126,12 @@ Deliberately not modified: `tests/analyze-shutdown.test.ts` and `tests/translate
 
 ## Current Phase
 
-Phase: **Phase 8 — Final Evaluation & Resume Package (Gates 1–4 complete, canonical Linux CI passed;
-status `COMPLETE_WITH_DOCUMENTED_EVALUATION_GAPS`; pull request #10 open, awaiting merge)**
+Phase: **Phase 8 — Final Evaluation & Resume Package (COMPLETE; merged into `main` at `1f82857`,
+pull request #10)**
+
+Status: `COMPLETE_WITH_DOCUMENTED_EVALUATION_GAPS` — every Phase 8 deliverable exists and is verified;
+the gaps are missing pre-existing metrics that are recorded as `NOT_RECORDED` / `REQUIRES_NEW_RUN`
+rather than filled by a new paid run.
 
 Phase 8 base: `main` = `6cdac54` (Phase 7 squash merge, pull request #9). Phase 7 is COMPLETE:
 canonical Linux CI passed both required jobs and the CI-verified pull-request tree is identical to the
@@ -195,13 +199,13 @@ prove that a corrupted hash, a changed document and a deleted dataset each fail.
 Known gaps are documented rather than filled: the label method remains `MODEL_REVIEWED` everywhere,
 and the missing metrics above stay `NOT_RECORDED` / `REQUIRES_NEW_RUN`.
 
-**Canonical Linux CI** on pull request #10 passed both required jobs at head `16688e0` (`check`
-1m31s, `docker` 53s, run `39980733719`). Remaining for Phase 8 to be marked complete: owner merge of
-pull request #10. Two CI-only defects were found and fixed by the gate itself: the validator tests
-hardcoded a Windows repository path (now derived from `import.meta.url`), and the workflow's depth-1
-clone did not contain the `6cdac54` base commit the frozen-artifact gate compares against (the check
-job now fetches full history; a shallow clone is reported as an explicit error rather than a stack
-trace).
+**Canonical Linux CI** on pull request #10 passed both required jobs on the merged head `0657fad`
+(`check` 1m32s, `docker` 48s, run `39981461670`; the preceding head `16688e0` was green as well).
+Pull request #10 was squash-merged into `main` at `1f82857` on 2026-10-23, so Phase 8 is COMPLETE.
+Two CI-only defects were found and fixed by the gate itself: the validator tests hardcoded a Windows
+repository path (now derived from `import.meta.url`), and the workflow's depth-1 clone did not contain
+the `6cdac54` base commit the frozen-artifact gate compares against (the check job now fetches full
+history; a shallow clone is reported as an explicit error rather than a stack trace).
 
 ---
 
