@@ -126,7 +126,23 @@ Deliberately not modified: `tests/analyze-shutdown.test.ts` and `tests/translate
 
 ## Current Phase
 
-Phase: **Phase 7 — UI / Admin / MCP Extension (implementation, local acceptance and canonical Linux CI complete 2026-10-23; pull request #9 open, awaiting merge)**
+Phase: **Phase 8 — Final Evaluation & Resume Package (PLANNING; no evaluation run authorized)**
+
+Phase 8 base: `main` = `6cdac54` (Phase 7 squash merge, pull request #9). Phase 7 is COMPLETE:
+canonical Linux CI passed both required jobs and the CI-verified pull-request tree is identical to the
+merge tree. The former “PR #9 open, awaiting merge” status below is superseded by this record.
+
+Phase 8 planning contract: `docs/00-sentinelintel/09-Phase8-Final-Evaluation-Resume-Plan.md`.
+The phase is limited to an evidence inventory, canonical evaluation summaries, honest ablations,
+failure cases, implemented architecture, and evidence-backed README/resume-safe claims. This planning
+state authorizes no product-code change, frozen-artifact mutation, paid model call, external
+collection, holdout rerun, threshold/prompt/model tuning, or new numeric claim. A free offline evidence
+audit must first classify every requested metric as reproducible, partial, historical,
+not-comparable, not-recorded, or requiring a separately approved run.
+
+---
+
+Phase: **Phase 7 — UI / Admin / MCP Extension (COMPLETE; merged into `main` at `6cdac54`)**
 
 Phase 7 base: `main` = `63428dc` (squash merge of pull request #8, Phase 6). Phase 6 is COMPLETE and
 merged. Phase 6 frozen holdouts v1–v16 (and their review receipts) are consumed evidence: they must
@@ -166,8 +182,8 @@ pre-existing + 6 new); `docker compose config` passed. The full backend suite ke
 Windows-only failures (7 frozen-dataset hash checks broken by `core.autocrlf=true` on this machine,
 and the KI-3 POSIX SIGTERM cascade) — both categories are identical on `main` and are covered by
 the canonical Linux CI runs. Canonical Linux CI on pull request #9 passed both required jobs
-(`check` 1m49s, `docker` 1m27s, run `39966961001`); the branch is pushed and the pull request is
-open. Remaining before Phase 7 is marked complete: owner merge of pull request #9.
+(`check` and `docker`, final head `385430e`, run `39967709109`). Pull request #9 was squash-merged at
+`6cdac54` on 2026-10-23; the merge tree is identical to that CI-verified branch head.
 
 The Phase 6 record below is retained unchanged as consumed history.
 
@@ -194,8 +210,8 @@ TypeScript scheduling, policy enforcement, validation, and persistence. Its acce
 three migration-spec demonstrations, exact-zero safety failures, development-based threshold
 preregistration, an immutable independently reviewed holdout, and canonical Linux CI.
 
-Phase 6 — Product Impact Agent: **COMPLETE — v16 closing gate passed on 2026-10-23; canonical Linux CI
-remains the final post-push check.** Implementation (schemas, matcher, stores, orchestration, worker, the
+Phase 6 — Product Impact Agent: **COMPLETE — v16 closing gate passed and pull request #8 merged into
+`main` at `63428dc`.** Implementation (schemas, matcher, stores, orchestration, worker, the
 model-gateway extraction round trip, and the deterministic normalization path) is accepted as
 substantially built. The frozen 23-case holdout (`3b2e242e...`, receipts 104-139) is retained but
 **reclassified as a synthetic normalization fixture holdout**: it measures only the frozen-drafts →
