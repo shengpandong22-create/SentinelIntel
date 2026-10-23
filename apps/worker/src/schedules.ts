@@ -27,6 +27,7 @@ import { markStalePendingReceipts } from "@aihot/backend/providers/receipts";
 import { markStaleDeliveries } from "@aihot/backend/notify/deliver";
 import { scheduleDueTrackingPlans } from "@aihot/backend/jobs/tracking";
 import { scheduleImpactCandidates } from "@aihot/backend/jobs/impact";
+import { scheduleResearchCandidates } from "@aihot/backend/jobs/research";
 
 interface Scheduled {
   name: string;
@@ -45,6 +46,9 @@ export const SCHEDULES: Scheduled[] = [
   { name: "hot.snapshot", cron: "2 * * * *", run: () => snapshotHeat() },
   { name: "stories.status", cron: "7 * * * *", run: refreshStoryStatuses },
   { name: "stories.links", cron: "12 * * * *", run: linkRelatedStories },
+  ...(config.agentResearchEnabled && config.agentResearchNetworkEnabled
+    ? [{ name: "agent.security-research", cron: "*/10 * * * *", run: () => scheduleResearchCandidates() }]
+    : []),
   ...(config.agentTrackingEnabled
     ? [{ name: "agent.tracking", cron: "*/5 * * * *", run: () => scheduleDueTrackingPlans() }]
     : []),

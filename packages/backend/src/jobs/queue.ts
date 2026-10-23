@@ -20,6 +20,7 @@ export const QUEUES = {
   republishSource: "publication.republish-source",
 
   prepareMedia: "media.prepare",
+  agentResearch: "agent.security-research",
   agentTracking: "agent.tracking",
   agentImpact: "agent.product-impact",
 } as const;
@@ -40,6 +41,7 @@ export const QUEUE_OPTIONS: Record<string, QueueOptions> = {
   [QUEUES.republishSource]: { policy: "short", retryLimit: 2, retryDelay: 60, expireInSeconds: 3600 },
 
   [QUEUES.prepareMedia]: { policy: "short", retryLimit: 1, retryDelay: 120, expireInSeconds: 600 },
+  [QUEUES.agentResearch]: { policy: "short", retryLimit: 3, retryDelay: 60, retryBackoff: true, expireInSeconds: 900 },
   [QUEUES.agentTracking]: { policy: "short", retryLimit: 3, retryDelay: 60, retryBackoff: true, expireInSeconds: 900 },
   [QUEUES.agentImpact]: { policy: "short", retryLimit: 3, retryDelay: 60, retryBackoff: true, expireInSeconds: 900 },
 };
