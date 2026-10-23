@@ -27,6 +27,12 @@
 
 <br>
 
+> **这个仓库有两种身份，请分开看。**
+> ① 通用框架：[AIHOT](https://aihot.news) 的开源框架（MIT，作者数字生命卡兹克）——下面“这是什么”到“把它改成你的行业”讲的是它。
+> ② 行业扩展：**SentinelIntel V2** 在同一个框架上增量实现的安防持续研判能力——见
+> [SentinelIntel V2 安防持续研判扩展](#sentinelintel-v2-安防持续研判扩展)。
+> 两者共用代码，但只有 ② 是本仓库的扩展部分；AIHOT 的名称与 Logo 不属于 SentinelIntel。
+
 ## 这是什么
 
 [AIHOT](https://aihot.news) 是我做的一个 AI 热点网站。它每天从一批信源里收资料，用大模型先筛一遍、再独立打两次分，挑出真正值得看的，写成中文标题和摘要；把不同来源说的同一件事聚成一个事件，按有多少人在说排出热点；每天早上出一份日报。
@@ -143,6 +149,55 @@ docker compose up -d --build
 | `brand/`、`pages/` | 图标、使用规则和隐私说明 |
 
 最值得花时间的是评分标准（`prompts/selection-score.md`）和门槛：拿一两百条你自己标注过的资料，用 `scripts/eval-selection.ts` 跑一遍，看它选得准不准，再回去改。怎么做写在 [精选与校准](docs/selection.md) 里。
+
+## SentinelIntel V2 安防持续研判扩展
+
+在 AIHOT 的采集/精选/归组/出刊流水线之上，SentinelIntel V2 增加了三个**有边界**的 Agent 和一个
+统一的公开读取层。确定性工作流仍然是确定性代码；只有语义推理、证据获取与不确定性处理交给 Agent。
+
+| 能力 | 做什么 | 边界 |
+|---|---|---|
+| Security Research Agent | 抓官方证据（NVD、CISA KEV、厂商公告），给出可追溯结论，把不能确认的留作 unknown | 只能访问 allowlist 来源；工具调用经 capability 与回执 |
+| Event Tracking Agent | 长期跟踪一个事件的待解问题，发现厂商确认/补丁/招标等实质变化，决定下次检查时间 | 只写自己的计划与变更，不改 Story/Fact |
+| Product Impact Agent | 从官方公告提取厂商、产品、型号、受影响与修复版本、利用状态 | 中等置信度或不支持的版本表达式一律转人工复核，不落自动结论 |
+| 公开读取层 | Story 页、API v1、MCP 共用同一份装配结果 | 页面只读数据库；打开页面不触发模型、不回执、不访问外网 |
+
+每个 Agent 的输出都带 Evidence 引用；读者打开一个事件页可以看到研究结论、追踪状态、产品影响与
+未知项，而不是一段无法核对的摘要。
+
+### 已复现的能力（不是性能数字）
+
+以下结论来自仓库内冻结数据集与脚本，可离线检查；具体数值请查
+**[Evidence registry](docs/evaluation/evidence-registry.md)**（每个数字都标注数据/切分/评分器/限制）：
+
+- **事件追踪**：真实 Python 图的确定性回放（26 例冻结 holdout，fixture 网关，零模型、零网络），
+  Phase 8 重新执行后与记录一致 → `REPRODUCIBLE_FINAL`。
+- **安全研究**：20 例 holdout 上七项安全闸门全为 0，质量闸门全部达标；重跑需要付费模型调用，因此
+  记录为 `REPRODUCIBLE_PARTIAL`。
+- **产品影响**：4 例端到端 holdout（v16 关闭闸门）上 13 项安全计数全为 0、5 项质量闸门全部达标；
+  重跑需要付费抽取与运行环境，因此记录为 `REPRODUCIBLE_PARTIAL`。
+- **精选**：45 例 holdout 的准确率/精确率/召回率/F1 已记录，但其标注由同一模型族完成，重跑需要
+  付费调用 → `REPRODUCIBLE_PARTIAL`。
+- **事件归组**：240 例基准记录了候选召回、关系分类与 Story 回放结果；模型判定未提交，因此
+  记录为 `REPRODUCIBLE_PARTIAL`。
+
+### 标签与限制（请务必读）
+
+- **没有任何 human gold。** 所有冻结标签都是 `MODEL_REVIEWED`：由独立模型复核一致，而不是人工标注。
+- 除事件追踪回放外，多数指标的重跑需要付费模型调用；仓库只提交冻结输入、评分器与报告，不提交
+  付费运行的结果文件。
+- 评测集规模都很小（20–240 例），报告中的比例是点估计，不是生产保证。
+- 合成 fixture holdout（产品影响 23 例）已由所有者重新归类为**历史证据**，不是关闭闸门。
+
+### 完整评测与失败案例
+
+| 文档 | 内容 |
+|---|---|
+| [评测索引](docs/evaluation/evidence-registry.md) | 每个最终数字的来源、分母、评分器、限制与状态 |
+| [精选](docs/evaluation/selection.md) · [事件归组](docs/evaluation/event-grouping.md) · [研究](docs/evaluation/research-agent.md) · [追踪](docs/evaluation/tracking-agent.md) · [产品影响](docs/evaluation/product-impact.md) | 五个能力的 canonical 摘要 |
+| [Ablations](docs/evaluation/ablations.md) | 哪些比较成立、哪些明确不可比、哪些没有运行 |
+| [失败案例](docs/failure-cases.md) | 每个失败的现象、根因、处置与回归验证 |
+| [架构](docs/architecture.md) | 两个运行时的边界、Agent、网关、读取层与安全规则 |
 
 ## 文档
 
