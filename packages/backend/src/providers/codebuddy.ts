@@ -10,7 +10,14 @@ async function runCodeBuddyStream(args: string[], prompt: string | null, env: No
   return new Promise((resolve, reject) => {
     const child = spawn("codebuddy", args, { env, windowsHide: true });
     let stdout = "", stderr = "", settled = false;
-    const timer = setTimeout(() => finish(new Error(`CodeBuddy stream timed out after ${timeoutMs} ms`)), timeoutMs);
+    let streamBytes = 0, invalidLines = 0;
+    const eventTypes = new Map<string, number>();
+    const diagnostic = () => {
+      const events = [...eventTypes.entries()].map(([type, count]) => `${type}:${count}`).join(",") || "none";
+      const stderrSummary = stderr.trim().replace(/\s+/g, " ").slice(-500) || "none";
+      return `stream_bytes=${streamBytes}; events=${events}; invalid_lines=${invalidLines}; stderr=${stderrSummary}`;
+    };
+    const timer = setTimeout(() => finish(new Error(`CodeBuddy stream timed out after ${timeoutMs} ms (${diagnostic()})`)), timeoutMs);
     const finish = (error?: Error, envelope?: CodeBuddyEnvelope) => {
       if (settled) return;
       settled = true;
@@ -21,13 +28,23 @@ async function runCodeBuddyStream(args: string[], prompt: string | null, env: No
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
     child.stdout.on("data", (chunk: string) => {
+      streamBytes += Buffer.byteLength(chunk);
       stdout += chunk;
       const lines = stdout.split(/\r?\n/);
       stdout = lines.pop() ?? "";
-      for (const line of lines) try {
-        const row = JSON.parse(line) as Record<string, unknown>;
-        if (row.type === "result") finish(undefined, parseCodeBuddyStream(line));
-      } catch { /* wait for the terminal result event */ }
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const row = JSON.parse(line) as Record<string, unknown>;
+          const type = typeof row.type === "string" ? row.type : "untyped";
+          eventTypes.set(type, (eventTypes.get(type) ?? 0) + 1);
+          if (row.type === "result") finish(undefined, parseCodeBuddyStream(line));
+          else if (row.type === "assistant") {
+            const envelope = parseCodeBuddyAssistantEvent(row);
+            if (envelope) finish(undefined, envelope);
+          }
+        } catch { invalidLines += 1; }
+      }
       if (!settled) try {
         const row = JSON.parse(stdout) as Record<string, unknown>;
         if (row.type === "result") finish(undefined, parseCodeBuddyStream(stdout));
@@ -40,7 +57,7 @@ async function runCodeBuddyStream(args: string[], prompt: string | null, env: No
     child.on("exit", (code) => {
       if (settled) return;
       try { finish(undefined, parseCodeBuddyOutput(stdout)); }
-      catch { finish(new Error(`CodeBuddy exited ${code ?? "without a code"}: ${stderr || `unusable output ${stdout.slice(0, 1000)}`}`)); }
+      catch { finish(new Error(`CodeBuddy exited ${code ?? "without a code"}: ${diagnostic()}; ${stderr || `unusable output ${stdout.slice(0, 1000)}`}`)); }
     });
   });
 }
@@ -57,6 +74,37 @@ export interface CodeBuddyEnvelope {
   duration_api_ms?: number;
   num_turns?: number;
   errors?: string[];
+}
+
+/**
+ * Some CodeBuddy CLI versions emit a complete assistant message but never emit the terminal
+ * stream-json result event. A schema-valid JSON object in an assistant text block is already the
+ * model answer; capture it and terminate the child instead of waiting for process exit forever.
+ * Non-JSON/thinking/partial assistant events return null and keep streaming.
+ */
+export function parseCodeBuddyAssistantEvent(row: Record<string, unknown>): CodeBuddyEnvelope | null {
+  if (row.type !== "assistant") return null;
+  const message = row.message && typeof row.message === "object" ? row.message as Record<string, unknown> : null;
+  const content = Array.isArray(message?.content) ? message.content : [];
+  const text = content.map((block) => {
+    if (!block || typeof block !== "object") return "";
+    const value = block as Record<string, unknown>;
+    return value.type === "text" && typeof value.text === "string" ? value.text : "";
+  }).join("").trim();
+  if (!text) return null;
+  const fenced = text.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i)?.[1];
+  const start = text.indexOf("{"), end = text.lastIndexOf("}");
+  const candidate = fenced ?? (start >= 0 && end >= start ? text.slice(start, end + 1) : "");
+  if (!candidate) return null;
+  try {
+    const structuredOutput = JSON.parse(candidate) as unknown;
+    return {
+      subtype: "success", is_error: false,
+      session_id: typeof row.session_id === "string" ? row.session_id : undefined,
+      structured_output: structuredOutput,
+      usage: message?.usage && typeof message.usage === "object" ? message.usage as Record<string, unknown> : undefined,
+    };
+  } catch { return null; }
 }
 
 export function parseCodeBuddyEnvelope(stdout: string): CodeBuddyEnvelope {

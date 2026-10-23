@@ -126,25 +126,295 @@ Deliberately not modified: `tests/analyze-shutdown.test.ts` and `tests/translate
 
 ## Current Phase
 
-Phase: **Phase 5 — Event Tracking Agent**
+Phase: **Phase 6 — Product Impact Agent (COMPLETE; canonical Linux CI pending)**
 
-Branch: `phase/5-event-tracking-agent`
+Phase 5 branch: `phase/5-event-tracking-agent`
 
-Base: `main` = `d4e1520` (Phase 4 merge)
+Phase 5 base: `main` = `d4e1520` (Phase 4 merge)
 
-Status: **IN_PROGRESS — REAL SOURCE ADAPTERS COMPLETE; DEVELOPMENT EVALUATION NEXT**
+Phase 5 status: **ACCEPTED AND MERGED — `main` = `7b829d4` (squash merge of pull request #7), both
+canonical GitHub checks (`check`, `docker`) passed on the pull request.** The frozen 26-case
+`MODEL_REVIEWED` holdout passed the single authorized final replay with all nine hard safety metrics
+zero and all five pre-registered quality gates at 1.0
+(`docs/evaluation/event-tracking-baseline.md`). The frozen holdout and the review evidence remain
+immutable.
 
-Implementation contract: `docs/00-sentinelintel/06-Phase5-Event-Tracking-Plan.md`.
+Phase 5 implementation contract: `docs/00-sentinelintel/06-Phase5-Event-Tracking-Plan.md`.
 
-Phase 4 was squash-merged into `main` at `d4e1520` after both canonical GitHub checks passed. Phase 5
-planning and implementation started from that clean merge. No paid Phase 5 model call or frozen holdout
-run has begun.
-
-The Phase 5 contract preserves the existing Story lifecycle and pg-boss scheduler, introduces only the
-active tracking state absent from AIHOT, and separates Python semantic reasoning from deterministic
-TypeScript scheduling, policy enforcement, validation, and persistence. Its acceptance gate requires the
+The Phase 5 contract preserved the existing Story lifecycle and pg-boss scheduler, introduced only the
+active tracking state absent from AIHOT, and separated Python semantic reasoning from deterministic
+TypeScript scheduling, policy enforcement, validation, and persistence. Its acceptance gate required the
 three migration-spec demonstrations, exact-zero safety failures, development-based threshold
 preregistration, an immutable independently reviewed holdout, and canonical Linux CI.
+
+Phase 6 — Product Impact Agent: **COMPLETE — v16 closing gate passed on 2026-10-23; canonical Linux CI
+remains the final post-push check.** Implementation (schemas, matcher, stores, orchestration, worker, the
+model-gateway extraction round trip, and the deterministic normalization path) is accepted as
+substantially built. The frozen 23-case holdout (`3b2e242e...`, receipts 104-139) is retained but
+**reclassified as a synthetic normalization fixture holdout**: it measures only the frozen-drafts →
+normalize → route half of the pipeline on synthetic advisory content, not the contract's end-to-end
+demonstrations on real public evidence, and it is NOT the Phase 6 closing baseline. Its thresholds
+cover only five of the contract's safety gates. `docs/evaluation/impact-baseline.md` carries a
+correction notice to the same effect.
+
+Evaluation correction progress (owner-mandated order): (1) status corrected; (2) the synthetic holdout
+is frozen and never re-used; (3) the end-to-end evaluation was built and pre-registered
+(`thresholds-v2.json` revision 2: full contract safety set, behavioral assertions, development hashes);
+(4) the end-to-end development replay (4 real-CVE cases) passed every safety observation and quality
+metric on the complete live pipeline; (5) the first end-to-end holdout (3 real-CVE cases, receipts
+140-142) **FAILED** its single authorized run — CVE-2018-13379 and CVE-2020-0688 passed, but
+CVE-2022-30190 produced zero grounded rows (thin MSRC evidence; extraction correctly refused to
+fabricate) and the runner's repeat-skip assertion mishandled review-only outcomes
+(`docs/evaluation/impact-e2e-baseline.md`). That failed holdout stays frozen unmodified.
+
+Holdout v2 review was paused mid-session by a local Application Control policy denying `codebuddy.exe`;
+the owner turned Smart App Control off (a machine-level, owner-made change) and the review resumed.
+Six end-to-end holdout generations were consumed during the correction, all retained frozen: v1
+FAILED (thin MSRC evidence), v2 FAILED (candidate construction defect), v3 FAILED (expectation-keyword
+AND-semantics defect), v4 FAILED (KEV live-lookup instability — fixed by the catalog cache, migration
+`0045`, seeded from the official feed), and **v5 FAILED on row_recall 0.67 under the revision-2
+definition** (one case correctly took insufficient_evidence). The carried remediation
+(OR-semantics expectation keywords anchored on official NVD wording; row_recall applies to propose
+outcomes only; no model-knowledge-limited CVEs in candidacy) was applied, and holdout v6 (2 cases,
+receipts 161-163, MODEL_REVIEWED, SHA256 `3d8f8038819660e15dd7cd0b3f0bfaaeb17efc882e4a4883cb326cfa4b108dee`)
+completed its single authorized end-to-end run without runtime failure
+(`docs/evaluation/impact-e2e-baseline.md`). Every consumed holdout and receipt is retained as evidence.
+
+**Owner audit verdict on v6 (2026-10-11): NOT the gate — the v6 scorer was defective.** The v6 report's
+four uninitialized safety counters, eight never-output threshold metrics, window-based receipt
+matching, three-field Story check, N/A-as-1 recall scoring, and absent threshold adjudication do not
+establish gate compliance. v6 stays frozen as a live smoke/pilot result. Remediation committed before
+holdout-v7 construction (thresholds-v2.json revision 4): the revision-4 runner
+(`scripts/run-impact-e2e.ts`) computes all thirteen hard safety counters with real assertions, links
+receipts exactly by `run_id + trace_id + receipt_id` with provider outcome checks, snapshots the full
+Story row plus Facts plus Story-Fact links, excludes non-propose outcomes from the row-recall
+denominator, and ends with a fail-closed scorer that reads the pre-registered thresholds and exits
+non-zero on any failure. Normalization semantics revision 4: a matcher-unsupported version expression
+routes to human review with an explicit unknown and never persists as an auto claim (the offline
+normalization fixture holdout keeps its pre-revision-4 frozen expectations as consumed evidence only).
+**Holdout v7 (consumed, FAILED — frozen)**: the candidate (4 cases) was unanimously accepted at high
+confidence by `glm-5.3-flash` / `deepseek-v4.1-flash` / `kimi-k2.8-preview` (review receipts 9-11 in
+`sentinel_phase6_v7_ci`; the Kimi call exceeded its 360 s window once and was resolved by one audited
+admin retry under the receipt protocol). After a development-set live smoke passed with all thirteen
+safety counters zero, the single authorized v7 run completed. Post-run per-case audit: the aggregate
+scorer was green, but (1) IMP-E2E7-HOLD-001 violated its frozen `min_rows: 1` — extraction verbatim-
+quoted the advisory's affected condition ("Cisco IOS XE Software if the web UI feature is enabled"),
+the matcher correctly refused it, and revision-4 semantics correctly routed the row to human review;
+the frozen label over-specified what model quoting behavior cannot guarantee; (2) the revision-4
+scorer still allowed aggregate metrics to stay green while a per-case assertion failed. v7 is
+consumed as a FAILED gate and stays frozen (`.data/impact/e2e-v7-results.json`,
+`docs/evaluation/impact-e2e-baseline.md`).
+
+**Remediation (revision 4a, committed before v8 construction)**: the scorer now fails on ANY per-case
+assertion error, and v8 labels use outcome sets robust to model quoting behavior with hard guarantees
+carried by the safety detectors and grounded-KEV expectations. **Holdout v8 (PASSED — retained as the
+E2E safety run, superseded as the closing gate)**: the first candidate (2025/2026 KEV CVEs) was
+superseded in review when `glm-5.3-flash` correctly withheld confidence it could not verify from its
+own knowledge (receipt 15, retained); the revised candidate used well-documented 2020-2023 CVEs
+(CVE-2023-24955 SharePoint, CVE-2023-27997 XORtigate, CVE-2020-1350 SIGRed with a stale-version
+sentence in the title, and a no-CVE negative) and was unanimously accepted at high confidence by
+`glm-5.3-flash` / `deepseek-v4.1-flash` / `kimi-k2.8-preview` (receipts 18, 19, 21/23/24; two Kimi
+window overruns resolved by audited admin retries, receipts 20 and 22). The single authorized run on
+2026-10-12 (`sentinel_phase6_v7_ci`, `.data/impact/e2e-v8-results.json`) passed every gate: all
+thirteen safety counters zero, all five quality metrics 1.0, zero per-case failures under the
+revision-4a scorer
+(`docs/evaluation/impact-e2e-baseline.md`).
+
+**Owner acceptance audit on v8 (2026-10-12): not the closing gate.** v8 produced no contract-complete
+record (all claims rows versionless with empty models), its labels allowed any main outcome with zero
+floors, and revision 4a had been committed in the same commit as the v8 candidate (pre-registration
+order defect). Mandated minimal path: pre-register revision 5 alone, then a disjoint v9/v10.
+
+**Revision 5 / 5a / 6 / 6a / 7 / 7a (each committed alone, strictly before its candidate)**: extraction
+prompt v2-v5 (closed-grammar expressions for machine-readable bounds, verbatim prose otherwise, fixed
+versions only from vendor patched/fixed statements, evidence-backed models), boundary grounding,
+four hard label constraints, `rows_or_reviews_min`, the bounded union matcher (contract revision 6:
+pipe-separated unions of at most 8 closed-grammar branches), product-level review constraints
+(`review_required_products` / `claims_forbidden_products` / `review_unknown_contains`),
+`complete_claims_min`, zero-denominator metrics as N/A with a required non-zero recall denominator,
+and an evidence-only reviewer rubric. Pipeline fixes along the way: NVD evidence now carries
+deterministically flattened CPE configuration bounds (the model could never see structured ranges
+before), and the vendor-advisory body extraction falls back past cookie banners.
+
+**v9 (REVIEWED_NOT_RUN_INCOMPLETE_FREEZE)**: reviewed by three models (receipts 28-31); HOLD-002/003
+excluded by deepseek medium whose written reasons affirm every label component; partial freeze retained
+(commit 7fa0c2c); no v9 case may be reused.
+
+**v10 (DEVELOPMENT_PROBED_NOT_RUN_NOT_FREEZABLE)**: the candidate's cases had already been used as
+paid development probes, so the owner ruled it development/debug data that can never be a gate
+(2026-10-14). Candidate, review receipts 49-53, probe results, and reviewer verdicts are retained
+unmodified.
+
+**Required demonstrations 1-3: ESTABLISHED as frozen development E2E evidence** (owner ruling
+2026-10-14; `docs/evaluation/impact-development-demonstrations.md`):
+- Demonstration 1 (contract-complete record): CVE-2017-7921, extraction receipt 47, seven claims rows
+  each with evidence-backed models, matcher-supported affected range, matcher-supported fixed version,
+  and vendor-advisory Evidence; offline re-verification with the revision-6 logic passed with all
+  safety counters zero.
+- Demonstration 2 (unsupported version format → review): CVE-2023-36563, receipt 48, ten named
+  version-bearing products routed to human review with unsupported ranges, legal versionless claims
+  rows for products without version statements, no unsupported expression in claims.
+- Demonstration 3 (stale version rejection): CVE-2023-36802, receipt 54, the stale decoy surfaced
+  nowhere in persisted state, product signal present.
+- These are development evidence, not holdout metrics; the three CVEs may not be reused in any holdout.
+
+**Holdout v11 (REVIEWED_NOT_RUN_INCOMPLETE_FREEZE)**: receipts 55-58 produced unanimous-high
+semantic review only for HOLD-001/004; HOLD-002/003 were accepted at medium by at least one reviewer.
+No partial freeze was run. The 2026-10-15 audit additionally found that HOLD-001's
+`CVE-2024-21762` already appears in `datasets/impact/development.jsonl`, disproving the candidate's
+disjointness claim. v11 is immutable, is not a gate, and none of its cases may be reused.
+
+**Holdout v12 (consumed, FAILED — frozen)**: revision 8 separates independent semantic
+evidence adjudication from executable deterministic conformance. The semantic reviewers see only
+allowed outcomes, evidence-named product keywords, KEV status, and forbidden evidence strings;
+matcher/routing/persistence/receipt/count behavior remains enforced by tests and the thirteen final-run
+detectors. The automated disjointness gate passed for CVE-2025-24472, CVE-2025-24993, and
+CVE-2025-24054 against every impact development and v1-v11 JSONL file. Candidate and frozen official
+evidence pack were committed in separate ordered commits after revision 8. After the CodeBuddy
+streaming correction below, all four cases received unanimous high acceptance from
+`deepseek-v4.1-flash`, `glm-5.3-flash`, and `kimi-k2.8-preview` (receipts 10-21) and froze at SHA256
+`88e257d8e23ed98fa6bbae0f0ba42d7f8f871725247985dada9492a6faf264c4`. The valid clean-scratch run
+passed all thirteen safety counters at zero and all five aggregate quality metrics at 1.0, but FAILED
+the pre-registered per-case gate: CVE-2025-24472 produced two supported affected-range claims and a
+KEV-grounded exploit status, but no claim carried a fixed range (`complete_claims_min=1`). The live
+pipeline acquired NVD and KEV only because NVD's official Fortinet reference uses
+`fortiguard.fortinet.com`, while the controlled registry allowed only `www.fortiguard.com`; the
+advisory containing the fixed releases was therefore rejected before fetch. v12 remains frozen and
+cannot be rerun or relabelled. Remediation adds that official hostname to the existing Fortinet
+registry with a regression test; a new disjoint holdout is required before Phase 6 can close.
+
+**Holdout v13 (consumed, FAILED — frozen)**: revision 9 was committed alone before construction. It adds a
+deterministic, model-free production-adapter preflight for the version-claims case; evidence-pack
+reachability alone is no longer accepted as proof that the live pipeline can acquire the advisory.
+The preflight passed for CVE-2025-32756 and Fortinet advisory FG-IR-25-254: the URL occurs in NVD's
+reference set, passes the bounded registry, survives candidate discovery, and produces authoritative
+text containing affected branches and explicit upgrade targets. The v13 CVEs (CVE-2025-32756,
+CVE-2025-24991, CVE-2025-29824) pass the automated disjointness check against 24 prior impact JSONL
+files. Candidate and frozen official evidence pack were committed separately after revision 9;
+three-family one-case-at-a-time semantic review completed with all 12 verdicts high-accept
+(`deepseek-v4.1-flash` receipts 1-4, `glm-5.3-flash` 5-8, `kimi-k2.8-preview` 9-12). All four cases
+froze as `MODEL_REVIEWED`, not human gold, at SHA256
+`6e20a4baffedc387f74fd8c5eac6abe0f55bc29871ec6780865cb24f9043b130`. The single clean-scratch run
+kept all thirteen safety counters at zero but failed the quality/per-case gate. HOLD-001 acquired the
+official Fortinet advisory and extracted five complete affected+fixed drafts, but duplicate
+NVD/advisory drafts for the same products were all treated as conflicts and capped to medium, routing
+every row to review (`min_rows` and `complete_claims_min` failed). HOLD-002 correctly routed thirteen
+four-part Windows builds to review, but an already-medium extraction did not add the expected explicit
+`matcher-unsupported` unknown. HOLD-003's model response carried an unexpected top-level `type` key and
+was rejected fail-closed as unusable. v13 is immutable and will not be rerun or relabelled. The first
+two findings are development defects to fix and verify before any new holdout; the third remains
+recorded provider/model-output variance.
+
+**Post-v13 development correction (revision 10)**: normalization now distinguishes contradictory
+version assertions from compatible duplicate drafts. Compatible NVD/advisory drafts merge their
+models, mitigations, Evidence ids and complementary fixed range without an automatic confidence cap;
+genuine contradictory ranges still cap the survivor to medium and record a conflict. Matcher-rejected
+expressions now always add the explicit review-routing unknown even when the incoming draft is already
+medium. Focused Python regressions cover compatible merge, genuine conflict, and already-medium
+unsupported routing. A fresh development E2E replay of CVE-2017-7921 produced seven high-confidence,
+auto-routed, evidence-backed product claims with every safety detector at zero; a CVE-2023-36563 replay
+was attempted twice but the paid provider returned schema-invalid UUID fields before normalization, so
+no invalid result was accepted. The deterministic unsupported-medium behavior is verified by the
+focused runtime regression. No v14 candidate may be built until this revision is committed; v13 stays
+frozen and consumed.
+
+**Holdout v14 (consumed, FAILED — frozen)**: after revision 10, a fully disjoint four-case candidate
+and official evidence pack were frozen. DeepSeek-V4.1-Flash, GLM-5.3-Flash, and Kimi-K2.8-Preview
+returned 12/12 high-accept verdicts; all four cases froze as `MODEL_REVIEWED` at SHA256
+`394086a87eea35e359897cb2dc5230941d58734f56a0adbd406318916b9f728d`. The unique clean-scratch run
+kept all thirteen safety counters at zero and scored decision, exploit, routing, and unknown honesty
+at 1.0. The unsupported-version and stale-input cases passed. The version case correctly extracted a
+complete FortiWeb affected/fixed record but still capped it to medium because different release
+branches from the same advisory were treated as conflicting rather than as a finite union; therefore
+row recall had no denominator and the run failed. v14 is immutable and will not be rerun or relabelled.
+
+**Post-v14 development correction (revision 11)**: matcher-supported affected/fixed branches sharing
+the same Evidence are merged with the frozen finite-union syntax. Differing assertions from disjoint
+Evidence remain conflicts. Focused tests cover union merge and true cross-source conflict; the full
+24-case development replay retains all safety counts at zero and 1.0 vendor/product/version/decision/
+exploit/unknown metrics. A fresh disjoint v15 is required for the final gate.
+
+**Holdout v15 (consumed, FAILED — frozen)**: the disjoint candidate received 12/12 high-accept verdicts
+from the same three independent model families and froze at SHA256
+`0d1ef2ba93b7e0c8971220fc3f7939f7dbccb53d87ecec31c131049ea58d50d6`. The unique clean-scratch run
+kept all thirteen safety counters at zero and scored all five aggregate quality metrics at 1.0,
+including non-zero row recall. Its sole failure was `complete_claims_min`: the FortiWeb affected-range
+union persisted correctly at high confidence, but the official advisory fetch timed out/rejected after
+the earlier production preflight had succeeded, so the model saw only cached NVD/KEV and honestly left
+the fixed range null. v15 is immutable and will not be rerun or relabelled.
+
+**Post-v15 reliability correction (revision 12)**: migration `0046` extends the existing source cache
+to registry-validated official vendor advisories. A successful live fetch is cached; only a subsequent
+live failure may use it, with a new Evidence id and explicit cache provenance. The production tool
+gateway uses this persistent path while injected test fetches remain isolated. The model-free advisory
+preflight now warms the same cache when `DATABASE_URL` is configured. A scratch-database test proves
+live success followed by transient failure still returns the exact official advisory. The next final
+database was therefore required to be migrated and prewarmed before the v16 run; the closing run below
+followed that procedure.
+
+**Holdout v16 (PASSED — Phase 6 closing gate)**: the fully disjoint four-case candidate and its frozen
+ten-item official evidence pack passed the automated disjointness and evidence-integrity gates. All
+twelve independent semantic reviews were high-accept (`deepseek-v4.1-flash` receipts 32-35,
+`glm-5.3-flash` 28-31, `kimi-k2.8-preview` 36-39); all cases froze as `MODEL_REVIEWED`, not human gold,
+at SHA256 `a679b11e04a9135a5f69b5eede5a592f96f9efe30f63fddca947db232234a4c5`. A clean scratch database
+received all 43 migrations through `0046`, then the production preflight cached Fortinet FG-IR-25-910
+in that same database. The single authorized complete replay passed with all thirteen safety counters
+at zero, all five quality metrics at 1.0, a non-zero row-recall denominator, and no per-case failures.
+The result is retained locally at `.data/impact/e2e-v16-results.json`; the committed baseline is
+`docs/evaluation/impact-e2e-baseline.md`. No v16 case was relabelled or rerun.
+
+**Phase 6 local closeout validation (2026-10-23)**: Python runtime tests 44/44; focused Phase 6
+TypeScript tests 37/37 plus version-matcher tests 8/8; TypeScript typecheck passed; empty-database
+migration applied all 43 migrations through `0046`; web build passed; web tests 16/16; Docker Compose
+configuration passed. Canonical Linux CI is intentionally recorded as pending until the branch is
+pushed and the pull request checks execute; it is the only remaining external verification item, not
+an implementation or evaluation blocker.
+
+Review execution note (2026-10-15): the dedicated scratch database
+`sentinel_phase6_v12_ci` was migrated through `0045`. The frozen evidence gate and disjointness gate
+passed before every attempted request. CodeBuddy's simple CLI health probe succeeded, but the
+structured review channel returned no terminal result before its hard timeout for GLM-5.3-Flash,
+DeepSeek-V4.1-Flash, and a one-case GLM-5.3 retry; their receipts are `unknown`, not verdicts. A Kimi
+request interrupted during diagnosis remains subject to the normal stale-pending recovery path. No
+review output was accepted, no case was frozen, and the calls must not be blindly repeated before the
+receipt recovery policy releases them. This is an external review-channel blocker, not a Phase 6
+quality result. Revision 8a then accepted a complete schema-valid assistant event when CodeBuddy
+omitted its terminal `result` event; the one-case retry returned in seconds and the remaining reviews
+completed normally. Two preflight attempts of the final runner were discarded before evaluation:
+one had the Python product-impact switch disabled, and one used the production 5-second Agent client
+timeout; neither reached extraction or produced model receipts. The runner now uses the task's
+pre-registered 60-second deadline. The subsequent clean-scratch run is the consumed v12 result above.
+
+### Phase 6 checkpoint 1 — contracts, matcher, migrations, stores
+
+Implemented on 2026-10-10 without external or paid calls: strict cross-runtime impact task/proposal
+schemas (`impact-contract.ts` + `agent-runtime/app/schemas/impact.py`) sharing one fixture
+(`tests/fixtures/impact/task.json`) parsed by both runtimes; a closed-grammar deterministic version
+matcher (`version-matcher.ts`: exact, `< <= > >=`, closed ranges, comma lists, numeric SemVer ordering;
+everything else returns unsupported so callers degrade to unknown + human review); additive migration
+`0044` with `security_entities` (alias-aware identity), `story_entities`, row-per-product
+`product_impacts` (`impact_version` + current/superseded status + `persisted_kind` claims/unknown_only),
+and `impact_human_reviews`; and `impact-store.ts` with confidence routing (high → claims, medium →
+human review, low → unknown-only row with no claims), atomic supersession, and run idempotency that
+covers both impact rows and review records. A review-only run neither supersedes current claims nor
+burns a version. Verification: typecheck; Python runtime tests 32/32; impact contract/store/matcher
+tests 13/13 against a scratch database; empty-database migration through `0044` (41 migrations).
+
+### Phase 6 checkpoint 2 — runtime graph, orchestration, worker queue
+
+A second execution under the owner's account added the Python impact graph (`2dafe25`): bounded
+official-source acquisition through the Phase 4/5 gateway (NVD, KEV, vendor advisory search plus one
+evidence fetch), an authenticated `/v1/impact/story/{id}` endpoint behind the default-off
+`PRODUCT_IMPACT_ENABLED` switch, the TypeScript client `runAgentImpactTask` (fail-closed switch,
+identity correlation, proposal validation), and fixture tests on both sides. The graph deliberately
+preserves unknowns instead of guessing semantic rows: until the TypeScript model-gateway extraction
+round trip from the contract lands, no impact rows are fabricated. The same session then added the
+orchestration (`agents/impact.ts`): deterministic eligibility (Stories whose title or digest carries a
+CVE id, with vendor aliases resolved deterministically), one research-run bookkeeping wrapper, evidence
+persistence before the impact transaction, and skip semantics for already-analyzed and non-CVE stories;
+plus the `agent.product-impact` pg-boss queue (`jobs/impact.ts`), worker registration, and a
+`*/10` candidate scan guarded by the same switch. Verification: typecheck; Python tests 32/32; impact
+TypeScript tests 21/21; Docker Compose configuration. No external, model, or paid call was made.
 
 ### Phase 5 implementation checkpoint 1 — deterministic tracking foundation
 

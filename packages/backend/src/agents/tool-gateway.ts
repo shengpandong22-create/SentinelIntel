@@ -16,7 +16,7 @@ import {
   type ResearchFetchJson,
   type ResearchPostJson,
 } from "./research-adapters.ts";
-import { lookupNvdPersistent } from "./research-source-cache.ts";
+import { fetchVendorAdvisoryPersistent, lookupKevPersistent, lookupNvdPersistent } from "./research-source-cache.ts";
 
 export const ResearchToolRequestSchema = z.object({
   trace_id: z.uuid(),
@@ -102,13 +102,15 @@ export async function executeResearchTool(
     result = deps.fetchJson ? await lookupNvd(cveId, deps.fetchJson) : await lookupNvdPersistent(cveId);
   } else if (parsed.tool === "kev_lookup") {
     if (cveId === null) throw new Error("CVE id is missing");
-    result = await lookupKev(cveId, deps.fetchJson);
+    result = deps.fetchJson ? await lookupKev(cveId, deps.fetchJson) : await lookupKevPersistent(cveId);
   } else if (parsed.tool === "vendor_advisory_search") {
     if (vendor === null || query === null) throw new Error("vendor advisory search input is missing");
     result = await searchVendorAdvisories(vendor, query, deps.fetchDocument, candidateUrls);
   } else if (parsed.tool === "evidence_fetch") {
     if (vendor === null || advisoryUrl === null) throw new Error("vendor advisory fetch input is missing");
-    result = await fetchVendorAdvisory(vendor, advisoryUrl, deps.fetchDocument);
+    result = deps.fetchDocument
+      ? await fetchVendorAdvisory(vendor, advisoryUrl, deps.fetchDocument)
+      : await fetchVendorAdvisoryPersistent(vendor, advisoryUrl);
   } else {
     if (procedureId === null) throw new Error("TED procedure id is missing");
     result = await lookupTedProcurementAward(procedureId, deps.postJson);

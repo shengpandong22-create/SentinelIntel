@@ -21,11 +21,22 @@ const NvdResponseSchema = z.object({
         descriptions: z.array(z.object({ lang: z.string(), value: z.string() })).default([]),
       })).default([]),
       references: z.array(z.object({ url: z.string(), source: z.string().optional(), tags: z.array(z.string()).optional() })).default([]),
+      configurations: z.array(z.object({
+        nodes: z.array(z.object({
+          cpeMatch: z.array(z.object({
+            criteria: z.string(),
+            versionStartIncluding: z.string().optional(),
+            versionStartExcluding: z.string().optional(),
+            versionEndExcluding: z.string().optional(),
+            versionEndIncluding: z.string().optional(),
+          }).passthrough()).default([]),
+        }).passthrough()).default([]),
+      }).passthrough()).default([]),
     }).passthrough(),
   })).default([]),
 }).passthrough();
 
-const KevResponseSchema = z.object({
+export const KevResponseSchema = z.object({
   catalogVersion: z.string(),
   dateReleased: z.string(),
   vulnerabilities: z.array(z.object({
@@ -169,7 +180,9 @@ export const VENDOR_ADVISORY_SOURCES: Record<VendorKey, VendorAdvisorySource> = 
   fortinet: {
     name: "Fortinet",
     aliases: ["fortinet", "fortigate", "fortios"],
-    hosts: ["www.fortiguard.com"],
+    // NVD and Fortinet advisories use both official hostnames. The former commonly redirects to
+    // www, but it must pass the registry before the guarded fetch can follow that redirect.
+    hosts: ["www.fortiguard.com", "fortiguard.fortinet.com"],
     allowedPaths: [/^\/psirt\/FG-IR-/],
     searchUrl: (query) => `https://www.fortiguard.com/psirt?filter=1&search=${encodeURIComponent(query)}`,
   },
@@ -190,7 +203,7 @@ export const VENDOR_ADVISORY_SOURCES: Record<VendorKey, VendorAdvisorySource> = 
   },
 };
 
-async function defaultFetchJson(url: string, maxBytes: number): Promise<unknown> {
+export async function defaultFetchJson(url: string, maxBytes: number): Promise<unknown> {
   const response = await guardedFetch(url, {
     timeoutMs: 20_000,
     maxBytes,
@@ -248,6 +261,27 @@ export async function lookupNvd(cveInput: string, fetchJson: ResearchFetchJson =
     ?? record.descriptions[0]?.value
     ?? "NVD vulnerability record";
   const cwes = [...new Set(record.weaknesses.flatMap((item) => item.descriptions.map((entry) => entry.value)))];
+  // Deterministic flattening of the authoritative NVD CPE configuration bounds so the version data
+  // the extraction model needs is actually visible in the evidence text (the description alone never
+  // carries the machine-readable boundaries).
+  const versionBounds = record.configurations.flatMap((config) =>
+    config.nodes.flatMap((node) => node.cpeMatch.map((match) => ({
+      criteria: match.criteria,
+      versionStartIncluding: match.versionStartIncluding ?? null,
+      versionStartExcluding: match.versionStartExcluding ?? null,
+      versionEndExcluding: match.versionEndExcluding ?? null,
+      versionEndIncluding: match.versionEndIncluding ?? null,
+    }))));
+  const boundsText = versionBounds.length === 0 ? "" : `\n\nCPE configuration version bounds:\n${
+    versionBounds.slice(0, 40).map((bound) => {
+      const bounds = [
+        bound.versionStartIncluding !== null ? `versionStartIncluding: ${bound.versionStartIncluding}` : null,
+        bound.versionStartExcluding !== null ? `versionStartExcluding: ${bound.versionStartExcluding}` : null,
+        bound.versionEndExcluding !== null ? `versionEndExcluding: ${bound.versionEndExcluding}` : null,
+        bound.versionEndIncluding !== null ? `versionEndIncluding: ${bound.versionEndIncluding}` : null,
+      ].filter(Boolean).join("; ");
+      return `- ${bound.criteria}${bounds ? ` (${bounds})` : ""}`;
+    }).join("\n")}`;
   const normalized = {
     cve_id: cveId,
     status: record.vulnStatus ?? null,
@@ -257,6 +291,7 @@ export async function lookupNvd(cveInput: string, fetchJson: ResearchFetchJson =
     metrics: record.metrics,
     cwes,
     references: record.references.slice(0, 50),
+    version_bounds: versionBounds,
     tracking_observations: ["material_update"],
   };
   const evidence = ResearchEvidenceSchema.parse({
@@ -265,7 +300,7 @@ export async function lookupNvd(cveInput: string, fetchJson: ResearchFetchJson =
     source_name: "NIST National Vulnerability Database",
     canonical_url: `https://nvd.nist.gov/vuln/detail/${cveId}`,
     title: `${cveId}: ${description}`.slice(0, 1_000),
-    excerpt: description.slice(0, 20_000),
+    excerpt: `${description.slice(0, 20_000)}${boundsText}`,
     normalized,
     content_hash: sha256(stableJson(record)),
     authority_level: "authoritative",
@@ -281,6 +316,11 @@ export async function lookupKev(cveInput: string, fetchJson: ResearchFetchJson =
   const cveId = CveIdSchema.parse(cveInput);
   const feedUrl = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json";
   const parsed = KevResponseSchema.parse(await fetchJson(feedUrl, 8 * 1024 * 1024));
+  return kevResultFromCatalog(cveId, parsed);
+}
+
+/** Builds the found/not-found adapter result for a CVE against an already-fetched KEV catalog. */
+export function kevResultFromCatalog(cveId: string, parsed: z.infer<typeof KevResponseSchema>): AdapterResult {
   const record = parsed.vulnerabilities.find((item) => item.cveID.toUpperCase() === cveId);
   if (!record) {
     return {
@@ -318,7 +358,7 @@ export async function lookupKev(cveInput: string, fetchJson: ResearchFetchJson =
     published_at: `${record.dateAdded}T00:00:00.000Z`,
     source_updated_at: null,
     retrieved_at: new Date().toISOString(),
-    provenance: { adapter: "cisa-kev-json", retrieved_from: feedUrl, external_network: true },
+    provenance: { adapter: "cisa-kev-json", retrieved_from: "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json", external_network: true },
   });
   return { output: { found: true, cve_id: cveId, catalog_version: parsed.catalogVersion }, evidence: [evidence], receiptIds: [] };
 }
@@ -438,7 +478,10 @@ export async function fetchVendorAdvisory(
   const $ = load(response.text);
   $("script,style,noscript,svg,nav,footer,header").remove();
   const title = cleanText($("h1").first().text() || $("meta[property='og:title']").attr("content") || $("title").first().text());
-  const body = cleanText($("main,article,[role='main']").first().text() || $("body").text());
+  // Some vendor pages put only a cookie banner inside main/article; a suspiciously short extraction
+  // falls back to the whole body (navigation and chrome are already removed).
+  const mainText = cleanText($("main,article,[role='main']").first().text());
+  const body = mainText.length >= 500 ? mainText : cleanText($("body").text());
   if (!title || body.length < 20) throw new Error("vendor advisory did not contain usable document text");
   const cves = [...new Set((`${title} ${body}`.match(/\bCVE-\d{4}-\d{4,}\b/gi) ?? []).map((item) => item.toUpperCase()))].slice(0, 50);
   const trackingObservations = ["vendor_confirmation"];

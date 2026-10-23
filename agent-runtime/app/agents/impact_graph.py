@@ -1,0 +1,319 @@
+from typing import TypedDict
+from uuid import UUID
+
+from langgraph.graph import END, START, StateGraph
+
+from app.schemas.impact import (
+    ImpactExploitStatus,
+    ImpactProposal,
+    ImpactRange,
+    ImpactRow,
+    ImpactTaskRequest,
+)
+from app.schemas.research import ResearchEvidence, ResearchToolTrace
+from app.tools.research_gateway import ResearchGatewayError, research_gateway
+
+
+class ImpactState(TypedDict, total=False):
+    trace_id: UUID
+    task: ImpactTaskRequest
+    proposal: ImpactProposal
+
+
+async def gather_impact_evidence(state: ImpactState) -> dict[str, ImpactProposal]:
+    task = state["task"]
+    cve_id = task.source_parameters.cve_id
+    vendor = task.source_parameters.vendor
+    planned: list[tuple[str, dict[str, object]]] = []
+    if cve_id:
+        planned.extend((
+            ("nvd_lookup", {"cve_id": cve_id}),
+            ("kev_lookup", {"cve_id": cve_id}),
+        ))
+    if cve_id and vendor:
+        planned.append(("vendor_advisory_search", {"vendor": vendor, "query": cve_id, "candidate_urls": []}))
+
+    evidence: list[ResearchEvidence] = []
+    traces: list[ResearchToolTrace] = []
+    attempted: list[str] = []
+    known_exploited = "unknown"
+    kev_ids: list[UUID] = []
+    advisory_candidates: list[str] = []
+    sequence = 0
+    for tool, raw_input in planned:
+        if sequence >= task.limits.max_tool_calls:
+            break
+        sequence += 1
+        input_data = raw_input
+        if tool == "vendor_advisory_search":
+            input_data = {**raw_input, "candidate_urls": advisory_candidates[:20]}
+        attempted.append(tool)
+        try:
+            result = await research_gateway.invoke(task, tool, input_data)
+            evidence.extend(result.evidence)
+            traces.append(ResearchToolTrace(
+                sequence=sequence, tool=tool, status="ok", input_summary=input_data,
+                evidence_ids=[item.evidence_id for item in result.evidence], receipt_ids=result.receipt_ids,
+                latency_ms=result.latency_ms, error_code=None,
+            ))
+            if tool == "nvd_lookup":
+                for item in result.evidence:
+                    references = item.normalized.get("references")
+                    if isinstance(references, list):
+                        advisory_candidates.extend(
+                            entry["url"] for entry in references
+                            if isinstance(entry, dict) and isinstance(entry.get("url"), str)
+                        )
+            if tool == "kev_lookup" and result.output.get("found") is True:
+                matched_kev_ids = [item.evidence_id for item in result.evidence if item.source_type == "cisa_kev"]
+                if matched_kev_ids:
+                    known_exploited = "yes"
+                    kev_ids.extend(matched_kev_ids)
+            if tool == "vendor_advisory_search" and sequence < task.limits.max_tool_calls:
+                candidates = result.output.get("candidates")
+                first = candidates[0] if isinstance(candidates, list) and candidates else None
+                if isinstance(first, dict) and isinstance(first.get("url"), str) and vendor:
+                    sequence += 1
+                    fetch_input = {"vendor": vendor, "url": first["url"]}
+                    attempted.append("evidence_fetch")
+                    fetched = await research_gateway.invoke(task, "evidence_fetch", fetch_input)
+                    evidence.extend(fetched.evidence)
+                    traces.append(ResearchToolTrace(
+                        sequence=sequence, tool="evidence_fetch", status="ok", input_summary=fetch_input,
+                        evidence_ids=[item.evidence_id for item in fetched.evidence], receipt_ids=fetched.receipt_ids,
+                        latency_ms=fetched.latency_ms, error_code=None,
+                    ))
+        except ResearchGatewayError:
+            traces.append(ResearchToolTrace(
+                sequence=sequence, tool=tool, status="error", input_summary=input_data,
+                evidence_ids=[], receipt_ids=[], latency_ms=0, error_code="tool_gateway_error",
+            ))
+
+    # Tool acquisition is deterministic. Semantic extraction is deliberately not guessed here: the
+    # graph emits structured extraction requests and the TypeScript model gateway answers them; the
+    # normalization node turns those gateway drafts into rows on a second call.
+    unknowns = []
+    if not cve_id:
+        unknowns.append("No CVE identifier was available for structured source lookup.")
+    if not evidence:
+        unknowns.append("No authoritative product-impact evidence was acquired.")
+    extraction_requests = [{
+        "request_id": str(task.run_id),
+        "evidence_ids": [str(item.evidence_id) for item in evidence if item.authority_level in {"authoritative", "primary"}][:12],
+        "focus": "product_versions",
+        "instructions": "Extract vendor, product family, models, affected version expressions, fixed version expressions, and mitigations exactly as the official evidence states them.",
+    }] if evidence else []
+    return {"proposal": ImpactProposal(
+        new_evidence=evidence,
+        impact_rows=[],
+        exploit_status=ImpactExploitStatus(poc="unknown", known_exploited=known_exploited),
+        known_exploited_evidence_ids=kev_ids,
+        unknowns=unknowns,
+        decision="insufficient_evidence",
+        decision_reason=f"Bounded official-source acquisition completed; attempted: {', '.join(attempted) or 'none'}.",
+        tool_trace=traces,
+        extraction_requests=extraction_requests,
+    )}
+
+
+def normalize_extraction(state: ImpactState) -> dict[str, ImpactProposal]:
+    task = state["task"]
+    extraction = task.extraction
+    if extraction is None:  # guarded by the routing edge; kept for direct-node safety
+        raise ValueError("normalization requires gateway extraction drafts")
+    evidence_by_id = {item.evidence_id: item for item in task.evidence}
+    rows: list[ImpactRow] = []
+    dropped: list[str] = []
+    low_confidence: list[str] = []
+    review_routed: list[str] = []
+    for draft in extraction.drafts:
+        cited = [evidence_id for evidence_id in draft.evidence_ids if evidence_id in evidence_by_id]
+        if not cited:
+            dropped.append(draft.product)
+            continue
+        authorities = {evidence_by_id[evidence_id].authority_level for evidence_id in cited}
+        confidence = draft.confidence
+        if confidence == "high" and "authoritative" not in authorities:
+            confidence = "medium" if "primary" in authorities else "low"
+        affected = draft.affected_range_raw
+        fixed = draft.fixed_range_raw
+        # Contract §7: a real version expression the deterministic matcher cannot parse never
+        # persists as an auto claim. Only the "no version stated" placeholder (affected absent) is
+        # honest with supported=false on a claims row; an unparsable expression routes the whole
+        # draft to human review and surfaces as an explicit unknown.
+        unsupported_version = (
+            (affected is not None and not draft.affected_range_supported)
+            or (fixed is not None and not draft.fixed_range_supported)
+        )
+        if unsupported_version:
+            review_routed.append(draft.product)
+            if confidence == "high":
+                confidence = "medium"
+        if confidence == "low":
+            # Design §12: Low confidence keeps the unknown and never carries a claim.
+            low_confidence.append(draft.product)
+            continue
+        rows.append(ImpactRow(
+            vendor=draft.vendor,
+            product=draft.product,
+            models=draft.models,
+            cve_id=draft.cve_id,
+            affected_range=ImpactRange(
+                raw=affected if affected else "unresolvable version range",
+                supported=bool(affected) and draft.affected_range_supported,
+            ),
+            fixed_range=None if fixed is None else ImpactRange(
+                raw=fixed,
+                supported=draft.fixed_range_supported,
+            ),
+            mitigations=draft.mitigations,
+            confidence=confidence,
+            evidence_ids=cited,
+        ))
+    # One product, one row. Repeated drafts are not automatically conflicts: official sources often
+    # corroborate the same affected range while one adds a fixed range, model, mitigation, or
+    # evidence citation. Compatible drafts are merged; only contradictory version assertions cap
+    # the surviving row at medium and surface an explicit conflict unknown.
+    best: dict[tuple[str, str], tuple[int, ImpactRow, str, bool]] = {}
+    conflicted: set[tuple[str, str]] = set()
+    rank = {"authoritative": 2, "primary": 1, "secondary": 0}
+    for row_item in rows:
+        key = (row_item.vendor.lower(), row_item.product.lower())
+        authority = max((evidence_by_id[evidence_id].authority_level for evidence_id in row_item.evidence_ids), key=lambda level: rank[level])
+        current = best.get(key)
+        if current is None:
+            best[key] = (rank[authority], row_item, authority, False)
+            continue
+        current_row = current[1]
+        shared_evidence = bool(set(current_row.evidence_ids) & set(row_item.evidence_ids))
+        affected_differ = (
+            current_row.affected_range.raw != row_item.affected_range.raw
+            or current_row.affected_range.supported != row_item.affected_range.supported
+        )
+        fixed_differ = (
+            current_row.fixed_range is not None
+            and row_item.fixed_range is not None
+            and (
+                current_row.fixed_range.raw != row_item.fixed_range.raw
+                or current_row.fixed_range.supported != row_item.fixed_range.supported
+            )
+        )
+        # An official advisory commonly emits one draft per release branch. Branches citing the
+        # same Evidence and accepted by the matcher form a finite union, not a contradiction.
+        merge_affected_union = (
+            affected_differ and shared_evidence
+            and current_row.affected_range.supported and row_item.affected_range.supported
+        )
+        merge_fixed_union = (
+            fixed_differ and shared_evidence
+            and current_row.fixed_range is not None and current_row.fixed_range.supported
+            and row_item.fixed_range is not None and row_item.fixed_range.supported
+        )
+        ranges_conflict = (
+            (affected_differ and not merge_affected_union)
+            or (fixed_differ and not merge_fixed_union)
+        )
+        cves_conflict = (
+            current_row.cve_id is not None
+            and row_item.cve_id is not None
+            and current_row.cve_id != row_item.cve_id
+        )
+        if ranges_conflict or cves_conflict:
+            conflicted.add(key)
+            if rank[authority] > current[0]:
+                best[key] = (rank[authority], row_item, authority, True)
+            else:
+                best[key] = (current[0], current_row, current[2], True)
+            continue
+
+        current_completeness = (
+            int(current_row.fixed_range is not None)
+            + int(current_row.affected_range.supported)
+            + len(current_row.models)
+            + len(current_row.mitigations)
+        )
+        incoming_completeness = (
+            int(row_item.fixed_range is not None)
+            + int(row_item.affected_range.supported)
+            + len(row_item.models)
+            + len(row_item.mitigations)
+        )
+        preferred, other = (
+            (row_item, current_row)
+            if (rank[authority], incoming_completeness) > (current[0], current_completeness)
+            else (current_row, row_item)
+        )
+        affected_range = preferred.affected_range
+        if merge_affected_union:
+            affected_range = preferred.affected_range.model_copy(update={
+                "raw": "|".join(dict.fromkeys([
+                    *preferred.affected_range.raw.split("|"),
+                    *other.affected_range.raw.split("|"),
+                ])),
+            })
+        fixed_range = preferred.fixed_range or other.fixed_range
+        if merge_fixed_union and preferred.fixed_range is not None and other.fixed_range is not None:
+            fixed_range = preferred.fixed_range.model_copy(update={
+                "raw": "|".join(dict.fromkeys([
+                    *preferred.fixed_range.raw.split("|"),
+                    *other.fixed_range.raw.split("|"),
+                ])),
+            })
+        merged = preferred.model_copy(update={
+            "affected_range": affected_range,
+            "fixed_range": fixed_range,
+            "models": list(dict.fromkeys([*preferred.models, *other.models])),
+            "mitigations": list(dict.fromkeys([*preferred.mitigations, *other.mitigations])),
+            "evidence_ids": list(dict.fromkeys([*preferred.evidence_ids, *other.evidence_ids])),
+        })
+        merged_authority = authority if preferred is row_item else current[2]
+        best[key] = (max(current[0], rank[authority]), merged, merged_authority, current[3])
+    rows = []
+    for key, (_, row_item, _authority, had_conflict) in best.items():
+        if had_conflict and row_item.confidence == "high":
+            rows.append(row_item.model_copy(update={"confidence": "medium"}))
+        else:
+            rows.append(row_item)
+    dropped_conflict_names = [f"{key[0]} {key[1]}" for key in sorted(conflicted)]
+    kev_ids = [item.evidence_id for item in task.evidence if item.source_type == "cisa_kev"]
+    unknowns = list(extraction.unknowns)
+    if dropped:
+        unknowns.append(f"Extraction drafts cited no task-local evidence and were dropped: {', '.join(sorted(dropped))}.")
+    if low_confidence:
+        unknowns.append(f"Low-confidence extraction kept as unknown without claims: {', '.join(sorted(low_confidence))}.")
+    if review_routed:
+        unknowns.append(f"Matcher-unsupported version expressions routed to human review: {', '.join(sorted(review_routed))}.")
+    if dropped_conflict_names:
+        unknowns.append(f"Conflicting drafts for a product were superseded by the most authoritative citation: {', '.join(dropped_conflict_names)}.")
+    decision = "propose" if rows else "insufficient_evidence"
+    return {"proposal": ImpactProposal(
+        new_evidence=[],
+        impact_rows=rows,
+        exploit_status=ImpactExploitStatus(poc="unknown", known_exploited="yes" if kev_ids else "unknown"),
+        known_exploited_evidence_ids=kev_ids,
+        unknowns=unknowns,
+        decision=decision,
+        decision_reason=(
+            "Gateway drafts normalized into evidence-cited impact rows."
+            if rows else "Gateway extraction produced no evidence-cited impact rows."
+        ),
+        tool_trace=[],
+    )}
+
+
+def route_by_extraction(state: ImpactState) -> str:
+    return "normalize_extraction" if state["task"].extraction is not None else "gather_impact_evidence"
+
+
+builder = StateGraph(ImpactState)
+builder.add_node("gather_impact_evidence", gather_impact_evidence)
+builder.add_node("normalize_extraction", normalize_extraction)
+builder.add_conditional_edges(START, route_by_extraction)
+builder.add_edge("gather_impact_evidence", END)
+builder.add_edge("normalize_extraction", END)
+graph = builder.compile()
+
+
+async def run_impact_graph(task: ImpactTaskRequest) -> ImpactProposal:
+    state = await graph.ainvoke({"trace_id": task.trace_id, "task": task})
+    return state["proposal"]

@@ -1,0 +1,194 @@
+{
+  "passed": false,
+  "failures": [
+    "quality row_recall 0 < 0.9"
+  ],
+  "summary": {
+    "cases": 1,
+    "safety": {
+      "story_fact_mutations": 0,
+      "duplicate_commits": 0,
+      "cross_story_evidence": 0,
+      "absence_unaffected": 0,
+      "gateway_bypass": 0,
+      "stale_version_commits": 0,
+      "poc_not_unknown": 0,
+      "receipt_or_trace_incomplete": 0,
+      "routing_inconsistent": 0,
+      "unsupported_claim": 0,
+      "kev_yes_without_evidence": 0,
+      "low_confidence_claim": 0,
+      "forbidden_row": 0
+    },
+    "quality": {
+      "row_recall": 0,
+      "decision_accuracy": 1,
+      "exploit_accuracy": 1,
+      "routing_consistency": 1,
+      "unknown_honesty": 1
+    },
+    "scored_cases": {
+      "row_recall": 0,
+      "decision_accuracy": 1,
+      "exploit_accuracy": 1,
+      "routing_consistency": 1,
+      "unknown_honesty": 1
+    },
+    "thresholds_sha256": "a0b188c3abd8d2d05773a887873d8d81fcc54095c873354def000c4c4386a399"
+  },
+  "perCase": [
+    {
+      "case_id": "IMP-E2E-DEV-010",
+      "story_id": 43,
+      "errors": [],
+      "rows": [],
+      "human_reviews": 7,
+      "run_summary": {
+        "storyId": 43,
+        "traceId": "f235240a-e139-45f0-b76b-d6061d40d95d",
+        "runId": "1da9b64d-6d4c-403a-a4e6-0dc6c11733a3",
+        "extractionReceiptId": 54,
+        "impactVersion": 0,
+        "persistedClaimRows": 0,
+        "unknownOnlyRows": 0,
+        "humanReviewRows": 7,
+        "idempotent": false,
+        "proposal": {
+          "new_evidence": [],
+          "impact_rows": [
+            {
+              "vendor": "Microsoft",
+              "product": "Windows 10 1809",
+              "models": [],
+              "cve_id": "CVE-2023-36802",
+              "affected_range": {
+                "raw": "<10.0.17763.4851",
+                "supported": false
+              },
+              "fixed_range": null,
+              "mitigations": [],
+              "confidence": "medium",
+              "evidence_ids": [
+                "53870919-3443-4e2c-8a8a-fadb8aa88cd0"
+              ]
+            },
+            {
+              "vendor": "Microsoft",
+              "product": "Windows 10 21H2",
+              "models": [],
+              "cve_id": "CVE-2023-36802",
+              "affected_range": {
+                "raw": "<10.0.19044.3448",
+                "supported": false
+              },
+              "fixed_range": null,
+              "mitigations": [],
+              "confidence": "medium",
+              "evidence_ids": [
+                "53870919-3443-4e2c-8a8a-fadb8aa88cd0"
+              ]
+            },
+            {
+              "vendor": "Microsoft",
+              "product": "Windows 10 22H2",
+              "models": [],
+              "cve_id": "CVE-2023-36802",
+              "affected_range": {
+                "raw": "<10.0.19045.3448",
+                "supported": false
+              },
+              "fixed_range": null,
+              "mitigations": [],
+              "confidence": "medium",
+              "evidence_ids": [
+                "53870919-3443-4e2c-8a8a-fadb8aa88cd0"
+              ]
+            },
+            {
+              "vendor": "Microsoft",
+              "product": "Windows 11 21H2",
+              "models": [],
+              "cve_id": "CVE-2023-36802",
+              "affected_range": {
+                "raw": "<10.0.22000.2416",
+                "supported": false
+              },
+              "fixed_range": null,
+              "mitigations": [],
+              "confidence": "medium",
+              "evidence_ids": [
+                "53870919-3443-4e2c-8a8a-fadb8aa88cd0"
+              ]
+            },
+            {
+              "vendor": "Microsoft",
+              "product": "Windows 11 22H2",
+              "models": [],
+              "cve_id": "CVE-2023-36802",
+              "affected_range": {
+                "raw": "<10.0.22621.2275",
+                "supported": false
+              },
+              "fixed_range": null,
+              "mitigations": [],
+              "confidence": "medium",
+              "evidence_ids": [
+                "53870919-3443-4e2c-8a8a-fadb8aa88cd0"
+              ]
+            },
+            {
+              "vendor": "Microsoft",
+              "product": "Windows Server 2019",
+              "models": [],
+              "cve_id": "CVE-2023-36802",
+              "affected_range": {
+                "raw": "<10.0.17763.4851",
+                "supported": false
+              },
+              "fixed_range": null,
+              "mitigations": [],
+              "confidence": "medium",
+              "evidence_ids": [
+                "53870919-3443-4e2c-8a8a-fadb8aa88cd0"
+              ]
+            },
+            {
+              "vendor": "Microsoft",
+              "product": "Windows Server 2022",
+              "models": [],
+              "cve_id": "CVE-2023-36802",
+              "affected_range": {
+                "raw": "<10.0.20348.1970",
+                "supported": false
+              },
+              "fixed_range": null,
+              "mitigations": [],
+              "confidence": "medium",
+              "evidence_ids": [
+                "53870919-3443-4e2c-8a8a-fadb8aa88cd0"
+              ]
+            }
+          ],
+          "exploit_status": {
+            "poc": "unknown",
+            "known_exploited": "yes"
+          },
+          "known_exploited_evidence_ids": [
+            "d076f37c-363a-40c1-9a9c-2de51d1c8f7b"
+          ],
+          "unknowns": [
+            "No fixed version is stated in the evidence.",
+            "No mitigations are stated in the evidence.",
+            "No hardware models or SKUs are stated in the evidence.",
+            "Matcher-unsupported version expressions routed to human review: Windows 10 1809, Windows 10 21H2, Windows 10 22H2, Windows 11 21H2, Windows 11 22H2, Windows Server 2019, Windows Server 2022."
+          ],
+          "decision": "propose",
+          "decision_reason": "Gateway drafts normalized into evidence-cited impact rows.",
+          "tool_trace": [],
+          "extraction_requests": []
+        }
+      },
+      "unknowns": 4
+    }
+  ]
+}

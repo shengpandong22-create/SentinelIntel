@@ -144,6 +144,13 @@ test("vendor registry blocks arbitrary hosts, misleading subdomains, credentials
   );
 });
 
+test("Fortinet's NVD reference hostname is accepted by the controlled registry", () => {
+  assert.equal(
+    assertVendorAdvisoryUrl("fortinet", "https://fortiguard.fortinet.com/psirt/FG-IR-24-535").toString(),
+    "https://fortiguard.fortinet.com/psirt/FG-IR-24-535",
+  );
+});
+
 test("vendor adapters reject unsupported vendors and content types", async () => {
   await assert.rejects(searchVendorAdvisories("unknown", "CVE-2024-20399"));
   await assert.rejects(fetchVendorAdvisory(

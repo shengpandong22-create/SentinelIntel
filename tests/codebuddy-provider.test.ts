@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { codeBuddyArgs, parseCodeBuddyEnvelope, parseCodeBuddyOutput, parseCodeBuddyStream } from "@aihot/backend/providers/codebuddy";
+import { codeBuddyArgs, parseCodeBuddyAssistantEvent, parseCodeBuddyEnvelope, parseCodeBuddyOutput, parseCodeBuddyStream } from "@aihot/backend/providers/codebuddy";
 
 test("parses CodeBuddy structured output and usage metadata", () => {
   const row = parseCodeBuddyEnvelope(JSON.stringify({
@@ -34,6 +34,13 @@ test("can pass a bounded prompt as the final argument for CLI compatibility", ()
   assert.equal(args.at(-1), "bounded");
 });
 
+test("stdin mode keeps long evidence off the Windows command line", () => {
+  const prompt = "evidence".repeat(10_000);
+  const args = codeBuddyArgs({ model: "m", system: "s", prompt, jsonSchema: { type: "object" }, promptInArgument: false });
+  assert.equal(args.includes(prompt), false);
+  assert.equal(args[args.indexOf("--input-format") + 1], "text");
+});
+
 test("can use ordinary text output when the CLI native schema path is unavailable", () => {
   const args = codeBuddyArgs({ model: "m", system: "s", prompt: "bounded", jsonSchema: { type: "object" }, promptInArgument: true, useJsonSchema: false });
   assert.equal(args[args.indexOf("--output-format") + 1], "text");
@@ -54,6 +61,18 @@ test("extracts fenced JSON from a successful CodeBuddy stream result", () => {
   const envelope = parseCodeBuddyStream(JSON.stringify({ type: "result", subtype: "success", is_error: false,
     result: "Here is the result:\n```json\n{\"decisions\":[]}\n```" }));
   assert.deepEqual(envelope.structured_output, { decisions: [] });
+});
+
+test("captures a complete structured assistant event when CodeBuddy omits the terminal result", () => {
+  const envelope = parseCodeBuddyAssistantEvent({
+    type: "assistant", session_id: "s2",
+    message: { content: [{ type: "text", text: "```json\n{\"reviews\":[]}\n```" }], usage: { input_tokens: 12 } },
+  });
+  assert.deepEqual(envelope?.structured_output, { reviews: [] });
+  assert.equal(envelope?.session_id, "s2");
+  assert.equal(envelope?.usage?.input_tokens, 12);
+  assert.equal(parseCodeBuddyAssistantEvent({ type: "assistant", message: { content: [{ type: "thinking", thinking: "wait" }] } }), null);
+  assert.equal(parseCodeBuddyAssistantEvent({ type: "assistant", message: { content: [{ type: "text", text: "partial {" }] } }), null);
 });
 
 test("extracts structured data from ordinary CodeBuddy JSON output", () => {

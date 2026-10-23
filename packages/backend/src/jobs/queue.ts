@@ -21,6 +21,7 @@ export const QUEUES = {
 
   prepareMedia: "media.prepare",
   agentTracking: "agent.tracking",
+  agentImpact: "agent.product-impact",
 } as const;
 
 type QueueOptions = NonNullable<Parameters<PgBoss["createQueue"]>[1]>;
@@ -40,6 +41,7 @@ export const QUEUE_OPTIONS: Record<string, QueueOptions> = {
 
   [QUEUES.prepareMedia]: { policy: "short", retryLimit: 1, retryDelay: 120, expireInSeconds: 600 },
   [QUEUES.agentTracking]: { policy: "short", retryLimit: 3, retryDelay: 60, retryBackoff: true, expireInSeconds: 900 },
+  [QUEUES.agentImpact]: { policy: "short", retryLimit: 3, retryDelay: 60, retryBackoff: true, expireInSeconds: 900 },
 };
 
 const ensured = new Set<string>();

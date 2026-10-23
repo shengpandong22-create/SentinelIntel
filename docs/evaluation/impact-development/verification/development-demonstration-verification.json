@@ -1,0 +1,461 @@
+{
+  "verified": true,
+  "verified_at": "2026-10-14T15:03:41.742Z",
+  "report": {
+    "demo1_contract_complete_record": {
+      "story_id": 40,
+      "story_title": "Hikvision IP camera improper authentication backdoor CVE-2017-7921 listed in the KEV catalog",
+      "safety": {
+        "unsupported_claim": 0,
+        "stale_version_commits": 0,
+        "cross_story_evidence": 0,
+        "poc_not_unknown": 0,
+        "kev_yes_without_evidence": 0,
+        "low_confidence_claim": 0,
+        "forbidden_row": 0,
+        "routing_inconsistent": 0
+      },
+      "safety_errors": [],
+      "claims_rows": 7,
+      "reviews": 0,
+      "complete_claims": 7,
+      "claims_detail": [
+        {
+          "product": "DS-2CD2xx2F-I Series IP Camera",
+          "models": [
+            "DS-2CD2xx2F-I Series"
+          ],
+          "affected": {
+            "raw": ">=5.2.0,<=5.4.0",
+            "range": {
+              "kind": "clauses",
+              "clauses": [
+                {
+                  "op": ">=",
+                  "version": "5.2.0"
+                },
+                {
+                  "op": "<=",
+                  "version": "5.4.0"
+                }
+              ]
+            },
+            "supported": true
+          },
+          "fixed": {
+            "raw": ">=5.4.41",
+            "range": {
+              "kind": "clauses",
+              "clauses": [
+                {
+                  "op": ">=",
+                  "version": "5.4.41"
+                }
+              ]
+            },
+            "supported": true
+          }
+        },
+        {
+          "product": "DS-2CD2xx0 Series IP Camera",
+          "models": [
+            "DS-2CD2xx0 Series"
+          ],
+          "affected": {
+            "raw": ">=5.2.0,<=5.4.4",
+            "range": {
+              "kind": "clauses",
+              "clauses": [
+                {
+                  "op": ">=",
+                  "version": "5.2.0"
+                },
+                {
+                  "op": "<=",
+                  "version": "5.4.4"
+                }
+              ]
+            },
+            "supported": true
+          },
+          "fixed": {
+            "raw": ">=5.4.41",
+            "range": {
+              "kind": "clauses",
+              "clauses": [
+                {
+                  "op": ">=",
+                  "version": "5.4.41"
+                }
+              ]
+            },
+            "supported": true
+          }
+        },
+        {
+          "product": "DS-2CD4x2xFWD Series IP Camera",
+          "models": [
+            "DS-2CD4x2xFWD Series"
+          ],
+          "affected": {
+            "raw": ">=5.2.0,<=5.4.0",
+            "range": {
+              "kind": "clauses",
+              "clauses": [
+                {
+                  "op": ">=",
+                  "version": "5.2.0"
+                },
+                {
+                  "op": "<=",
+                  "version": "5.4.0"
+                }
+              ]
+            },
+            "supported": true
+          },
+          "fixed": {
+            "raw": ">=5.4.41",
+            "range": {
+              "kind": "clauses",
+              "clauses": [
+                {
+                  "op": ">=",
+                  "version": "5.4.41"
+                }
+              ]
+            },
+            "supported": true
+          }
+        },
+        {
+          "product": "DS-2CD4xx5 Series IP Camera",
+          "models": [
+            "DS-2CD4xx5 Series"
+          ],
+          "affected": {
+            "raw": ">=5.2.0,<=5.4.0",
+            "range": {
+              "kind": "clauses",
+              "clauses": [
+                {
+                  "op": ">=",
+                  "version": "5.2.0"
+                },
+                {
+                  "op": "<=",
+                  "version": "5.4.0"
+                }
+              ]
+            },
+            "supported": true
+          },
+          "fixed": {
+            "raw": ">=5.4.41",
+            "range": {
+              "kind": "clauses",
+              "clauses": [
+                {
+                  "op": ">=",
+                  "version": "5.4.41"
+                }
+              ]
+            },
+            "supported": true
+          }
+        },
+        {
+          "product": "DS-2CD2xx2FWD Series IP Camera",
+          "models": [
+            "DS-2CD2xx2FWD Series"
+          ],
+          "affected": {
+            "raw": ">=5.3.1,<=5.4.4",
+            "range": {
+              "kind": "clauses",
+              "clauses": [
+                {
+                  "op": ">=",
+                  "version": "5.3.1"
+                },
+                {
+                  "op": "<=",
+                  "version": "5.4.4"
+                }
+              ]
+            },
+            "supported": true
+          },
+          "fixed": {
+            "raw": ">=5.4.41",
+            "range": {
+              "kind": "clauses",
+              "clauses": [
+                {
+                  "op": ">=",
+                  "version": "5.4.41"
+                }
+              ]
+            },
+            "supported": true
+          }
+        },
+        {
+          "product": "DS-2DEx Series IP Camera",
+          "models": [
+            "DS-2DEx Series"
+          ],
+          "affected": {
+            "raw": ">=5.2.0,<=5.3.9",
+            "range": {
+              "kind": "clauses",
+              "clauses": [
+                {
+                  "op": ">=",
+                  "version": "5.2.0"
+                },
+                {
+                  "op": "<=",
+                  "version": "5.3.9"
+                }
+              ]
+            },
+            "supported": true
+          },
+          "fixed": {
+            "raw": ">=5.4.71",
+            "range": {
+              "kind": "clauses",
+              "clauses": [
+                {
+                  "op": ">=",
+                  "version": "5.4.71"
+                }
+              ]
+            },
+            "supported": true
+          }
+        },
+        {
+          "product": "DS-2DFx Series IP Camera",
+          "models": [
+            "DS-2DFx Series"
+          ],
+          "affected": {
+            "raw": ">=5.2.0,<=5.4.5",
+            "range": {
+              "kind": "clauses",
+              "clauses": [
+                {
+                  "op": ">=",
+                  "version": "5.2.0"
+                },
+                {
+                  "op": "<=",
+                  "version": "5.4.5"
+                }
+              ]
+            },
+            "supported": true
+          },
+          "fixed": {
+            "raw": ">=5.4.71",
+            "range": {
+              "kind": "clauses",
+              "clauses": [
+                {
+                  "op": ">=",
+                  "version": "5.4.71"
+                }
+              ]
+            },
+            "supported": true
+          }
+        }
+      ],
+      "review_products": [],
+      "demonstration": {
+        "requirement": "at least one claims row with evidence-backed models, supported affected, supported fixed",
+        "satisfied": true,
+        "evidence": [
+          {
+            "product": "DS-2CD2xx2F-I Series IP Camera",
+            "models": [
+              "DS-2CD2xx2F-I Series"
+            ],
+            "affected": ">=5.2.0,<=5.4.0",
+            "fixed": ">=5.4.41",
+            "evidence_ids": 1
+          },
+          {
+            "product": "DS-2CD2xx0 Series IP Camera",
+            "models": [
+              "DS-2CD2xx0 Series"
+            ],
+            "affected": ">=5.2.0,<=5.4.4",
+            "fixed": ">=5.4.41",
+            "evidence_ids": 1
+          },
+          {
+            "product": "DS-2CD4x2xFWD Series IP Camera",
+            "models": [
+              "DS-2CD4x2xFWD Series"
+            ],
+            "affected": ">=5.2.0,<=5.4.0",
+            "fixed": ">=5.4.41",
+            "evidence_ids": 1
+          },
+          {
+            "product": "DS-2CD4xx5 Series IP Camera",
+            "models": [
+              "DS-2CD4xx5 Series"
+            ],
+            "affected": ">=5.2.0,<=5.4.0",
+            "fixed": ">=5.4.41",
+            "evidence_ids": 1
+          },
+          {
+            "product": "DS-2CD2xx2FWD Series IP Camera",
+            "models": [
+              "DS-2CD2xx2FWD Series"
+            ],
+            "affected": ">=5.3.1,<=5.4.4",
+            "fixed": ">=5.4.41",
+            "evidence_ids": 1
+          },
+          {
+            "product": "DS-2DEx Series IP Camera",
+            "models": [
+              "DS-2DEx Series"
+            ],
+            "affected": ">=5.2.0,<=5.3.9",
+            "fixed": ">=5.4.71",
+            "evidence_ids": 1
+          },
+          {
+            "product": "DS-2DFx Series IP Camera",
+            "models": [
+              "DS-2DFx Series"
+            ],
+            "affected": ">=5.2.0,<=5.4.5",
+            "fixed": ">=5.4.71",
+            "evidence_ids": 1
+          }
+        ]
+      }
+    },
+    "demo2_product_level_unsupported": {
+      "story_id": 41,
+      "story_title": "Microsoft WordPad information disclosure CVE-2023-36563 listed in the KEV catalog",
+      "safety": {
+        "unsupported_claim": 0,
+        "stale_version_commits": 0,
+        "cross_story_evidence": 0,
+        "poc_not_unknown": 0,
+        "kev_yes_without_evidence": 0,
+        "low_confidence_claim": 0,
+        "forbidden_row": 0,
+        "routing_inconsistent": 0
+      },
+      "safety_errors": [],
+      "claims_rows": 4,
+      "reviews": 10,
+      "complete_claims": 0,
+      "claims_detail": [
+        {
+          "product": "Windows Server 2008",
+          "models": [],
+          "affected": {
+            "raw": "unresolvable version range",
+            "supported": false
+          },
+          "fixed": null
+        },
+        {
+          "product": "Windows Server 2008 R2",
+          "models": [],
+          "affected": {
+            "raw": "unresolvable version range",
+            "supported": false
+          },
+          "fixed": null
+        },
+        {
+          "product": "Windows Server 2012",
+          "models": [],
+          "affected": {
+            "raw": "unresolvable version range",
+            "supported": false
+          },
+          "fixed": null
+        },
+        {
+          "product": "Windows Server 2012 R2",
+          "models": [],
+          "affected": {
+            "raw": "unresolvable version range",
+            "supported": false
+          },
+          "fixed": null
+        }
+      ],
+      "review_products": [
+        "windows 10 1507",
+        "windows 10 1607",
+        "windows 10 1809",
+        "windows 10 21h2",
+        "windows 10 22h2",
+        "windows 11 21h2",
+        "windows 11 22h2",
+        "windows server 2016",
+        "windows server 2019",
+        "windows server 2022"
+      ],
+      "demonstration": {
+        "requirement": "named products routed to review with unsupported ranges, forbidden as claims, matcher refusal surfaced",
+        "routed_products": [
+          "windows 10 1507",
+          "windows 10 21h2",
+          "windows server 2022"
+        ],
+        "claims_forbidden_violations": [],
+        "refusal_surfaced_in_review_reason": true,
+        "satisfied": true
+      }
+    },
+    "demo3_stale_version_rejection": {
+      "story_id": 43,
+      "story_title": "Microsoft Streaming Service Proxy elevation of privilege CVE-2023-36802 listed in the KEV catalog; a superseded internal memo claimed builds 22621.1344 and earlier were fixed",
+      "safety": {
+        "unsupported_claim": 0,
+        "stale_version_commits": 0,
+        "cross_story_evidence": 0,
+        "poc_not_unknown": 0,
+        "kev_yes_without_evidence": 0,
+        "low_confidence_claim": 0,
+        "forbidden_row": 0,
+        "routing_inconsistent": 0
+      },
+      "safety_errors": [],
+      "claims_rows": 0,
+      "reviews": 7,
+      "complete_claims": 0,
+      "claims_detail": [],
+      "review_products": [
+        "windows 10 1809",
+        "windows 10 21h2",
+        "windows 10 22h2",
+        "windows 11 21h2",
+        "windows 11 22h2",
+        "windows server 2019",
+        "windows server 2022"
+      ],
+      "demonstration": {
+        "requirement": "forbidden decoy string absent from persisted state, at least one product signal",
+        "decoy_surfaced": false,
+        "product_signal": 7,
+        "satisfied": true
+      }
+    }
+  }
+}

@@ -213,6 +213,26 @@ test("NVD and KEV fixtures pass through the bounded gateway and consume two free
   assert.equal(kev.evidence[0]!.source_type, "cisa_kev");
   assert.deepEqual(nvd.receipt_ids, []);
   assert.deepEqual(kev.receipt_ids, []);
+
+  // Revision 6: the flattened NVD bounds must preserve the source field names and boundary types,
+  // must be visible in the evidence text, and must never turn an affected end into a fixed version.
+  const nvdBounds = (nvd.evidence[0]!.normalized as { version_bounds: Array<Record<string, unknown>> }).version_bounds;
+  assert.equal(nvdBounds.length, 2);
+  assert.deepEqual(nvdBounds[0], {
+    criteria: "cpe:2.3:a:apache:log4j:2.0:*:*:*:*:*:*:*",
+    versionStartIncluding: "2.0", versionStartExcluding: null,
+    versionEndExcluding: "2.3.1", versionEndIncluding: null,
+  });
+  assert.deepEqual(nvdBounds[1], {
+    criteria: "cpe:2.3:a:apache:log4j:2.1:*:*:*:*:*:*:*",
+    versionStartIncluding: "2.1", versionStartExcluding: null,
+    versionEndExcluding: null, versionEndIncluding: "2.14.1",
+  });
+  const nvdExcerpt = nvd.evidence[0]!.excerpt!;
+  assert.match(nvdExcerpt, /CPE configuration version bounds/);
+  assert.match(nvdExcerpt, /versionEndExcluding: 2\.3\.1/);
+  assert.match(nvdExcerpt, /versionEndIncluding: 2\.14\.1/);
+  assert.doesNotMatch(nvdExcerpt, /fixed/i);
   const [stored] = await sql<{ calls: number; documents: number }[]>`
     SELECT tool_calls_used AS calls, evidence_documents_used AS documents
     FROM agent_research_runs WHERE id = ${run.id}`;
