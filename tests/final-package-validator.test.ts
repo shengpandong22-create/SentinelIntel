@@ -12,6 +12,7 @@ import {
   checkReadmeNumbers,
   frozenArtifacts,
   loadRegistry,
+  registryMarkdownMatches,
   renderRegistryMarkdown,
   scanProhibitedWording,
   sha256OfBaseBlob,
@@ -58,6 +59,14 @@ test("the Markdown registry renders from the JSON and stays in sync", () => {
   assert.equal(first, renderRegistryMarkdown(registry), "rendering must be deterministic");
   assert.match(first, /GENERATED FILE/);
   for (const entry of registry.entries) assert.ok(first.includes(`\`${entry.id}\``), `markdown lost ${entry.id}`);
+});
+
+test("a CRLF checkout of the generated registry is not reported as drift", () => {
+  const rendered = renderRegistryMarkdown(loadRegistry());
+  // Windows checkouts rewrite the file to CRLF; the content is unchanged and must still match.
+  assert.equal(registryMarkdownMatches(rendered.replace(/\n/g, "\r\n"), rendered), true);
+  assert.equal(registryMarkdownMatches(rendered, rendered), true);
+  assert.equal(registryMarkdownMatches(`${rendered}extra`, rendered), false);
 });
 
 test("the recomputed dataset hash matches the manifest-recorded hash", () => {
