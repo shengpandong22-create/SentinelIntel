@@ -126,8 +126,8 @@ Deliberately not modified: `tests/analyze-shutdown.test.ts` and `tests/translate
 
 ## Current Phase
 
-Phase: **Phase 8 — Final Evaluation & Resume Package (Gate 1, Gate 2 and the offline part of Gate 4
-complete; status `COMPLETE_WITH_DOCUMENTED_EVALUATION_GAPS`, canonical CI pending)**
+Phase: **Phase 8 — Final Evaluation & Resume Package (Gates 1–4 complete, canonical Linux CI passed;
+status `COMPLETE_WITH_DOCUMENTED_EVALUATION_GAPS`; pull request #10 open, awaiting merge)**
 
 Phase 8 base: `main` = `6cdac54` (Phase 7 squash merge, pull request #9). Phase 7 is COMPLETE:
 canonical Linux CI passed both required jobs and the CI-verified pull-request tree is identical to the
@@ -194,6 +194,14 @@ prove that a corrupted hash, a changed document and a deleted dataset each fail.
 
 Known gaps are documented rather than filled: the label method remains `MODEL_REVIEWED` everywhere,
 and the missing metrics above stay `NOT_RECORDED` / `REQUIRES_NEW_RUN`.
+
+**Canonical Linux CI** on pull request #10 passed both required jobs at head `16688e0` (`check`
+1m31s, `docker` 53s, run `39980733719`). Remaining for Phase 8 to be marked complete: owner merge of
+pull request #10. Two CI-only defects were found and fixed by the gate itself: the validator tests
+hardcoded a Windows repository path (now derived from `import.meta.url`), and the workflow's depth-1
+clone did not contain the `6cdac54` base commit the frozen-artifact gate compares against (the check
+job now fetches full history; a shallow clone is reported as an explicit error rather than a stack
+trace).
 
 ---
 
