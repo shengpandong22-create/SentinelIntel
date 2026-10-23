@@ -126,7 +126,25 @@ Deliberately not modified: `tests/analyze-shutdown.test.ts` and `tests/translate
 
 ## Current Phase
 
-Phase: **Phase 6 — Product Impact Agent (COMPLETE; canonical Linux CI pending)**
+Phase: **Phase 7 — UI / Admin / MCP Extension (contract committed 2026-10-23; implementation pending)**
+
+Phase 7 base: `main` = `63428dc` (squash merge of pull request #8, Phase 6). Phase 6 is COMPLETE and
+merged. Phase 6 frozen holdouts v1–v16 (and their review receipts) are consumed evidence: they must
+not be rerun, modified or relabelled, and Phase 6 evaluation iteration is closed. Phase 7 touches
+neither Agent prompts, models, thresholds, routing, receipts, budgets nor holdouts.
+
+Phase 7 contract: `docs/00-sentinelintel/08-Phase7-UI-Admin-MCP-Plan.md` — a single unified read
+model (`publication/agent-intelligence.ts`) serving Story page, public API and MCP; six additive
+Story Detail sections (Security Research / Tracking Status / Timeline Changes / Product Impact /
+Evidence / Unknowns); five read-only Admin views (Agent Runs / Tracking Plans / Human Reviews /
+Product Impact Review / Eval Results); additive MCP `get_story` extension; no new migrations
+(current maximum `0046`). Acceptance criteria are fixed in that contract before implementation.
+
+The Phase 6 record below is retained unchanged as consumed history.
+
+---
+
+Phase: **Phase 6 — Product Impact Agent (COMPLETE; merged into `main` at `63428dc`)**
 
 Phase 5 branch: `phase/5-event-tracking-agent`
 
@@ -2008,3 +2026,12 @@ physical-security vendor feed, and the Phase 1 benchmark's 50 `web` rows are not
 **Future Phase 1 benchmark hardening — independent human adjudication of a representative sample or of the
 full benchmark — remains the item that would turn Phase 1's accepted deviation into a satisfied
 requirement.**
+
+**Phase 6 was merged** into `main` at `63428dc` (pull request #8) after both canonical GitHub checks
+passed; the v16 end-to-end holdout is the Phase 6 closing gate (13 safety counters zero, 5 quality
+metrics 1.0, `MODEL_REVIEWED` labels). **Phase 7 (UI / Admin / MCP Extension) is the current phase**:
+contract committed on `phase/7-ui-admin-mcp`
+(`docs/00-sentinelintel/08-Phase7-UI-Admin-MCP-Plan.md`); implementation order is read model → API →
+Story sections → Admin views → MCP extension → acceptance. Canonical Linux CI on the Phase 7 pull
+request is the final post-push check before Phase 7 may be marked complete. Phase 8 (final evaluation)
+must not begin before Phase 7 closes.
