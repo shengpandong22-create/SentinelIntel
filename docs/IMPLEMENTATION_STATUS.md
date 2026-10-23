@@ -126,7 +126,54 @@ Deliberately not modified: `tests/analyze-shutdown.test.ts` and `tests/translate
 
 ## Current Phase
 
-Phase: **Phase 6 — Product Impact Agent (COMPLETE; canonical Linux CI pending)**
+Phase: **Phase 7 — UI / Admin / MCP Extension (implementation, local acceptance and canonical Linux CI complete 2026-10-23; pull request #9 open, awaiting merge)**
+
+Phase 7 base: `main` = `63428dc` (squash merge of pull request #8, Phase 6). Phase 6 is COMPLETE and
+merged. Phase 6 frozen holdouts v1–v16 (and their review receipts) are consumed evidence: they must
+not be rerun, modified or relabelled, and Phase 6 evaluation iteration is closed. Phase 7 touches
+neither Agent prompts, models, thresholds, routing, receipts, budgets nor holdouts.
+
+Phase 7 contract: `docs/00-sentinelintel/08-Phase7-UI-Admin-MCP-Plan.md` — a single unified read
+model (`publication/agent-intelligence.ts`) serving Story page, public API and MCP; six additive
+Story Detail sections (Security Research / Tracking Status / Timeline Changes / Product Impact /
+Evidence / Unknowns); five read-only Admin views (Agent Runs / Tracking Plans / Human Reviews /
+Product Impact Review / Eval Results); additive MCP `get_story` extension; no new migrations
+(current maximum `0046`). Acceptance criteria are fixed in that contract before implementation.
+
+Phase 7 implementation (branch `phase/7-ui-admin-mcp`, contract-first commit chain): the unified
+read model computes every section from the Phase 4/5/6 tables with a public-safe projection (no
+tool traces, usage, input snapshots, capabilities, trace ids, receipts, prompt versions, evidence
+internals, or human-review payloads); `loadStoryDetail` and `v1Story` both carry the same DTO
+additively; the Story page renders six sections that degrade independently and stay silent without
+agent data; the five admin views are read-only `adminHandler` GETs; MCP `get_story` gained a
+compact honest text summary plus the structured DTO, with the tool list and old fields unchanged.
+New MCP tools (`get_security_impact` / `get_story_tracking`) were deliberately NOT added: the
+contract's five conditions are not met because `get_story` carries the same read model.
+
+Pre-push review (2026-10-23) found two read-model defects that would have misled real readers, both
+fixed with regressions: (1) the research view read the latest `agent_research_runs` row without a
+`graph_version` filter, so a later Phase 6 run (whose production proposal has `claims: []`) would be
+published as "research completed, no claims" and erase the real Phase 4 result — the query is now
+scoped to `phase4-%`; (2) `productImpact.reviewRequiredCount` counted only persisted rows, but the
+store routes medium rows to `impact_human_reviews` and persists none, so the Story page and MCP
+never showed pending reviews — the count now includes open reviews, and `present` / `dataUpdatedAt`
+do too. Both regressions were verified to fail against the unfixed code.
+
+Local acceptance (2026-10-23): typecheck passed; all 43 migrations applied to the empty
+`sentinel_phase7_ci` database; Phase 7 backend tests 26/26 (read model 8, API 5, admin auth 3,
+admin views 6, MCP compatibility 3, MCP shutdown 1); web build passed; web tests 25/25 (19
+pre-existing + 6 new); `docker compose config` passed. The full backend suite keeps its pre-existing
+Windows-only failures (7 frozen-dataset hash checks broken by `core.autocrlf=true` on this machine,
+and the KI-3 POSIX SIGTERM cascade) — both categories are identical on `main` and are covered by
+the canonical Linux CI runs. Canonical Linux CI on pull request #9 passed both required jobs
+(`check` 1m49s, `docker` 1m27s, run `39966961001`); the branch is pushed and the pull request is
+open. Remaining before Phase 7 is marked complete: owner merge of pull request #9.
+
+The Phase 6 record below is retained unchanged as consumed history.
+
+---
+
+Phase: **Phase 6 — Product Impact Agent (COMPLETE; merged into `main` at `63428dc`)**
 
 Phase 5 branch: `phase/5-event-tracking-agent`
 
@@ -2008,3 +2055,12 @@ physical-security vendor feed, and the Phase 1 benchmark's 50 `web` rows are not
 **Future Phase 1 benchmark hardening — independent human adjudication of a representative sample or of the
 full benchmark — remains the item that would turn Phase 1's accepted deviation into a satisfied
 requirement.**
+
+**Phase 6 was merged** into `main` at `63428dc` (pull request #8) after both canonical GitHub checks
+passed; the v16 end-to-end holdout is the Phase 6 closing gate (13 safety counters zero, 5 quality
+metrics 1.0, `MODEL_REVIEWED` labels). **Phase 7 (UI / Admin / MCP Extension) is the current phase**:
+implementation and local acceptance are complete on `phase/7-ui-admin-mcp` (contract, unified read
+model, API exposure, Story sections, read-only admin views, MCP `get_story` extension — see
+`docs/00-sentinelintel/08-Phase7-UI-Admin-MCP-Plan.md` §7 for the acceptance matrix). Canonical Linux
+CI on the Phase 7 pull request is the final post-push check before Phase 7 may be marked complete.
+Phase 8 (final evaluation) must not begin before Phase 7 closes.

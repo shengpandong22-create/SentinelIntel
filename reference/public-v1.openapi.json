@@ -3068,6 +3068,9 @@
             "items": {
               "$ref": "#/components/schemas/StoryNeighbor"
             }
+          },
+          "agentIntelligence": {
+            "$ref": "#/components/schemas/StoryAgentIntelligence"
           }
         }
       },
@@ -3562,6 +3565,444 @@
             }
           }
         ]
+      },
+      "StoryAgentEvidence": {
+        "type": "object",
+        "required": [
+          "id",
+          "sourceType",
+          "sourceName",
+          "url",
+          "title",
+          "authorityLevel",
+          "retrievedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sourceType": {
+            "type": "string"
+          },
+          "sourceName": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "title": {
+            "type": "string"
+          },
+          "excerpt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "authorityLevel": {
+            "enum": [
+              "authoritative",
+              "primary",
+              "secondary"
+            ]
+          },
+          "publishedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "retrievedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "StoryAgentIntelligence": {
+        "type": "object",
+        "required": [
+          "present",
+          "reviewRequiredCount",
+          "timelineChanges",
+          "productImpact",
+          "evidence",
+          "unknowns"
+        ],
+        "properties": {
+          "present": {
+            "type": "boolean"
+          },
+          "dataUpdatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "reviewRequiredCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "research": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "status",
+              "claims",
+              "conflictCount"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "completed",
+                  "insufficient_evidence",
+                  "failed",
+                  "running"
+                ]
+              },
+              "completedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "summary": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "claims": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "claimId",
+                    "text",
+                    "criticality",
+                    "status",
+                    "evidenceIds"
+                  ],
+                  "properties": {
+                    "claimId": {
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "criticality": {
+                      "enum": [
+                        "critical",
+                        "noncritical"
+                      ]
+                    },
+                    "status": {
+                      "enum": [
+                        "confirmed",
+                        "conflicted"
+                      ]
+                    },
+                    "evidenceIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              },
+              "conflictCount": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "tracking": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "status",
+              "whyTrack",
+              "questions"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "active",
+                  "paused",
+                  "stopped"
+                ]
+              },
+              "whyTrack": {
+                "type": "string"
+              },
+              "questions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "questionId",
+                    "question",
+                    "status"
+                  ],
+                  "properties": {
+                    "questionId": {
+                      "type": "string"
+                    },
+                    "question": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        "open",
+                        "resolved"
+                      ]
+                    }
+                  }
+                }
+              },
+              "lastCheckedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              }
+            }
+          },
+          "timelineChanges": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "changeType",
+                "summary",
+                "evidenceIds",
+                "createdAt"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "changeType": {
+                  "enum": [
+                    "vendor_confirmation",
+                    "patch",
+                    "procurement_award",
+                    "material_update"
+                  ]
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "evidenceIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          },
+          "productImpact": {
+            "type": "object",
+            "required": [
+              "rows",
+              "reviewRequiredCount"
+            ],
+            "properties": {
+              "reviewRequiredCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "rows": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "vendor",
+                    "product",
+                    "models",
+                    "persistedKind",
+                    "confidence",
+                    "routing",
+                    "reviewRequired",
+                    "exploitStatus",
+                    "evidenceIds",
+                    "unknowns"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "vendor": {
+                      "type": "string"
+                    },
+                    "product": {
+                      "type": "string"
+                    },
+                    "models": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "affectedRange": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "raw",
+                        "supported"
+                      ],
+                      "properties": {
+                        "raw": {
+                          "type": "string"
+                        },
+                        "supported": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    "fixedRange": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "raw",
+                        "supported"
+                      ],
+                      "properties": {
+                        "raw": {
+                          "type": "string"
+                        },
+                        "supported": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    "mitigations": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "persistedKind": {
+                      "enum": [
+                        "claims",
+                        "unknown_only"
+                      ]
+                    },
+                    "confidence": {
+                      "enum": [
+                        "high",
+                        "medium",
+                        "low"
+                      ]
+                    },
+                    "routing": {
+                      "enum": [
+                        "auto",
+                        "human_review",
+                        "unknown"
+                      ]
+                    },
+                    "reviewRequired": {
+                      "type": "boolean"
+                    },
+                    "exploitStatus": {
+                      "type": "object",
+                      "required": [
+                        "poc",
+                        "knownExploited"
+                      ],
+                      "properties": {
+                        "poc": {
+                          "enum": [
+                            "unknown"
+                          ]
+                        },
+                        "knownExploited": {
+                          "enum": [
+                            "unknown",
+                            "yes",
+                            "no"
+                          ]
+                        }
+                      }
+                    },
+                    "cveId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "evidenceIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "unknowns": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StoryAgentEvidence"
+            }
+          },
+          "unknowns": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "source",
+                "text"
+              ],
+              "properties": {
+                "source": {
+                  "enum": [
+                    "research",
+                    "product_impact"
+                  ]
+                },
+                "text": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            }
+          }
+        }
       }
     }
   }

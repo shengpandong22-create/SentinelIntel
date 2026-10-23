@@ -171,7 +171,7 @@ export function buildMcpServer(): McpServer {
   server.registerTool(
     T.story,
     {
-      description: `Get the evolving timeline, latest development, digest, and related events for one public story. Only pass a public_id obtained from ${T.hot} links.story; never invent or infer IDs.`,
+      description: `Get the evolving timeline, latest development, digest, related events, and the security research / tracking / product-impact summary for one public story. Only pass a public_id obtained from ${T.hot} links.story; never invent or infer IDs.`,
       inputSchema: STORY_INPUT,
       annotations: ANNOTATIONS,
     },
@@ -183,6 +183,25 @@ export function buildMcpServer(): McpServer {
       const story = { ...body.story, reports: body.story.reports.slice(0, args.report_limit) };
       const lines = [`${SITE.name} 事件：${story.title}`, `状态：${story.status === "active" ? "持续更新" : "历史事件"}｜${story.reportCount} 篇报道｜${story.sourceCount} 个来源`, `最新进展：${story.latest}`];
       if (story.digest) lines.push("", `事件综述：${story.digest}`);
+      const agent = story.agentIntelligence;
+      if (agent?.present) {
+        lines.push("", "安全研判：");
+        if (agent.research) {
+          const status = { completed: "研究完成", insufficient_evidence: "证据不足", failed: "研究未完成", running: "研究进行中" }[agent.research.status];
+          lines.push(`- 安全研究：${status}｜${agent.research.claims.length} 条结论${agent.research.conflictCount > 0 ? `｜${agent.research.conflictCount} 组证据冲突` : ""}`);
+        }
+        if (agent.tracking) {
+          const open = agent.tracking.questions.filter((q) => q.status === "open").length;
+          const tracking = { active: "追踪中", paused: "已暂停", stopped: "已结束" }[agent.tracking.status];
+          lines.push(`- 追踪状态：${tracking}｜${open} 个问题待确认`);
+        }
+        if (agent.productImpact.rows.length > 0 || agent.productImpact.reviewRequiredCount > 0) {
+          lines.push(`- 产品影响：${agent.productImpact.rows.length} 条记录${agent.productImpact.reviewRequiredCount > 0 ? `｜${agent.productImpact.reviewRequiredCount} 条待人工复核` : ""}`);
+        }
+        if (agent.timelineChanges.length > 0) lines.push(`- 重要进展：${agent.timelineChanges.length} 条时间线变更`);
+        if (agent.evidence.length > 0) lines.push(`- 证据：${agent.evidence.length} 条外部权威来源`);
+        if (agent.unknowns.length > 0) lines.push(`- 未知项：${agent.unknowns.length} 项（未知不代表安全，也不代表不受影响）`);
+      }
       lines.push("", "报道时间线：");
       story.reports.forEach((r, i) => lines.push(`${i + 1}. ${r.publishedAt}｜${r.source.name}${r.source.firstParty ? "（一手）" : ""}｜${r.title}｜${r.links.aihot}`));
       lines.push("", `事件页：${story.links.aihot}`);

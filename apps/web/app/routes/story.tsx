@@ -7,6 +7,8 @@ import { data as routeData } from "react-router";
 import { breadcrumbLd, pageMeta, titled } from "../lib/seo";
 import { beijingDate, beijingTime, monthDayTime, relativeTime, shortSourceName } from "../lib/format";
 import { HeatChart } from "../features/story/HeatChart";
+import { AgentPanels } from "../features/story/AgentPanels";
+import { Panel, RailCard } from "../features/story/Panel";
 import { Badge, SelectedBadge } from "../components/ui/Badge";
 import { PillTabs } from "../components/ui/Tabs";
 import { Select } from "../components/ui/Controls";
@@ -47,39 +49,10 @@ const STATUS = {
 } as const;
 
 // Section anchors keep the old page's ids so shared links still land in the right place.
-const SECTIONS = { overview: "event-overview", reports: "event-reports", heat: "event-heat" } as const;
+const SECTIONS = { overview: "event-overview", reports: "event-reports", heat: "event-heat", agent: "event-agent" } as const;
 type SectionKey = keyof typeof SECTIONS;
 
 const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
-
-/** A main-column card: 17px title, 24px padding. */
-function Panel({ id, title, sub, right, children, className = "" }: { id?: string; title: ReactNode; sub?: ReactNode; right?: ReactNode; children: ReactNode; className?: string }) {
-  return (
-    <section id={id} className={`card scroll-mt-[64px] p-5 lg:p-6 ${className}`}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-[17px] font-[650] leading-[1.5] text-ink">{title}</h2>
-          {sub && <p className="mt-0.5 text-[12.5px] text-ink-4">{sub}</p>}
-        </div>
-        {right && <div className="shrink-0 text-[11.5px] text-ink-4">{right}</div>}
-      </div>
-      <div className="mt-3.5">{children}</div>
-    </section>
-  );
-}
-
-/** A rail card: 14px title, 22px padding. */
-function RailCard({ title, right, children, className = "" }: { title: ReactNode; right?: ReactNode; children: ReactNode; className?: string }) {
-  return (
-    <section className={`card p-5 lg:p-[22px] ${className}`}>
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-[14px] font-[650] text-ink">{title}</h2>
-        {right && <span className="num text-[11.5px] text-ink-4">{right}</span>}
-      </div>
-      <div className="mt-2">{children}</div>
-    </section>
-  );
-}
 
 /** Highlights the section nav entry whose section is under the sticky bar. */
 function useActiveSection(keys: SectionKey[]): [SectionKey, (k: SectionKey) => void] {
@@ -159,7 +132,15 @@ export default function StoryPage() {
   const status = STATUS[story.status];
   // A settled story nobody watched (history pages) has no heat to explain or chart.
   const observed = story.status !== "settled" || story.heat.length > 0 || story.whyHot.participants48h > 0 || story.whyHot.rank !== null;
-  const sectionKeys: SectionKey[] = observed ? ["overview", "reports", "heat"] : ["overview", "reports"];
+  // Phase 7: the agent-intelligence block appears only when the story actually has agent data.
+  const agent = story.agentIntelligence;
+  const agentPresent = agent?.present === true;
+  const sectionKeys: SectionKey[] = [
+    "overview",
+    "reports",
+    ...(agentPresent ? (["agent"] as const) : []),
+    ...(observed ? (["heat"] as const) : []),
+  ];
   const [activeSection, goSection] = useActiveSection(sectionKeys);
   const counts = {
     all: story.timeline.length,
@@ -235,6 +216,7 @@ export default function StoryPage() {
           items={[
             { key: "overview", label: "事件概览" },
             { key: "reports", label: "报道时间线", count: story.reportCount },
+            ...(agentPresent ? [{ key: "agent", label: "安全研判" }] : []),
             ...(observed ? [{ key: "heat", label: "热度走势" }] : []),
           ]}
         />
@@ -340,14 +322,20 @@ export default function StoryPage() {
             )}
           </Panel>
 
+          {agentPresent && (
+            <div id={SECTIONS.agent} className="order-5 flex scroll-mt-[64px] flex-col gap-4 lg:gap-6">
+              <AgentPanels agent={agent!} />
+            </div>
+          )}
+
           {observed && (
-            <Panel id={SECTIONS.heat} title="本事件热度走势" className="order-5">
+            <Panel id={SECTIONS.heat} title="本事件热度走势" className="order-6">
               <HeatChart points={story.heat} />
             </Panel>
           )}
 
           {story.related.length > 0 && (
-            <Panel title="关联事件" className="order-6">
+            <Panel title="关联事件" className="order-7">
               <ul className="-my-1 divide-y divide-line-soft">
                 {story.related.map((r) => (
                   <li key={r.publicId}>
