@@ -34,6 +34,16 @@ const NAV: Array<{ group: string; items: Array<{ to: string; label: string; coun
     ],
   },
   {
+    group: "安防 Agent",
+    items: [
+      { to: "/admin/agent-runs", label: "Agent 运行" },
+      { to: "/admin/tracking-plans", label: "追踪计划" },
+      { to: "/admin/human-reviews", label: "人工复核" },
+      { to: "/admin/product-impact-review", label: "产品影响复核" },
+      { to: "/admin/eval-results", label: "评测结论" },
+    ],
+  },
+  {
     group: "系统",
     items: [
       { to: "/admin/runs", label: "运行", count: "runs", tone: "bad" },
