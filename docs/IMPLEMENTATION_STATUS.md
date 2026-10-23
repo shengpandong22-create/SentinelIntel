@@ -126,7 +126,86 @@ Deliberately not modified: `tests/analyze-shutdown.test.ts` and `tests/translate
 
 ## Current Phase
 
-Phase: **Phase 7 — UI / Admin / MCP Extension (implementation, local acceptance and canonical Linux CI complete 2026-10-23; pull request #9 open, awaiting merge)**
+Phase: **Phase 8 — Final Evaluation & Resume Package (Gates 1–4 complete, canonical Linux CI passed;
+status `COMPLETE_WITH_DOCUMENTED_EVALUATION_GAPS`; pull request #10 open, awaiting merge)**
+
+Phase 8 base: `main` = `6cdac54` (Phase 7 squash merge, pull request #9). Phase 7 is COMPLETE:
+canonical Linux CI passed both required jobs and the CI-verified pull-request tree is identical to the
+merge tree.
+
+Phase 8 contract: `docs/00-sentinelintel/09-Phase8-Final-Evaluation-Resume-Plan.md`. The phase was
+evaluation consolidation and documentation only: no product-code change, no frozen-artifact
+mutation, **no paid model call**, **no external collection**, no holdout rerun, no threshold/prompt/
+model tuning, and no new numeric claim.
+
+**Gate 1 — evidence inventory.** `docs/evaluation/evidence-registry.json` (47 entries) is the single
+machine-readable source; `docs/evaluation/evidence-registry.md` is generated from it and checked for
+drift by `scripts/validate-final-package.ts`. Status distribution: 6 `REPRODUCIBLE_FINAL`, 27
+`REPRODUCIBLE_PARTIAL`, 1 `HISTORICAL_ONLY`, 2 `NOT_COMPARABLE`, 10 `NOT_RECORDED`, 1
+`REQUIRES_NEW_RUN`. Offline verification done while building it:
+
+- the tracking holdout replay (26 cases, frozen fixture gateway) was re-executed and reproduced the
+  recorded nine zero safety counters and five 1.00 quality metrics → `REPRODUCIBLE_FINAL`.
+- the synthetic normalization fixture holdout could **not** be re-scored: the current scorer aborts
+  with `unresolvable-range: development requires at least 3 cases, got 2` (the documented exclusion
+  left two cases in that stratum), and normalization semantics changed in revisions 4–6 → the entry is
+  `HISTORICAL_ONLY`, and `docs/evaluation/impact-baseline.md` stays as history only.
+- all manifest-recorded holdout hashes match the committed Git blobs **except**
+  `datasets/impact/holdout-manifest.json`'s `thresholds_sha256` (`0c7a0c7d…`), which matches the CRLF
+  working copy; the committed blob is `f78bb9ba…`. Recorded, not edited (frozen artifact).
+- several requested system metrics were never produced: selection tokens/latency, research latency,
+  impact end-to-end latency/tokens, average LLM calls, task success rate, human-review rate and
+  recovery rate are `NOT_RECORDED`; impact vendor/product/version ratios and evidence coverage were
+  never emitted as ratios by the E2E scorer.
+
+**Gate 2 — documentation package.** All nine required paths exist and agree with the registry:
+`docs/evaluation/{selection,event-grouping,research-agent,tracking-agent,product-impact}.md`,
+`docs/evaluation/ablations.md`, `docs/failure-cases.md`, `docs/architecture.md` (additive
+SentinelIntel V2 section, upstream AIHOT facts untouched) and `README.md` (upstream framework vs
+extension separated, MIT attribution preserved, no performance number quoted). `selection.md` keeps
+every original detail and gained a canonical-summary header only. `ablations.md` admits exactly one
+paired numeric ablation (research B0 snapshot-only vs B1 with external evidence on the same 20 cases
+and scorer) plus the selection threshold re-scoring with its tuning-leakage caveat, and marks
+everything else `NOT_COMPARABLE` / `NOT_RUN`; there is no B0–B5 curve.
+
+**Gate 3 — new-run decision.** One proposal exists: per-case latency/token usage for the product
+impact closing gate. It is `NOT_AUTHORIZED` and **not recommended**: the only dataset that could
+produce it is the consumed v16 holdout, which may not be rerun, so a valid measurement needs a new
+disjoint holdout outside Phase 8. No paid call was made.
+
+**Gate 4 — verification.** `node scripts/validate-final-package.ts` passes (47 entries, 9 required
+files, **88 frozen files** unchanged vs `6cdac54`, **43 registry dataset references verified against 7
+unique committed datasets** (re-hashed from their Git blobs), registry Markdown in sync, no prohibited
+wording, no broken internal link, README numbers traceable). `tests/final-package-validator.test.ts`
+11/11. `npm run typecheck`,
+`npm run build -w @aihot/web`, `node --test apps/web/tests/*.test.ts` and
+`docker compose config --quiet` all pass. No database or migration change was made.
+
+**Post-audit hardening (before the pull request).** The first validator only checked that a dataset
+path existed; it now recomputes the SHA-256 of the bytes Git stores at `6cdac54` and compares it with
+the registry's `dataset_sha256` (43 references covering 7 unique datasets; the counter in the report
+keeps those two numbers apart; the one `.data/` development entry is warned as unverifiable rather
+than silently accepted), so a wrong or tampered hash fails. The frozen set is no
+longer a hand-written list of 14 canonical files: it is derived from `git ls-tree 6cdac54 --
+datasets` and therefore covers all 88 tracked dataset files, including the consumed security-research
+v1–v3 and impact v1–v15 corpora with their candidates, manifests and evidence packs. Regression tests
+prove that a corrupted hash, a changed document and a deleted dataset each fail. Still unchanged:
+`datasets/` matches `6cdac54` exactly.
+
+Known gaps are documented rather than filled: the label method remains `MODEL_REVIEWED` everywhere,
+and the missing metrics above stay `NOT_RECORDED` / `REQUIRES_NEW_RUN`.
+
+**Canonical Linux CI** on pull request #10 passed both required jobs at head `16688e0` (`check`
+1m31s, `docker` 53s, run `39980733719`). Remaining for Phase 8 to be marked complete: owner merge of
+pull request #10. Two CI-only defects were found and fixed by the gate itself: the validator tests
+hardcoded a Windows repository path (now derived from `import.meta.url`), and the workflow's depth-1
+clone did not contain the `6cdac54` base commit the frozen-artifact gate compares against (the check
+job now fetches full history; a shallow clone is reported as an explicit error rather than a stack
+trace).
+
+---
+
+Phase: **Phase 7 — UI / Admin / MCP Extension (COMPLETE; merged into `main` at `6cdac54`)**
 
 Phase 7 base: `main` = `63428dc` (squash merge of pull request #8, Phase 6). Phase 6 is COMPLETE and
 merged. Phase 6 frozen holdouts v1–v16 (and their review receipts) are consumed evidence: they must
@@ -166,8 +245,8 @@ pre-existing + 6 new); `docker compose config` passed. The full backend suite ke
 Windows-only failures (7 frozen-dataset hash checks broken by `core.autocrlf=true` on this machine,
 and the KI-3 POSIX SIGTERM cascade) — both categories are identical on `main` and are covered by
 the canonical Linux CI runs. Canonical Linux CI on pull request #9 passed both required jobs
-(`check` 1m49s, `docker` 1m27s, run `39966961001`); the branch is pushed and the pull request is
-open. Remaining before Phase 7 is marked complete: owner merge of pull request #9.
+(`check` and `docker`, final head `385430e`, run `39967709109`). Pull request #9 was squash-merged at
+`6cdac54` on 2026-10-23; the merge tree is identical to that CI-verified branch head.
 
 The Phase 6 record below is retained unchanged as consumed history.
 
@@ -194,8 +273,8 @@ TypeScript scheduling, policy enforcement, validation, and persistence. Its acce
 three migration-spec demonstrations, exact-zero safety failures, development-based threshold
 preregistration, an immutable independently reviewed holdout, and canonical Linux CI.
 
-Phase 6 — Product Impact Agent: **COMPLETE — v16 closing gate passed on 2026-10-23; canonical Linux CI
-remains the final post-push check.** Implementation (schemas, matcher, stores, orchestration, worker, the
+Phase 6 — Product Impact Agent: **COMPLETE — v16 closing gate passed and pull request #8 merged into
+`main` at `63428dc`.** Implementation (schemas, matcher, stores, orchestration, worker, the
 model-gateway extraction round trip, and the deterministic normalization path) is accepted as
 substantially built. The frozen 23-case holdout (`3b2e242e...`, receipts 104-139) is retained but
 **reclassified as a synthetic normalization fixture holdout**: it measures only the frozen-drafts →

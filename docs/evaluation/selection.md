@@ -9,6 +9,32 @@ Owner: accepted, with every limitation in §L explicitly retained — none waive
 This document is the durable record of the Phase 1 selection evaluation. The runtime reports it
 summarises stay local (`.data/` is git-ignored, see §M).
 
+**Final gate:** the single final holdout evaluation of `datasets/selection/candidates.jsonl`
+(45-case holdout) at the frozen thresholds `32 / 55 / 60` — accuracy `0.884`, precision `1.000`,
+recall `0.808`, F1 `0.894` on 43 decisive cases. The retained artifacts support one holdout report and
+one corresponding SelectBench run; they cannot prove no earlier run was deleted (§I).
+
+Canonical summary (Phase 8) — the details stay in the sections below and are not rewritten:
+
+1. **Task and user value** — decide whether a security item is worth publishing; §A.
+2. **Evaluated system boundary** — prefilter → two independent scores → tier threshold; §A.
+3. **Dataset and split** — 200 cases (155 development / 45 holdout), seven strata; §B.
+4. **Label provenance** — `MODEL_REVIEWED`, one model family, *not human gold*; §B, §L.
+5. **Frozen hashes** — `datasets/selection/candidates.jsonl` sha256
+   `4dd7e975bb031dfc9e22d00824b746260ff20a7b1b53d87025d7ba1cfe1fddc9`; thresholds in
+   `industry/selection.ts`; §M.
+6. **Scorer and thresholds** — `scripts/eval-selection.ts`; `T1=32 / T1_5=55 / T2=60`; §F, §I.
+7. **Final metrics with denominators** — §J (holdout), §G (calibrated development), §H (calibration).
+8. **Safety results** — not applicable: selection has no write path; §A.
+9. **Cost and latency evidence** — not recorded in the committed report; §M.
+10. **Retained failures** — the five holdout false negatives and the prefilter analysis; §K.
+11. **Reproduction commands** — `node --env-file=.env scripts/eval-selection.ts --gold
+    datasets/selection/candidates.jsonl --split holdout` (needs live paid model calls).
+12. **Limitations and non-claims** — §L, all twelve items retained without softening.
+
+Status in the registry: `REPRODUCIBLE_PARTIAL` (dataset, thresholds and scorer committed; the model
+decisions are not committed, so the exact numbers need paid re-runs).
+
 ---
 
 ## A. Scope
