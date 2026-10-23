@@ -24,7 +24,13 @@ test("the committed repository passes the final-package validation", () => {
   assert.equal(result.summary.requiredFiles, 9);
   assert.ok(result.summary.entries >= 40, `expected a complete registry, got ${result.summary.entries} entries`);
   assert.ok(result.summary.frozenArtifacts >= 80, `the frozen set must cover the whole dataset corpus, got ${result.summary.frozenArtifacts}`);
-  assert.ok(result.summary.datasetsHashed >= 40, `expected every cited dataset to be hashed, got ${result.summary.datasetsHashed}`);
+  // Two separate facts: registry references verified, and distinct files they cover.
+  assert.ok(result.summary.datasetReferencesChecked >= 40, `expected every cited dataset reference to be verified, got ${result.summary.datasetReferencesChecked}`);
+  assert.equal(result.summary.uniqueDatasetsHashed, 7, "the registry cites seven distinct committed datasets");
+  assert.ok(
+    result.summary.datasetReferencesChecked > result.summary.uniqueDatasetsHashed,
+    "references and unique files must not be conflated",
+  );
 });
 
 test("every required output path exists and every entry has a report and a status", () => {

@@ -174,16 +174,18 @@ produce it is the consumed v16 holdout, which may not be rerun, so a valid measu
 disjoint holdout outside Phase 8. No paid call was made.
 
 **Gate 4 — verification.** `node scripts/validate-final-package.ts` passes (47 entries, 9 required
-files, **88 frozen files** unchanged vs `6cdac54`, **43 cited datasets re-hashed** from their committed
-Git blobs, registry Markdown in sync, no prohibited wording, no broken internal link, README numbers
-traceable). `tests/final-package-validator.test.ts` 11/11. `npm run typecheck`,
+files, **88 frozen files** unchanged vs `6cdac54`, **43 registry dataset references verified against 7
+unique committed datasets** (re-hashed from their Git blobs), registry Markdown in sync, no prohibited
+wording, no broken internal link, README numbers traceable). `tests/final-package-validator.test.ts`
+11/11. `npm run typecheck`,
 `npm run build -w @aihot/web`, `node --test apps/web/tests/*.test.ts` and
 `docker compose config --quiet` all pass. No database or migration change was made.
 
 **Post-audit hardening (before the pull request).** The first validator only checked that a dataset
 path existed; it now recomputes the SHA-256 of the bytes Git stores at `6cdac54` and compares it with
-the registry's `dataset_sha256` (43 comparisons; the one `.data/` development entry is warned as
-unverifiable rather than silently accepted), so a wrong or tampered hash fails. The frozen set is no
+the registry's `dataset_sha256` (43 references covering 7 unique datasets; the counter in the report
+keeps those two numbers apart; the one `.data/` development entry is warned as unverifiable rather
+than silently accepted), so a wrong or tampered hash fails. The frozen set is no
 longer a hand-written list of 14 canonical files: it is derived from `git ls-tree 6cdac54 --
 datasets` and therefore covers all 88 tracked dataset files, including the consumed security-research
 v1–v3 and impact v1–v15 corpora with their candidates, manifests and evidence packs. Regression tests

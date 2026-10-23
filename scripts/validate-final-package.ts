@@ -203,11 +203,16 @@ export function sha256OfBaseBlob(root: string, file: string): string {
  * hand-written hash proves nothing: the bytes come from the committed blob, so the comparison is
  * platform-independent and detects both a transcription error and a swapped file.
  */
-export function checkDatasetHashes(registry: Registry, root = REPO_ROOT): { errors: string[]; warnings: string[]; hashed: number } {
+export function checkDatasetHashes(
+  registry: Registry,
+  root = REPO_ROOT,
+): { errors: string[]; warnings: string[]; referencesChecked: number; uniqueDatasetsHashed: number } {
   const errors: string[] = [];
   const warnings: string[] = [];
   const cache = new Map<string, string>();
-  let hashed = 0;
+  // Two different facts, reported separately: how many registry references were verified (43) and how
+  // many distinct files that covered (7). A single counter would overstate the number of datasets.
+  let referencesChecked = 0;
   for (const entry of registry.entries) {
     if (!entry.dataset) {
       if (entry.dataset_sha256) errors.push(`${entry.id}: records a dataset_sha256 without a dataset path`);
@@ -231,12 +236,12 @@ export function checkDatasetHashes(registry: Registry, root = REPO_ROOT): { erro
       }
       cache.set(entry.dataset, actual);
     }
-    hashed += 1;
+    referencesChecked += 1;
     if (actual !== entry.dataset_sha256) {
       errors.push(`${entry.id}: dataset_sha256 mismatch for ${entry.dataset}: registry ${entry.dataset_sha256} != committed blob ${actual}`);
     }
   }
-  return { errors, warnings, hashed };
+  return { errors, warnings, referencesChecked, uniqueDatasetsHashed: cache.size };
 }
 
 /**
@@ -332,7 +337,14 @@ export function checkReadmeNumbers(registryText: string, readme: string): string
 export interface ValidationResult {
   errors: string[];
   warnings: string[];
-  summary: { entries: number; byStatus: Record<string, number>; requiredFiles: number; frozenArtifacts: number; datasetsHashed: number };
+  summary: {
+    entries: number;
+    byStatus: Record<string, number>;
+    requiredFiles: number;
+    frozenArtifacts: number;
+    datasetReferencesChecked: number;
+    uniqueDatasetsHashed: number;
+  };
 }
 
 export function validateRepository(root = REPO_ROOT): ValidationResult {
@@ -349,7 +361,11 @@ export function validateRepository(root = REPO_ROOT): ValidationResult {
   try {
     registry = loadRegistry(root);
   } catch (error) {
-    return { errors: [...errors, `evidence registry does not parse: ${(error as Error).message}`], warnings, summary: { entries: 0, byStatus: {}, requiredFiles: REQUIRED_FILES.length, frozenArtifacts: 0, datasetsHashed: 0 } };
+    return {
+      errors: [...errors, `evidence registry does not parse: ${(error as Error).message}`],
+      warnings,
+      summary: { entries: 0, byStatus: {}, requiredFiles: REQUIRED_FILES.length, frozenArtifacts: 0, datasetReferencesChecked: 0, uniqueDatasetsHashed: 0 },
+    };
   }
   const expectedMarkdown = renderRegistryMarkdown(registry);
   const committedMarkdownPath = path.join(root, REGISTRY_MD);
@@ -427,7 +443,8 @@ export function validateRepository(root = REPO_ROOT): ValidationResult {
       byStatus,
       requiredFiles: REQUIRED_FILES.length,
       frozenArtifacts: artifacts.length,
-      datasetsHashed: datasetHashCheck.hashed,
+      datasetReferencesChecked: datasetHashCheck.referencesChecked,
+      uniqueDatasetsHashed: datasetHashCheck.uniqueDatasetsHashed,
     },
   };
 }
