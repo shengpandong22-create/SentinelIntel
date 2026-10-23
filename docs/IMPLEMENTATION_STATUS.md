@@ -126,7 +126,7 @@ Deliberately not modified: `tests/analyze-shutdown.test.ts` and `tests/translate
 
 ## Current Phase
 
-Phase: **Phase 7 — UI / Admin / MCP Extension (implementation and local acceptance complete 2026-10-23; canonical Linux CI pending)**
+Phase: **Phase 7 — UI / Admin / MCP Extension (implementation, local acceptance and canonical Linux CI complete 2026-10-23; pull request #9 open, awaiting merge)**
 
 Phase 7 base: `main` = `63428dc` (squash merge of pull request #8, Phase 6). Phase 6 is COMPLETE and
 merged. Phase 6 frozen holdouts v1–v16 (and their review receipts) are consumed evidence: they must
@@ -165,8 +165,9 @@ admin views 6, MCP compatibility 3, MCP shutdown 1); web build passed; web tests
 pre-existing + 6 new); `docker compose config` passed. The full backend suite keeps its pre-existing
 Windows-only failures (7 frozen-dataset hash checks broken by `core.autocrlf=true` on this machine,
 and the KI-3 POSIX SIGTERM cascade) — both categories are identical on `main` and are covered by
-the canonical Linux CI runs. Remaining before Phase 7 closure: push, pull request, and canonical
-Linux CI (`check` + `docker`).
+the canonical Linux CI runs. Canonical Linux CI on pull request #9 passed both required jobs
+(`check` 1m49s, `docker` 1m27s, run `39966961001`); the branch is pushed and the pull request is
+open. Remaining before Phase 7 is marked complete: owner merge of pull request #9.
 
 The Phase 6 record below is retained unchanged as consumed history.
 

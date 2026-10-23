@@ -253,7 +253,7 @@ eval-results}.tsx`，复用 `AdminPage/Card/DataTable/Badge/Time/Json`；`NAV` �
 | 11 | 不改变生产写入语义 | **已验证（静态）**：diff 无 store/契约/migration 变更；无新迁移 |
 | 12 | 六类测试通过 | **已验证**：read-model 8/8、API 5/5、auth 3/3、Story UI 4/4、Admin UI 5/5、MCP 3/3；web 全量 25/25 |
 | 13 | 完整验证 | typecheck ✓；空库 `sentinel_phase7_ci` 应用全部 43 个迁移 ✓；Phase 7 backend 24/24 ✓；web build ✓；web tests 24/24 ✓；`docker compose config` ✓ |
-| 14 | canonical Linux CI | **pending**（推送后由 PR 检查执行） |
+| 14 | canonical Linux CI | **已验证**：PR #9（run `39966961001`）`check` 1m49s 通过、`docker` 1m27s 通过 |
 | 15 | 文档更新 | 本文档 + `IMPLEMENTATION_STATUS.md` 已更新；README 无需改动（无面向使用者的配置或使用变化，Admin 页面与 Story 区块自解释）——记录为设计决定 |
 | 16 | 报告分层 | 见最终交付报告 |
 
