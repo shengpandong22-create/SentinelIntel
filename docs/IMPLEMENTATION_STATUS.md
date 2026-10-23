@@ -126,19 +126,61 @@ Deliberately not modified: `tests/analyze-shutdown.test.ts` and `tests/translate
 
 ## Current Phase
 
-Phase: **Phase 8 — Final Evaluation & Resume Package (PLANNING; no evaluation run authorized)**
+Phase: **Phase 8 — Final Evaluation & Resume Package (Gate 1, Gate 2 and the offline part of Gate 4
+complete; status `COMPLETE_WITH_DOCUMENTED_EVALUATION_GAPS`, canonical CI pending)**
 
 Phase 8 base: `main` = `6cdac54` (Phase 7 squash merge, pull request #9). Phase 7 is COMPLETE:
 canonical Linux CI passed both required jobs and the CI-verified pull-request tree is identical to the
-merge tree. The former “PR #9 open, awaiting merge” status below is superseded by this record.
+merge tree.
 
-Phase 8 planning contract: `docs/00-sentinelintel/09-Phase8-Final-Evaluation-Resume-Plan.md`.
-The phase is limited to an evidence inventory, canonical evaluation summaries, honest ablations,
-failure cases, implemented architecture, and evidence-backed README/resume-safe claims. This planning
-state authorizes no product-code change, frozen-artifact mutation, paid model call, external
-collection, holdout rerun, threshold/prompt/model tuning, or new numeric claim. A free offline evidence
-audit must first classify every requested metric as reproducible, partial, historical,
-not-comparable, not-recorded, or requiring a separately approved run.
+Phase 8 contract: `docs/00-sentinelintel/09-Phase8-Final-Evaluation-Resume-Plan.md`. The phase was
+evaluation consolidation and documentation only: no product-code change, no frozen-artifact
+mutation, **no paid model call**, **no external collection**, no holdout rerun, no threshold/prompt/
+model tuning, and no new numeric claim.
+
+**Gate 1 — evidence inventory.** `docs/evaluation/evidence-registry.json` (47 entries) is the single
+machine-readable source; `docs/evaluation/evidence-registry.md` is generated from it and checked for
+drift by `scripts/validate-final-package.ts`. Status distribution: 6 `REPRODUCIBLE_FINAL`, 27
+`REPRODUCIBLE_PARTIAL`, 1 `HISTORICAL_ONLY`, 2 `NOT_COMPARABLE`, 10 `NOT_RECORDED`, 1
+`REQUIRES_NEW_RUN`. Offline verification done while building it:
+
+- the tracking holdout replay (26 cases, frozen fixture gateway) was re-executed and reproduced the
+  recorded nine zero safety counters and five 1.00 quality metrics → `REPRODUCIBLE_FINAL`.
+- the synthetic normalization fixture holdout could **not** be re-scored: the current scorer aborts
+  with `unresolvable-range: development requires at least 3 cases, got 2` (the documented exclusion
+  left two cases in that stratum), and normalization semantics changed in revisions 4–6 → the entry is
+  `HISTORICAL_ONLY`, and `docs/evaluation/impact-baseline.md` stays as history only.
+- all manifest-recorded holdout hashes match the committed Git blobs **except**
+  `datasets/impact/holdout-manifest.json`'s `thresholds_sha256` (`0c7a0c7d…`), which matches the CRLF
+  working copy; the committed blob is `f78bb9ba…`. Recorded, not edited (frozen artifact).
+- several requested system metrics were never produced: selection tokens/latency, research latency,
+  impact end-to-end latency/tokens, average LLM calls, task success rate, human-review rate and
+  recovery rate are `NOT_RECORDED`; impact vendor/product/version ratios and evidence coverage were
+  never emitted as ratios by the E2E scorer.
+
+**Gate 2 — documentation package.** All nine required paths exist and agree with the registry:
+`docs/evaluation/{selection,event-grouping,research-agent,tracking-agent,product-impact}.md`,
+`docs/evaluation/ablations.md`, `docs/failure-cases.md`, `docs/architecture.md` (additive
+SentinelIntel V2 section, upstream AIHOT facts untouched) and `README.md` (upstream framework vs
+extension separated, MIT attribution preserved, no performance number quoted). `selection.md` keeps
+every original detail and gained a canonical-summary header only. `ablations.md` admits exactly one
+paired numeric ablation (research B0 snapshot-only vs B1 with external evidence on the same 20 cases
+and scorer) plus the selection threshold re-scoring with its tuning-leakage caveat, and marks
+everything else `NOT_COMPARABLE` / `NOT_RUN`; there is no B0–B5 curve.
+
+**Gate 3 — new-run decision.** One proposal exists: per-case latency/token usage for the product
+impact closing gate. It is `NOT_AUTHORIZED` and **not recommended**: the only dataset that could
+produce it is the consumed v16 holdout, which may not be rerun, so a valid measurement needs a new
+disjoint holdout outside Phase 8. No paid call was made.
+
+**Gate 4 — verification.** `node scripts/validate-final-package.ts` passes (47 entries, 9 required
+files, 14 frozen artifacts unchanged vs `6cdac54`, registry Markdown in sync, no prohibited wording,
+no broken internal link, README numbers traceable). `tests/final-package-validator.test.ts` 8/8.
+`npm run typecheck`, `npm run build -w @aihot/web`, `node --test apps/web/tests/*.test.ts` and
+`docker compose config --quiet` all pass. No database or migration change was made.
+
+Known gaps are documented rather than filled: the label method remains `MODEL_REVIEWED` everywhere,
+and the missing metrics above stay `NOT_RECORDED` / `REQUIRES_NEW_RUN`.
 
 ---
 
