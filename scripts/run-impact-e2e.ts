@@ -154,6 +154,8 @@ const { values } = parseArgs({ argv, options: {
 } });
 if (!values.cases) throw new Error("--cases is required");
 const internalToken = readFileSync(values.token!, "utf8").trim();
+const agentRuntimeBaseUrl = process.env.IMPACT_E2E_AGENT_URL?.trim() || "http://127.0.0.1:8000";
+new URL(agentRuntimeBaseUrl);
 
 const cases = z.array(ImpactE2ECaseSchema).parse(
   readFileSync(values.cases!, "utf8").split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line)),
@@ -223,7 +225,7 @@ for (const item of cases) {
   try {
     run = await runImpactForStory(storyId, {
       productImpactEnabled: true, modelCallsEnabled: true, internalToken,
-      baseUrl: "http://127.0.0.1:8000",
+      baseUrl: agentRuntimeBaseUrl,
       // The production default is intentionally short, but an evaluation task performs several
       // bounded official-source lookups before extraction. Keep the client alive for the task's
       // pre-registered 60 s deadline instead of aborting every real replay after 5 s.
@@ -279,7 +281,7 @@ for (const item of cases) {
   if (hasCurrentRows) {
     const repeat = await runImpactForStory(storyId, {
       productImpactEnabled: true, modelCallsEnabled: true, internalToken,
-      baseUrl: "http://127.0.0.1:8000",
+      baseUrl: agentRuntimeBaseUrl,
     }).catch((error: unknown) => ({ error: error instanceof Error ? error.message : String(error) }));
     if (!("skipped" in repeat) || repeat.skipped !== "already_analyzed") {
       safety.duplicate_commits += 1;
