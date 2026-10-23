@@ -179,6 +179,15 @@ export function renderRegistryMarkdown(registry: Registry): string {
   return `${lines.join("\n").trimEnd()}\n`;
 }
 
+/**
+ * The generated registry is compared modulo line endings: `core.autocrlf=true` rewrites a checked-out
+ * file to CRLF on Windows, which must not read as drift when the content is identical.
+ */
+export function registryMarkdownMatches(committed: string, rendered: string): boolean {
+  const lf = (text: string) => text.replace(/\r\n/g, "\n");
+  return lf(committed) === lf(rendered);
+}
+
 function gitBlobId(root: string, rev: string): string {
   return execFileSync("git", ["rev-parse", `${rev}`], { cwd: root, encoding: "utf8" }).trim();
 }
@@ -370,7 +379,7 @@ export function validateRepository(root = REPO_ROOT): ValidationResult {
   const expectedMarkdown = renderRegistryMarkdown(registry);
   const committedMarkdownPath = path.join(root, REGISTRY_MD);
   if (!existsSync(committedMarkdownPath)) errors.push(`registry Markdown missing: ${REGISTRY_MD} (run --write)`);
-  else if (readFileSync(committedMarkdownPath, "utf8") !== expectedMarkdown) errors.push(`${REGISTRY_MD} is out of sync with the JSON registry (run --write)`);
+  else if (!registryMarkdownMatches(readFileSync(committedMarkdownPath, "utf8"), expectedMarkdown)) errors.push(`${REGISTRY_MD} is out of sync with the JSON registry (run --write)`);
   if (registry.base_commit !== BASE_COMMIT) errors.push(`registry base_commit ${registry.base_commit} != ${BASE_COMMIT}`);
 
   const ids = new Set<string>();
