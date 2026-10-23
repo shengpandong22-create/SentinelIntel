@@ -209,7 +209,9 @@ function ImpactPanel({ view }: { view: StoryAgentIntelligence["productImpact"] }
           </ul>
         </>
       )}
-      {view.rows.length === 0 && view.reviewRequiredCount > 0 && <p className="text-[13.5px] leading-[1.8] text-ink-3">有 {view.reviewRequiredCount} 条产品影响结论正在人工复核，确认后再展示。</p>}
+      {view.rows.length === 0 && view.reviewRequiredCount > 0 && (
+        <p className="text-[13.5px] leading-[1.8] text-ink-3">{`有 ${view.reviewRequiredCount} 条产品影响结论正在人工复核，确认后再展示。`}</p>
+      )}
       {view.rows.length === 0 && view.reviewRequiredCount === 0 && <p className="text-[13.5px] text-ink-4">这个事件还没有可展示的产品影响结论。</p>}
     </Panel>
   );

@@ -20,9 +20,12 @@ let otherStoryId: number;
 let emptyStoryId: number;
 let partialStoryId: number;
 let failedStoryId: number;
+let lateAgentStoryId: number;
+let reviewOnlyStoryId: number;
 const evidenceNvd = randomUUID();
 const evidenceKev = randomUUID();
 const otherEvidence = randomUUID();
+const evidenceLate = randomUUID();
 
 function storySnapshot(id: number) {
   return {
@@ -44,6 +47,8 @@ before(async () => {
   emptyStoryId = await insertStory(`Empty agent story ${T}`);
   partialStoryId = await insertStory(`Partial agent story ${T}`);
   failedStoryId = await insertStory(`Failed agent story ${T}`);
+  lateAgentStoryId = await insertStory(`Late agent story ${T}`);
+  reviewOnlyStoryId = await insertStory(`Review-only story ${T}`);
 
   // Populated story: a completed research run storing NVD + KEV evidence, claims, unknowns, a conflict.
   const run = await startResearchRun({
@@ -223,10 +228,99 @@ before(async () => {
     snapshot: storySnapshot(failedStoryId), limits: DEFAULT_RESEARCH_LIMITS,
   });
   await failResearchRun(failedRun.id, "provider_error", "the provider returned an unusable payload");
+
+  // Regression (audit P1): a Phase 4 research run followed by a LATER Phase 6 impact run. The
+  // impact agent completes its run with the production proposal shape — claims: [] and the impact
+  // decision reason as the summary — so the shared agent_research_runs row would otherwise be
+  // parsed as research and published as "completed, no claims", erasing the real research result.
+  const lateResearch = await startResearchRun({
+    storyId: lateAgentStoryId, traceId: randomUUID(), objective: "Research first", graphVersion: "phase4-stub-v1",
+    snapshot: storySnapshot(lateAgentStoryId), limits: DEFAULT_RESEARCH_LIMITS,
+  });
+  await completeResearchRun({
+    runId: lateResearch.id, storyId: lateAgentStoryId, provider: "fixture",
+    proposal: ResearchProposalSchema.parse({
+      claims: [{
+        claim_id: "late1", text: "The Phase 4 research confirmed exploitation in the wild.",
+        criticality: "critical", status: "confirmed", confidence: 0.9, evidence_ids: [evidenceLate],
+      }],
+      unknowns: [], conflicts: [], tool_trace: [],
+      summary: "Phase 4 summary that must survive the later impact run.",
+      terminal_status: "completed",
+      evidence: [{
+        evidence_id: evidenceLate, source_type: "nvd", source_name: "NVD", canonical_url: "https://nvd.nist.gov/vuln/detail/CVE-2026-8888",
+        title: "CVE-2026-8888 detail", excerpt: "Affected builds listed.", normalized: {},
+        content_hash: "1".repeat(64), authority_level: "authoritative", published_at: null,
+        source_updated_at: null, retrieved_at: new Date().toISOString(), provenance: {},
+      }],
+    }),
+  });
+  const lateImpact = await startResearchRun({
+    storyId: lateAgentStoryId, traceId: randomUUID(), objective: "Analyze public product impact for the vulnerability in this Story.",
+    graphVersion: "phase6-impact-v1", snapshot: storySnapshot(lateAgentStoryId), limits: DEFAULT_RESEARCH_LIMITS,
+  });
+  await completeResearchRun({
+    runId: lateImpact.id, storyId: lateAgentStoryId, provider: "impact-agent", promptVersion: "phase6-impact-v1",
+    proposal: ResearchProposalSchema.parse({
+      claims: [],
+      unknowns: [{ question: "No machine-readable versions were published.", attempted_sources: ["acquisition"], reason: "No machine-readable versions were published." }],
+      evidence: [], conflicts: [], tool_trace: [],
+      summary: "Phase 6 impact decision reason that must NOT surface as the research summary.",
+      terminal_status: "completed",
+    }),
+  });
+
+  // Regression (audit P1): a story whose only product-impact signal is an open human review. The
+  // deterministic store routes the medium row to impact_human_reviews and persists no impact row,
+  // so the review count is the only pending-review signal the public DTO can carry.
+  const evidenceReviewOnly = randomUUID();
+  const reviewRun = await startResearchRun({
+    storyId: reviewOnlyStoryId, traceId: randomUUID(), objective: "Acquire evidence for the impact task",
+    graphVersion: "phase6-impact-v1", snapshot: storySnapshot(reviewOnlyStoryId), limits: DEFAULT_RESEARCH_LIMITS,
+  });
+  await completeResearchRun({
+    runId: reviewRun.id, storyId: reviewOnlyStoryId, provider: "impact-agent", promptVersion: "phase6-impact-v1",
+    proposal: ResearchProposalSchema.parse({
+      claims: [], unknowns: [], conflicts: [], tool_trace: [], summary: "Evidence acquired.", terminal_status: "completed",
+      evidence: [{
+        evidence_id: evidenceReviewOnly, source_type: "vendor_advisory", source_name: "Vendor",
+        canonical_url: "https://vendor.example/review-only", title: "Review-only advisory",
+        excerpt: "Versions stated in prose only.", normalized: {},
+        content_hash: "2".repeat(64), authority_level: "authoritative", published_at: null,
+        source_updated_at: null, retrieved_at: new Date().toISOString(), provenance: {},
+      }],
+    }),
+  });
+  const reviewTask = ImpactTaskSchema.parse({
+    trace_id: randomUUID(), run_id: randomUUID(), tool_capability: "x".repeat(32),
+    story: storySnapshot(reviewOnlyStoryId),
+    source_parameters: { cve_id: null, vendor: "acme" },
+    evidence: [{
+      evidence_id: evidenceReviewOnly, source_type: "vendor_advisory", authority_level: "authoritative" as const,
+      canonical_url: "https://vendor.example/review-only", content_hash: "a".repeat(64),
+      retrieved_at: new Date().toISOString(), observations: ["material_update" as const],
+    }],
+    limits: DEFAULT_RESEARCH_LIMITS,
+  });
+  await applyImpactProposal({
+    task: reviewTask,
+    proposal: {
+      new_evidence: [],
+      impact_rows: [{
+        vendor: "Acme", product: `Review Only Widget ${T}`, models: [], cve_id: null,
+        affected_range: { raw: "builds before 2025", supported: false }, fixed_range: null,
+        mitigations: [], confidence: "medium" as const, evidence_ids: [evidenceReviewOnly],
+      }],
+      exploit_status: { poc: "unknown" as const, known_exploited: "unknown" as const },
+      known_exploited_evidence_ids: [],
+      unknowns: ["The advisory states no machine-readable versions."],
+      decision: "propose" as const, decision_reason: "Product named with a prose version range.", tool_trace: [],
+    },
+  });
 });
 
 after(async () => {
-  for (const id of [fullStoryId, otherStoryId, partialStoryId, failedStoryId, emptyStoryId]) {
+  for (const id of [fullStoryId, otherStoryId, partialStoryId, failedStoryId, emptyStoryId, lateAgentStoryId, reviewOnlyStoryId]) {
     await sql`DELETE FROM product_impacts WHERE story_id = ${id}`;
     await sql`DELETE FROM impact_human_reviews WHERE story_id = ${id}`;
     await sql`DELETE FROM story_entities WHERE story_id = ${id}`;
@@ -280,8 +374,9 @@ test("populated story assembles every section from one read model", async () => 
   assert.equal(claims.cveId, "CVE-2026-9999");
   assert.deepEqual(claims.exploitStatus, { poc: "unknown", knownExploited: "unknown" });
   assert.deepEqual(claims.unknowns, ["Whether pre-2024 builds receive a backport is unstated."]);
-  // One open human review for the medium row; its payload stays out of the public projection.
-  assert.equal(view.productImpact.reviewRequiredCount, 0);
+  // One open human review for the medium row; its payload stays out of the public projection. The
+  // review signal reaches productImpact because the store never persists a medium row.
+  assert.equal(view.productImpact.reviewRequiredCount, 1);
   assert.equal(view.reviewRequiredCount, 1);
 
   assert.equal(view.evidence.length, 2);
@@ -330,10 +425,9 @@ test("story without agent data degrades to the empty state", async () => {
 test("partial story degrades only the sections that have data", async () => {
   const view = await loadStoryAgentIntelligence(partialStoryId);
   assert.equal(view.present, true);
-  // The latest run failed, so the research section reports failure without claims or internals.
-  assert.equal(view.research?.status, "failed");
-  assert.deepEqual(view.research?.claims, []);
-  assert.equal(view.research?.summary, null);
+  // The story has only Phase 6 impact runs, so there is no Phase 4 research section at all — a
+  // tracking or impact run must never be presented as the research result.
+  assert.equal(view.research, null);
   assert.equal(view.tracking, null);
   assert.deepEqual(view.timelineChanges, []);
   assert.equal(view.evidence.length, 1);
@@ -352,6 +446,37 @@ test("a failed research run surfaces status only, never the internal error", asy
   const serialized = JSON.stringify(view);
   assert.ok(!serialized.includes("provider_error"));
   assert.ok(!serialized.includes("the provider returned an unusable payload"));
+});
+
+test("a later Phase 6 run never replaces the Phase 4 research view", async () => {
+  const view = await loadStoryAgentIntelligence(lateAgentStoryId);
+  // The impact run is the newest agent_research_runs row, but research reads Phase 4 only: the
+  // Phase 4 claim and summary survive, and the impact decision reason never surfaces as research.
+  assert.equal(view.research?.status, "completed");
+  assert.equal(view.research?.summary, "Phase 4 summary that must survive the later impact run.");
+  assert.equal(view.research?.claims.length, 1);
+  assert.equal(view.research?.claims[0]!.text, "The Phase 4 research confirmed exploitation in the wild.");
+  assert.deepEqual(view.research?.claims[0]!.evidenceIds, [evidenceLate]);
+  // The impact run's unknowns are impact unknowns, not research unknowns.
+  assert.ok(!view.unknowns.some((u) => u.source === "research"));
+  const serialized = JSON.stringify(view);
+  assert.ok(!serialized.includes("must NOT surface"), "the Phase 6 summary leaked into the public DTO");
+});
+
+test("a story whose only signal is an open human review shows the pending review", async () => {
+  const view = await loadStoryAgentIntelligence(reviewOnlyStoryId);
+  // The store routed the medium row to impact_human_reviews and persisted no impact row: the story
+  // is present, the review count is the pending-review signal, and nothing about the payload leaks.
+  assert.equal(view.present, true);
+  assert.ok(view.dataUpdatedAt && !Number.isNaN(Date.parse(view.dataUpdatedAt)));
+  assert.deepEqual(view.productImpact.rows, []);
+  assert.equal(view.productImpact.reviewRequiredCount, 1);
+  assert.equal(view.reviewRequiredCount, 1);
+  assert.equal(view.research, null);
+  assert.equal(view.tracking, null);
+  const serialized = JSON.stringify(view);
+  for (const fragment of FORBIDDEN_FRAGMENTS) assert.ok(!serialized.includes(fragment), `leaked ${fragment}`);
+  assert.ok(!serialized.includes(`Review Only Widget ${T}`), "leaked human review payload");
 });
 
 test("reading agent intelligence writes nothing and receipts nothing", async () => {

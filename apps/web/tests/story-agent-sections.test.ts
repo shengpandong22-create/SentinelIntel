@@ -91,12 +91,30 @@ const partial: StoryDetail = {
   },
 };
 
+// A story whose only agent signal is a pending human review: the store routes a medium row to
+// impact_human_reviews and persists no impact row, so the section must say "under review" rather
+// than "no conclusions" — the exact shape the audit found missing.
+const reviewOnly: StoryDetail = {
+  ...storyBase("44444444-4444-4444-4444-444444444444", "Review-only agent story"),
+  agentIntelligence: {
+    present: true, dataUpdatedAt: "2026-10-02T04:00:00.000Z", reviewRequiredCount: 1,
+    research: null, tracking: null, timelineChanges: [],
+    productImpact: { rows: [], reviewRequiredCount: 1 },
+    evidence: [], unknowns: [],
+  },
+};
+
 const api = createServer((req, res) => {
   const url = new URL(req.url!, "http://api.local");
   apiPaths.push(url.pathname);
   res.setHeader("Content-Type", "application/json");
   if (url.pathname === "/api/site/meta") return res.end(JSON.stringify({ changelogVersion: "2026-09-28T12:00" }));
-  const story = { "11111111-1111-1111-1111-111111111111": populated, "22222222-2222-2222-2222-222222222222": empty, "33333333-3333-3333-3333-333333333333": partial }[url.pathname.replace("/api/site/stories/", "")];
+  const story = {
+    "11111111-1111-1111-1111-111111111111": populated,
+    "22222222-2222-2222-2222-222222222222": empty,
+    "33333333-3333-3333-3333-333333333333": partial,
+    "44444444-4444-4444-4444-444444444444": reviewOnly,
+  }[url.pathname.replace("/api/site/stories/", "")];
   if (story) return res.end(JSON.stringify(story));
   res.statusCode = 404;
   res.end(JSON.stringify({ code: "not_found" }));
@@ -191,4 +209,13 @@ test("partial story degrades section by section", async () => {
   assert.ok(!html.includes("安全研究"));
   assert.ok(!html.includes("追踪状态"));
   assert.ok(!html.includes("时间线变更"));
+});
+
+test("a story with only a pending review says so instead of showing no conclusions", async () => {
+  const html = await page("44444444-4444-4444-4444-444444444444");
+  assert.ok(html.includes("产品影响"));
+  assert.ok(html.includes("有 1 条产品影响结论正在人工复核，确认后再展示。"));
+  assert.ok(!html.includes("这个事件还没有可展示的产品影响结论。"), "a pending review must not read as 'no conclusions'");
+  // No review payload or conclusion text can be inferred from a pending review.
+  for (const fragment of INTERNAL) assert.ok(!html.includes(fragment), `leaked ${fragment}`);
 });

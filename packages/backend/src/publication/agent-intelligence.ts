@@ -124,7 +124,7 @@ function trackingView(plan: PlanRow | null): StoryTrackingView | null {
   };
 }
 
-function impactRows(rows: ImpactRow[]): StoryProductImpactView {
+function impactRows(rows: ImpactRow[], openReviewCount: number): StoryProductImpactView {
   const views: StoryProductImpactRowView[] = rows.map((row) => {
     const exploit = row.exploit_status;
     return {
@@ -150,9 +150,11 @@ function impactRows(rows: ImpactRow[]): StoryProductImpactView {
       unknowns: Array.isArray(row.unknowns) ? row.unknowns : [],
     };
   });
-  // A claims row pending review is the review signal; unknown-only rows are honest unknowns, not
-  // pending reviews. Open human reviews are counted separately at story level.
-  return { rows: views, reviewRequiredCount: views.filter((row) => row.reviewRequired).length };
+  // The review signal is the open human reviews: the deterministic store routes a medium row to
+  // impact_human_reviews and never persists it, so a story with pending reviews can have zero rows
+  // here. Persisted rows routed to review are counted defensively (schema-honest, never written by
+  // the store today). The payload itself never crosses into the public projection.
+  return { rows: views, reviewRequiredCount: views.filter((row) => row.reviewRequired).length + openReviewCount };
 }
 
 /**
@@ -166,9 +168,13 @@ export async function loadStoryAgentIntelligence(storyId: number): Promise<Story
       SELECT public_id::text, source_type, source_name, canonical_url, title, excerpt, authority_level, published_at, retrieved_at
       FROM external_evidence WHERE story_id = ${storyId}
       ORDER BY retrieved_at DESC, id DESC LIMIT ${EVIDENCE_LIMIT}`,
+    // The research view reads the latest PHASE 4 run only: agent_research_runs is shared by all
+    // three agents (graph_version phase4-*/phase5-*/phase6-*), and a later tracking or impact run
+    // would otherwise be parsed with the research schema and published as "completed, no claims".
     sql<RunRow[]>`
       SELECT status, completed_at, output_proposal FROM agent_research_runs
-      WHERE story_id = ${storyId} ORDER BY created_at DESC, id DESC LIMIT 1`,
+      WHERE story_id = ${storyId} AND graph_version LIKE 'phase4-%'
+      ORDER BY created_at DESC, id DESC LIMIT 1`,
     sql<PlanRow[]>`
       SELECT status, why_track, questions, last_checked_at, updated_at FROM tracking_plans WHERE story_id = ${storyId}`,
     sql<ChangeRow[]>`
@@ -183,12 +189,13 @@ export async function loadStoryAgentIntelligence(storyId: number): Promise<Story
       JOIN security_entities sp ON sp.id = i.product_entity_id
       WHERE i.story_id = ${storyId} AND i.status = 'current'
       ORDER BY sp.canonical_name, i.impact_version DESC`,
-    sql<{ n: number }[]>`SELECT count(*)::int AS n FROM impact_human_reviews WHERE story_id = ${storyId} AND status = 'open'`,
+    sql<{ n: number; latest_at: Date | null }[]>`SELECT count(*)::int AS n, max(created_at) AS latest_at FROM impact_human_reviews WHERE story_id = ${storyId} AND status = 'open'`,
   ]);
 
+  const openReviewCount = openReviews[0]?.n ?? 0;
   const research = researchView(latestRun[0] ?? null);
   const tracking = trackingView(plan[0] ?? null);
-  const productImpact = impactRows(impacts);
+  const productImpact = impactRows(impacts, openReviewCount);
   const timelineChanges: StoryTimelineChangeView[] = changes.map((row) => ({
     id: row.public_id,
     changeType: row.change_type,
@@ -218,8 +225,11 @@ export async function loadStoryAgentIntelligence(storyId: number): Promise<Story
     plan[0]?.updated_at ?? null,
     impacts[0]?.created_at ?? null,
     changes[0]?.created_at ?? null,
+    openReviews[0]?.latest_at ?? null,
   ].filter((value): value is Date => !!value);
-  const present = !!research || !!tracking || timelineChanges.length > 0 || productImpact.rows.length > 0 || evidenceViews.length > 0;
+  // An open human review is agent data on its own: a story whose only signal is a pending review
+  // must not render as "no security research".
+  const present = !!research || !!tracking || timelineChanges.length > 0 || productImpact.rows.length > 0 || evidenceViews.length > 0 || openReviewCount > 0;
 
   return {
     present,

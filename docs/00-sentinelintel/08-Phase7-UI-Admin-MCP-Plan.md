@@ -119,9 +119,17 @@ interface StoryAgentIntelligence {
 `error_detail`、evidence 的 `normalized`/`provenance`/`content_hash`、tracking 的
 `before/after_snapshot`、human review 的 `payload`/`reason`、Story 内部字段。
 
-取值规则：研究取该 Story **最新一条 run**（任何状态）；completed 时 `output_proposal` 经
+取值规则：研究取该 Story **最新一条 `graph_version LIKE 'phase4-%'` 的 run**（任何状态）
+——`agent_research_runs` 由三个 Agent 共用，晚于 Phase 4 的 tracking/impact run 绝不能被研究
+schema 解析后公开为“研究完成但无结论”；completed 时 `output_proposal` 经
 `ResearchProposalSchema.safeParse` 解析（写入时已校验，读取侧防御）。Evidence 限 50 条、
 timeline changes 限 20 条、claims/unknowns 沿用契约上限。六组查询 `Promise.all` 并行。
+
+`reviewRequiredCount` 语义：顶层为 **open 人工复核数**（story 级信号）；
+`productImpact.reviewRequiredCount` 为 **open 人工复核数 + 持久化行中路由到复核的行数**——
+确定性 store 把 medium 行路由进 `impact_human_reviews` 且从不持久化，因此“只有人工复核、
+没有 impact 行”的真实状态下必须由 open 复核数提供待复核信号（`present` 与 `dataUpdatedAt`
+同样把 open 复核计入）；复核 payload 本身永不进入公开投影。
 
 ### B. Story Detail 六个区块
 
@@ -233,7 +241,7 @@ eval-results}.tsx`，复用 `AdminPage/Card/DataTable/Badge/Time/Json`；`NAV` �
 | # | 验收项 | 结果 |
 |---|---|---|
 | 1 | Story 页面从真实 scratch DB 展示 Phase 4/5/6 数据 | **已验证**：`tests/phase7-api.test.ts` 对 `sentinel_phase7_ci` 真实库经 `/api/site/stories/:publicId` 取回 research/tracking/impact/evidence/unknowns |
-| 2 | 六区块 populated / empty / partial-unknown 三类 fixture | **已验证**：读模型测试 6/6（populated/empty/partial/failed/cross-story/只读不变式）；Story UI 测试 3/3（ populated/empty/partial 三态） |
+| 2 | 六区块 populated / empty / partial-unknown 三类 fixture | **已验证**：读模型测试 8/8（populated/empty/partial/failed/cross-story/只读不变式 + 2 项审计回归：仅 Phase 4 研究、仅人工复核）；Story UI 测试 4/4（populated/empty/partial/review-only 四态） |
 | 3 | 页面读取不写库/不回执/不调模型/不外网/不建 run | **已验证**：读模型测试对 receipts/agent_research_runs/external_evidence/tracking_plans/tracking_changes/product_impacts/impact_human_reviews 读取前后计数不变；Story UI 测试断言页面只请求 `/api/site/` |
 | 4 | Web 只通过 API 获取数据 | **已验证**：`apps/web` 无 `@aihot/backend` import；UI 测试记录请求路径 |
 | 5 | 公开 DTO 只来自 publication read layer | **已验证**：`loadStoryAgentIntelligence` 是唯一装配处；MCP/API/Web 三方测试断言同一函数输出 |
@@ -243,7 +251,7 @@ eval-results}.tsx`，复用 `AdminPage/Card/DataTable/Badge/Time/Json`；`NAV` �
 | 9 | MCP 旧 schema/旧字段兼容，新增字段加性 | **已验证**：`tests/mcp-story-intelligence.test.ts` 3/3（工具清单 5 个不变、旧字段齐全、`agentIntelligence` 加性、not_found 语义不变） |
 | 10 | MCP/API/Web 同一 read model | **已验证**：`v1Story` 与 `loadStoryDetail` 均调 `loadStoryAgentIntelligence` |
 | 11 | 不改变生产写入语义 | **已验证（静态）**：diff 无 store/契约/migration 变更；无新迁移 |
-| 12 | 六类测试通过 | **已验证**：read-model 6/6、API 5/5、auth 3/3、Story UI 3/3、Admin UI 5/5、MCP 3/3；web 全量 24/24 |
+| 12 | 六类测试通过 | **已验证**：read-model 8/8、API 5/5、auth 3/3、Story UI 4/4、Admin UI 5/5、MCP 3/3；web 全量 25/25 |
 | 13 | 完整验证 | typecheck ✓；空库 `sentinel_phase7_ci` 应用全部 43 个迁移 ✓；Phase 7 backend 24/24 ✓；web build ✓；web tests 24/24 ✓；`docker compose config` ✓ |
 | 14 | canonical Linux CI | **pending**（推送后由 PR 检查执行） |
 | 15 | 文档更新 | 本文档 + `IMPLEMENTATION_STATUS.md` 已更新；README 无需改动（无面向使用者的配置或使用变化，Admin 页面与 Story 区块自解释）——记录为设计决定 |
@@ -253,3 +261,22 @@ eval-results}.tsx`，复用 `AdminPage/Card/DataTable/Badge/Time/Json`；`NAV` �
 303 通过 / 9 未通过 / 6 取消——7 项为冻结数据集哈希校验（本机 `core.autocrlf=true` 使工作区
 JSONL 变为 CRLF，而 manifest 哈希按 LF 计算；数据集与 main 逐字节相同），其余为 KI-3
 Windows POSIX SIGTERM 级联（Phase 0 已记录）。
+
+### 7.1 审核整改（2026-10-23，推送前）
+
+推送前审核发现两个会误导真实用户展示的 P1，均为读模型缺陷，已修复并补回归：
+
+1. **Research 读到其他 Agent 的运行**：`agent_research_runs` 由三个 Agent 共用，原查询取 Story
+   最新 run 而未限定 `graph_version`。Phase 6 impact run 以生产形状完成（`claims: []`、
+   `summary = decision_reason`）后会被研究 schema 成功解析，公开呈现为“研究完成但无结论”，
+   并抹掉真实 Phase 4 结论。修复：`WHERE ... AND graph_version LIKE 'phase4-%'`；回归测试
+   用“Phase 4 完成 → Phase 6 完成（生产 proposal 形状）”断言研究内容不变、Phase 6 摘要不外泄。
+2. **待人工复核数量未进入产品影响视图**：真实 medium 行只写 `impact_human_reviews`、不写
+   `product_impacts`，而 `productImpact.reviewRequiredCount` 只数持久化行（恒为 0），Story UI
+   与 MCP 的待复核提示因此永不出现。修复：`productImpact.reviewRequiredCount` = open 复核数 +
+   持久化复核行数，`present` 与 `dataUpdatedAt` 同样计入 open 复核；回归测试构造“只有复核、
+   没有 impact 行”的真实状态（经 `applyImpactProposal` 走 medium 路由），并补 Story UI 的
+   review-only 用例（“正在人工复核”而非“还没有结论”）。
+
+两项修复均已用“回退修复 → 回归测试失败”验证测试有效，并在恢复后复跑：读模型 8/8、Phase 7
+后端 26/26、web 25/25、typecheck 通过。

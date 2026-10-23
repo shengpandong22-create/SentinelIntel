@@ -150,10 +150,19 @@ compact honest text summary plus the structured DTO, with the tool list and old 
 New MCP tools (`get_security_impact` / `get_story_tracking`) were deliberately NOT added: the
 contract's five conditions are not met because `get_story` carries the same read model.
 
+Pre-push review (2026-10-23) found two read-model defects that would have misled real readers, both
+fixed with regressions: (1) the research view read the latest `agent_research_runs` row without a
+`graph_version` filter, so a later Phase 6 run (whose production proposal has `claims: []`) would be
+published as "research completed, no claims" and erase the real Phase 4 result — the query is now
+scoped to `phase4-%`; (2) `productImpact.reviewRequiredCount` counted only persisted rows, but the
+store routes medium rows to `impact_human_reviews` and persists none, so the Story page and MCP
+never showed pending reviews — the count now includes open reviews, and `present` / `dataUpdatedAt`
+do too. Both regressions were verified to fail against the unfixed code.
+
 Local acceptance (2026-10-23): typecheck passed; all 43 migrations applied to the empty
-`sentinel_phase7_ci` database; Phase 7 backend tests 24/24 (read model 6, API 5, admin auth 3,
-admin views 6, MCP compatibility 3, MCP shutdown 1); web build passed; web tests 24/24 (19
-pre-existing + 5 new); `docker compose config` passed. The full backend suite keeps its pre-existing
+`sentinel_phase7_ci` database; Phase 7 backend tests 26/26 (read model 8, API 5, admin auth 3,
+admin views 6, MCP compatibility 3, MCP shutdown 1); web build passed; web tests 25/25 (19
+pre-existing + 6 new); `docker compose config` passed. The full backend suite keeps its pre-existing
 Windows-only failures (7 frozen-dataset hash checks broken by `core.autocrlf=true` on this machine,
 and the KI-3 POSIX SIGTERM cascade) — both categories are identical on `main` and are covered by
 the canonical Linux CI runs. Remaining before Phase 7 closure: push, pull request, and canonical

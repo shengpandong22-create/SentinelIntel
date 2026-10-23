@@ -327,7 +327,7 @@ export interface StoryResearchClaimView {
 }
 
 export interface StoryResearchView {
-  /** Latest run state for this story; "failed" carries no claims and no internal error detail. */
+  /** Latest Phase 4 run state for this story; "failed" carries no claims and no internal error detail. */
   status: "completed" | "insufficient_evidence" | "failed" | "running";
   completedAt: string | null;
   summary: string | null;
@@ -384,6 +384,7 @@ export interface StoryProductImpactRowView {
 
 export interface StoryProductImpactView {
   rows: StoryProductImpactRowView[];
+  /** Open human reviews (the store never persists a medium row) plus any persisted review-routed row. */
   reviewRequiredCount: number;
 }
 
