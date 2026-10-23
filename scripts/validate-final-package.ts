@@ -394,16 +394,33 @@ export function validateRepository(root = REPO_ROOT): ValidationResult {
     if (!existsSync(path.join(root, file))) errors.push(`${entry.id}: source report missing: ${file}`);
   }
 
-  // 3b. Every recorded dataset hash is recomputed from the committed blob bytes.
-  const datasetHashCheck = checkDatasetHashes(registry, root);
-  errors.push(...datasetHashCheck.errors);
-  warnings.push(...datasetHashCheck.warnings);
-
-  // 4. Frozen artifacts unchanged vs the base commit (complete list, derived from the commit).
-  const artifacts = frozenArtifacts(root);
-  const frozenCheck = checkFrozenArtifacts(root, artifacts);
-  errors.push(...frozenCheck.errors);
-  warnings.push(...frozenCheck.warnings);
+  // 3b/4. Both git-backed gates need the base commit. A shallow checkout cannot verify anything, so
+  // say so explicitly instead of surfacing a stack trace (canonical CI checks out full history).
+  let datasetHashCheck = { errors: [] as string[], warnings: [] as string[], referencesChecked: 0, uniqueDatasetsHashed: 0 };
+  let artifacts: string[] = [];
+  let frozenCheck = { errors: [] as string[], warnings: [] as string[] };
+  try {
+    gitBlobId(root, `${BASE_COMMIT}^{commit}`);
+  } catch {
+    errors.push(`base commit ${BASE_COMMIT} is not present in this clone (shallow checkout?); the dataset-hash and frozen-artifact gates cannot run — check out full history`);
+  }
+  try {
+    // Every recorded dataset hash is recomputed from the committed blob bytes.
+    datasetHashCheck = checkDatasetHashes(registry, root);
+    errors.push(...datasetHashCheck.errors);
+    warnings.push(...datasetHashCheck.warnings);
+  } catch (error) {
+    errors.push(`dataset-hash verification could not run: ${(error as Error).message}`);
+  }
+  try {
+    // Frozen artifacts unchanged vs the base commit (complete list, derived from the commit).
+    artifacts = frozenArtifacts(root);
+    frozenCheck = checkFrozenArtifacts(root, artifacts);
+    errors.push(...frozenCheck.errors);
+    warnings.push(...frozenCheck.warnings);
+  } catch (error) {
+    errors.push(`frozen-artifact verification could not run: ${(error as Error).message}`);
+  }
 
   // 5. Canonical summaries: one final gate per capability, and honest wording.
   const CAPABILITY_SUMMARIES = new Set([

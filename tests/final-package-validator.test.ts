@@ -1,7 +1,9 @@
 // Phase 8 validator tests: the repository as committed passes, each rule actually fires on a bad
 // input, and the registry renders deterministically. No database, no network, no model call.
 import assert from "node:assert/strict";
+import path from "node:path";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 import {
   REQUIRED_FILES,
   checkDatasetHashes,
@@ -16,7 +18,8 @@ import {
   validateRepository,
 } from "../scripts/validate-final-package.ts";
 
-const REPO_ROOT = "D:\\AgentStudy\\SentinelIntel";
+// Derived from this file, so the same tests run on Windows and on the Linux CI runner.
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 test("the committed repository passes the final-package validation", () => {
   const result = validateRepository();
