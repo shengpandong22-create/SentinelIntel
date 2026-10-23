@@ -225,3 +225,31 @@ eval-results}.tsx`，复用 `AdminPage/Card/DataTable/Badge/Time/Json`；`NAV` �
 - MCP `get_security_impact` / `get_story_tracking` 新工具 → 条件不满足，不做（见 §E）。
 - Eval Results 页为静态记录；若未来要可复现的评测报告渲染，需 Phase 8 统一处理。
 - 搜索/热榜的 Agent 轻量摘要 → 无明确场景，不做（见 §E）。
+
+## 7. 验收结果（2026-10-23 本地验收，分支 `phase/7-ui-admin-mcp`）
+
+提交链（合同先行）：`7f7036f` 合同 → 读模型 → API → Story 区块 → Admin 视图 → MCP → 收尾。
+
+| # | 验收项 | 结果 |
+|---|---|---|
+| 1 | Story 页面从真实 scratch DB 展示 Phase 4/5/6 数据 | **已验证**：`tests/phase7-api.test.ts` 对 `sentinel_phase7_ci` 真实库经 `/api/site/stories/:publicId` 取回 research/tracking/impact/evidence/unknowns |
+| 2 | 六区块 populated / empty / partial-unknown 三类 fixture | **已验证**：读模型测试 6/6（populated/empty/partial/failed/cross-story/只读不变式）；Story UI 测试 3/3（ populated/empty/partial 三态） |
+| 3 | 页面读取不写库/不回执/不调模型/不外网/不建 run | **已验证**：读模型测试对 receipts/agent_research_runs/external_evidence/tracking_plans/tracking_changes/product_impacts/impact_human_reviews 读取前后计数不变；Story UI 测试断言页面只请求 `/api/site/` |
+| 4 | Web 只通过 API 获取数据 | **已验证**：`apps/web` 无 `@aihot/backend` import；UI 测试记录请求路径 |
+| 5 | 公开 DTO 只来自 publication read layer | **已验证**：`loadStoryAgentIntelligence` 是唯一装配处；MCP/API/Web 三方测试断言同一函数输出 |
+| 6 | Admin 未登录不可访问；公开接口无 admin-only 字段 | **已验证**：`tests/phase7-admin-auth.test.ts` 3/3（五端点 401、伪造 cookie 401、公开错误体无内部字段）；Admin UI 测试断言未登录 302 跳登录 |
+| 7 | unknown/unsupported/conflict/review-required 不被误写 | **已验证**：`exploit_status` unknown 保持 unknown；unknowns 原文断言；unknown_only 行渲染为“未知记录”而非结论；failed 研究不暴露 error_detail |
+| 8 | Evidence URL/归属/引用正确，禁止跨 Story | **已验证**：跨 Story 证据不出现在对方 DTO（读模型测试）；Evidence 面板外链 canonical_url |
+| 9 | MCP 旧 schema/旧字段兼容，新增字段加性 | **已验证**：`tests/mcp-story-intelligence.test.ts` 3/3（工具清单 5 个不变、旧字段齐全、`agentIntelligence` 加性、not_found 语义不变） |
+| 10 | MCP/API/Web 同一 read model | **已验证**：`v1Story` 与 `loadStoryDetail` 均调 `loadStoryAgentIntelligence` |
+| 11 | 不改变生产写入语义 | **已验证（静态）**：diff 无 store/契约/migration 变更；无新迁移 |
+| 12 | 六类测试通过 | **已验证**：read-model 6/6、API 5/5、auth 3/3、Story UI 3/3、Admin UI 5/5、MCP 3/3；web 全量 24/24 |
+| 13 | 完整验证 | typecheck ✓；空库 `sentinel_phase7_ci` 应用全部 43 个迁移 ✓；Phase 7 backend 24/24 ✓；web build ✓；web tests 24/24 ✓；`docker compose config` ✓ |
+| 14 | canonical Linux CI | **pending**（推送后由 PR 检查执行） |
+| 15 | 文档更新 | 本文档 + `IMPLEMENTATION_STATUS.md` 已更新；README 无需改动（无面向使用者的配置或使用变化，Admin 页面与 Story 区块自解释）——记录为设计决定 |
+| 16 | 报告分层 | 见最终交付报告 |
+
+已知既有环境问题（非本阶段引入，main 上同样存在，canonical Linux CI 覆盖）：完整后端套件
+303 通过 / 9 未通过 / 6 取消——7 项为冻结数据集哈希校验（本机 `core.autocrlf=true` 使工作区
+JSONL 变为 CRLF，而 manifest 哈希按 LF 计算；数据集与 main 逐字节相同），其余为 KI-3
+Windows POSIX SIGTERM 级联（Phase 0 已记录）。
