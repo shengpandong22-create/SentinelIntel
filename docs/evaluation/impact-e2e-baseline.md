@@ -1,15 +1,58 @@
-# Phase 6 end-to-end holdout baselines — retained evidence, v10 not freezable, v11 gate pending
+# Phase 6 end-to-end holdout baselines — v16 closing gate passed
 
-Date: 2026-10-14 (revision 7a of the evaluation)
+Date: 2026-10-23 (revision 12 of the evaluation)
 
-Ten holdout candidates have been reviewed during the Phase 6 evaluation correction. All stay frozen
+Sixteen holdout generations were constructed during the Phase 6 evaluation correction. All reviewed
+or consumed assets stay frozen
 exactly as reviewed or consumed. Per the owner rulings: v8 is a consumed successful E2E **safety** run,
 not the closing gate; v9 is **REVIEWED_NOT_RUN_INCOMPLETE_FREEZE**; v10 is
 **DEVELOPMENT_PROBED_NOT_RUN_NOT_FREEZABLE** (its cases had been used as paid development probes, so it
 can never be a gate and its cases may not be reused). The Phase 6 closing gate is the single authorized
-run of the fully disjoint v11 under the revision-7a runner. The required demonstrations 1-3 are
+run of the fully disjoint v16 under the revision-12 runner. The required demonstrations 1-3 are
 established as frozen development E2E evidence (`docs/evaluation/impact-development-demonstrations.md`)
 and are not holdout metrics.
+
+## v16 — PASSED the closing gate
+
+The final candidate is `datasets/impact/e2e-holdout-v16-candidate.jsonl`. Its four cases are disjoint
+from the development set and every v1-v15 candidate/freeze (the automated gate inspected 30 prior
+JSONL files): CVE-2025-64446 (FortiWeb affected/fixed-version generalization), CVE-2025-24983
+(matcher-unsupported Windows four-component builds), CVE-2025-30400 (stale decoy rejection), and a
+no-CVE negative. The frozen official evidence pack contains ten usable items and no unfetchable item
+(pack SHA256 `6f4c000b8a00d47cc2652e5d96e7554b0de69487f017b6f7257345ef33acaf55`).
+
+All twelve independent semantic verdicts were high-accept: `deepseek-v4.1-flash` receipts 32-35,
+`glm-5.3-flash` receipts 28-31, and `kimi-k2.8-preview` receipts 36-39. All four cases therefore froze
+as `MODEL_REVIEWED` (not human gold) at SHA256
+`a679b11e04a9135a5f69b5eede5a592f96f9efe30f63fddca947db232234a4c5`; there were no exclusions.
+
+Before the single authorized run, the clean scratch database `sentinel_phase6_v16_final_ci` received
+all 43 migrations through `0046`. The production-adapter preflight fetched FG-IR-25-910 through the
+bounded Fortinet registry and wrote the authoritative advisory into that same database's durable
+cache. The one complete TypeScript → Python → TypeScript → scratch-database replay then passed:
+
+| Safety counter | Result | | Quality metric | Result | Scored cases | Gate |
+|---|---:|---|---|---:|---:|---|
+| Story/Fact mutations | 0 | | Row recall | 1.00 | 1 | ≥ 0.90 |
+| Duplicate commits | 0 | | Decision accuracy | 1.00 | 3 | ≥ 0.90 |
+| Cross-story evidence | 0 | | Exploit-status accuracy | 1.00 | 3 | ≥ 0.90 |
+| Absence → "unaffected" | 0 | | Routing consistency | 1.00 | 3 | = 1.00 |
+| Gateway bypass | 0 | | Unknown honesty | 1.00 | 3 | ≥ 0.95 |
+| Stale-version commits | 0 | | | | | |
+| PoC not unknown | 0 | | | | | |
+| Receipt/trace incomplete | 0 | | | | | |
+| Routing inconsistent | 0 | | | | | |
+| Unsupported claim | 0 | | | | | |
+| KEV yes without evidence | 0 | | | | | |
+| Low-confidence claim | 0 | | | | | |
+| Forbidden row | 0 | | | | | |
+
+Every frozen per-case constraint passed, including a non-zero recall denominator, at least one
+complete affected+fixed FortiWeb claim, product-specific review routing for unsupported Windows
+builds, absence of the stale decoy `10.0.26100.9999`, and a pre-model deterministic skip for the
+negative. The retained local report is `.data/impact/e2e-v16-results.json`; `.data` remains excluded
+from Git by project policy. This v16 result, together with the frozen development demonstrations and
+the deterministic/store tests, is the Phase 6 closing acceptance evidence.
 
 ## v6 — consumed as a live smoke/pilot result, NOT the gate (scorer defective)
 

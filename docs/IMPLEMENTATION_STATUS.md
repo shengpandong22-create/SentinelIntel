@@ -126,7 +126,7 @@ Deliberately not modified: `tests/analyze-shutdown.test.ts` and `tests/translate
 
 ## Current Phase
 
-Phase: **Phase 5 — Event Tracking Agent (ACCEPTED AND MERGED); Phase 6 — Product Impact Agent (planning)**
+Phase: **Phase 6 — Product Impact Agent (COMPLETE; canonical Linux CI pending)**
 
 Phase 5 branch: `phase/5-event-tracking-agent`
 
@@ -147,8 +147,8 @@ TypeScript scheduling, policy enforcement, validation, and persistence. Its acce
 three migration-spec demonstrations, exact-zero safety failures, development-based threshold
 preregistration, an immutable independently reviewed holdout, and canonical Linux CI.
 
-Phase 6 — Product Impact Agent: **NOT COMPLETE — evaluation correction in progress** (owner review
-verdict: FAIL on 2026-10-10). Implementation (schemas, matcher, stores, orchestration, worker, the
+Phase 6 — Product Impact Agent: **COMPLETE — v16 closing gate passed on 2026-10-23; canonical Linux CI
+remains the final post-push check.** Implementation (schemas, matcher, stores, orchestration, worker, the
 model-gateway extraction round trip, and the deterministic normalization path) is accepted as
 substantially built. The frozen 23-case holdout (`3b2e242e...`, receipts 104-139) is retained but
 **reclassified as a synthetic normalization fixture holdout**: it measures only the frozen-drafts →
@@ -349,7 +349,26 @@ live failure may use it, with a new Evidence id and explicit cache provenance. T
 gateway uses this persistent path while injected test fetches remain isolated. The model-free advisory
 preflight now warms the same cache when `DATABASE_URL` is configured. A scratch-database test proves
 live success followed by transient failure still returns the exact official advisory. The next final
-database must be migrated and prewarmed before the v16 run.
+database was therefore required to be migrated and prewarmed before the v16 run; the closing run below
+followed that procedure.
+
+**Holdout v16 (PASSED — Phase 6 closing gate)**: the fully disjoint four-case candidate and its frozen
+ten-item official evidence pack passed the automated disjointness and evidence-integrity gates. All
+twelve independent semantic reviews were high-accept (`deepseek-v4.1-flash` receipts 32-35,
+`glm-5.3-flash` 28-31, `kimi-k2.8-preview` 36-39); all cases froze as `MODEL_REVIEWED`, not human gold,
+at SHA256 `a679b11e04a9135a5f69b5eede5a592f96f9efe30f63fddca947db232234a4c5`. A clean scratch database
+received all 43 migrations through `0046`, then the production preflight cached Fortinet FG-IR-25-910
+in that same database. The single authorized complete replay passed with all thirteen safety counters
+at zero, all five quality metrics at 1.0, a non-zero row-recall denominator, and no per-case failures.
+The result is retained locally at `.data/impact/e2e-v16-results.json`; the committed baseline is
+`docs/evaluation/impact-e2e-baseline.md`. No v16 case was relabelled or rerun.
+
+**Phase 6 local closeout validation (2026-10-23)**: Python runtime tests 44/44; focused Phase 6
+TypeScript tests 37/37 plus version-matcher tests 8/8; TypeScript typecheck passed; empty-database
+migration applied all 43 migrations through `0046`; web build passed; web tests 16/16; Docker Compose
+configuration passed. Canonical Linux CI is intentionally recorded as pending until the branch is
+pushed and the pull request checks execute; it is the only remaining external verification item, not
+an implementation or evaluation blocker.
 
 Review execution note (2026-10-15): the dedicated scratch database
 `sentinel_phase6_v12_ci` was migrated through `0045`. The frozen evidence gate and disjointness gate
