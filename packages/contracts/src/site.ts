@@ -292,6 +292,120 @@ export interface StoryDetail {
   timeline: StoryReportView[];
   heat: HeatPoint[];
   related: Array<StoryRef & { relation: "storyline" | "related"; latestAt: string | null }>;
+  /**
+   * Phase 7 agent intelligence (research / tracking / product impact / evidence / unknowns),
+   * from the unified publication read model. Absent when the story has no agent data; every
+   * sub-section degrades independently. Additive: old clients ignore it.
+   */
+  agentIntelligence?: StoryAgentIntelligence;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 7 — agent intelligence read model (one DTO for Web / API / MCP)
+// ---------------------------------------------------------------------------
+
+/** External evidence for a story, public-safe fields only (no normalized/provenance internals). */
+export interface StoryAgentEvidenceView {
+  id: string;
+  sourceType: string;
+  sourceName: string;
+  /** Canonical URL of the original official source; the only link the UI offers. */
+  url: string;
+  title: string;
+  excerpt: string | null;
+  authorityLevel: "authoritative" | "primary" | "secondary";
+  publishedAt: string | null;
+  retrievedAt: string;
+}
+
+export interface StoryResearchClaimView {
+  claimId: string;
+  text: string;
+  criticality: "critical" | "noncritical";
+  status: "confirmed" | "conflicted";
+  evidenceIds: string[];
+}
+
+export interface StoryResearchView {
+  /** Latest run state for this story; "failed" carries no claims and no internal error detail. */
+  status: "completed" | "insufficient_evidence" | "failed" | "running";
+  completedAt: string | null;
+  summary: string | null;
+  claims: StoryResearchClaimView[];
+  conflictCount: number;
+}
+
+export interface StoryTrackingQuestionView {
+  questionId: string;
+  question: string;
+  status: "open" | "resolved";
+}
+
+export interface StoryTrackingView {
+  status: "active" | "paused" | "stopped";
+  whyTrack: string;
+  questions: StoryTrackingQuestionView[];
+  lastCheckedAt: string | null;
+}
+
+export interface StoryTimelineChangeView {
+  id: string;
+  changeType: "vendor_confirmation" | "patch" | "procurement_award" | "material_update";
+  summary: string;
+  evidenceIds: string[];
+  createdAt: string;
+}
+
+export interface StoryProductImpactRowView {
+  id: string;
+  vendor: string;
+  product: string;
+  models: string[];
+  affectedRange: { raw: string; supported: boolean } | null;
+  fixedRange: { raw: string; supported: boolean } | null;
+  mitigations: string[];
+  /**
+   * "claims" is an auto-persisted conclusion (high confidence); "unknown_only" is an explicit
+   * non-conclusion the pipeline refused to turn into a claim. The UI must never render an
+   * unknown_only row as a conclusion.
+   */
+  persistedKind: "claims" | "unknown_only";
+  confidence: "high" | "medium" | "low";
+  routing: "auto" | "human_review" | "unknown";
+  /** True when this row is routed to human review (schema-honest; store-written rows are auto/unknown). */
+  reviewRequired: boolean;
+  /** PoC stays unknown-only in Phase 6; known_exploited keeps "unknown" when unproven. */
+  exploitStatus: { poc: "unknown"; knownExploited: "unknown" | "yes" | "no" };
+  cveId: string | null;
+  evidenceIds: string[];
+  /** Verbatim unknowns; never rephrased as unaffected/safe/fixed. */
+  unknowns: string[];
+}
+
+export interface StoryProductImpactView {
+  rows: StoryProductImpactRowView[];
+  reviewRequiredCount: number;
+}
+
+export interface StoryUnknownView {
+  source: "research" | "product_impact";
+  text: string;
+  reason: string | null;
+}
+
+export interface StoryAgentIntelligence {
+  /** Whether any agent data exists for this story at all. */
+  present: boolean;
+  /** Newest agent-side timestamp across all sections. */
+  dataUpdatedAt: string | null;
+  /** Open human reviews for this story (count only — payloads stay admin-only). */
+  reviewRequiredCount: number;
+  research: StoryResearchView | null;
+  tracking: StoryTrackingView | null;
+  timelineChanges: StoryTimelineChangeView[];
+  productImpact: StoryProductImpactView;
+  evidence: StoryAgentEvidenceView[];
+  unknowns: StoryUnknownView[];
 }
 
 // ---------------------------------------------------------------------------
