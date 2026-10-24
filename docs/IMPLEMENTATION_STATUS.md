@@ -2167,3 +2167,8 @@ any frozen evaluation result.
 - Verification: migration `0047` applies on an empty PostgreSQL 17 database; the focused backend
   review/API/auth/view tests pass (13 tests including the transactional and API command cases), the production
   web build and five admin-view tests pass, TypeScript typecheck passes, and Compose config validates.
+- **Free local demo deployment:** an account-less Cloudflare Quick Tunnel exposed only the loopback-bound
+  Web service, with collection, models and all Agent gates disabled. Local and public smoke checks passed,
+  MCP initialization passed after explicit host allowlisting, `/admin` remained authentication-protected,
+  and no database/API/Agent port was published. This is an ephemeral interview demo rather than an uptime
+  claim; evidence and limitations are recorded in `docs/evaluation/local-demo-deployment.md`.
