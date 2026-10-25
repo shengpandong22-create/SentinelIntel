@@ -46,3 +46,13 @@ healthy. The repository runbook is [`../deploy-local-tunnel.md`](../deploy-local
 - Collection and models were deliberately off, so this checkpoint proves safe deployability and public
   presentation, not continuous live intelligence collection.
 - A stable public API/MCP deployment needs a fixed domain with a Named Tunnel or ordinary HTTPS host.
+
+## Operational follow-up — 2026-10-25
+
+The original Tunnel was tied to a Codex terminal session and therefore exited after that session was
+released; its URL correctly became unreachable while all local Compose services remained healthy.
+The Tunnel was replaced by a standalone `cloudflare/cloudflared:2026.10.3` Docker container with
+`--restart unless-stopped` and no published ports. A new ephemeral URL,
+`https://ensuring-arrow-dylan-newbie.trycloudflare.com`, passed the complete public smoke suite,
+including MCP initialization after `.env` host allowlisting. This improves process persistence but
+does not turn Quick Tunnel into a fixed-domain or uptime-guaranteed deployment.

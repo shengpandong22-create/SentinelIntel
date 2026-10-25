@@ -45,6 +45,19 @@ cloudflared tunnel --url http://127.0.0.1:3300 --no-autoupdate
 保持该终端运行。命令会打印一个随机 HTTPS 地址；关闭终端、电脑睡眠或断网都会使地址
 失效，下一次创建的地址通常不同。
 
+为了让 Tunnel 不依赖某个终端窗口，可以改用独立的 Docker 守护容器：
+
+```powershell
+docker run -d --name sentinelintel-quick-tunnel --restart unless-stopped `
+  cloudflare/cloudflared:2026.10.3 `
+  tunnel --url http://host.docker.internal:3300 --no-autoupdate
+docker logs sentinelintel-quick-tunnel
+```
+
+从日志中取得新地址后，把忽略文件 `.env` 中的 `SITE_URL` 与 `MCP_ALLOWED_HOSTS` 更新为该
+临时地址，再用 `docker compose up -d --force-recreate api worker web` 让绝对链接和 MCP Host
+校验同步。该 Tunnel 容器不发布任何端口；它只向外建立连接并访问宿主机回环端口。
+
 如果不想安装，可把官方 Windows 便携版放到被 Git 忽略的 `.data/tools/cloudflared.exe`：
 
 ```powershell
@@ -67,7 +80,8 @@ cloudflared tunnel --url http://127.0.0.1:3300 --no-autoupdate
 
 ## 停止
 
-先在 Tunnel 终端按 `Ctrl+C`，再按需要停止站点：
+终端方式先按 `Ctrl+C`；守护容器方式运行 `docker stop sentinelintel-quick-tunnel`。再按需要
+停止站点：
 
 ```powershell
 docker compose stop web api worker agent
