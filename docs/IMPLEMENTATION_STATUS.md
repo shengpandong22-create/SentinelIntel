@@ -2172,3 +2172,10 @@ any frozen evaluation result.
   MCP initialization passed after explicit host allowlisting, `/admin` remained authentication-protected,
   and no database/API/Agent port was published. This is an ephemeral interview demo rather than an uptime
   claim; evidence and limitations are recorded in `docs/evaluation/local-demo-deployment.md`.
+- **Offline interview content pack:** `scripts/seed-security-demo.ts` now creates a visibly labelled,
+  reversible `security-v1` demo set without collection, model or network calls: 24 public items grouped into
+  8 Stories, 24 external Evidence records, 3 product-impact rows, 5 open human reviews, one hot ranking and
+  one non-overwriting daily report. All links point to official NVD, CISA or vendor pages; the pack is demo
+  presentation data rather than a live intelligence claim and does not read or modify frozen Evaluation
+  datasets. A fresh PostgreSQL 17 database passed apply, count verification, repeated apply and purge; the
+  local deployed site passed public item/hot/Story-agent reads and the full smoke check with safety gates off.
