@@ -2208,6 +2208,7 @@ budget closed. The implementation follow-up is on `codex/soak-hardening`.
 
 Verification at this checkpoint: TypeScript typecheck passes; production web build passes; web tests
 25/25 pass; the 10 new DB-free regressions pass; the score-stability SQL executes against the soak
-database. The focused database receipt suite could not be rerun locally because the Windows host could
-not open a new PostgreSQL socket (`EADDRNOTAVAIL`) after one credential correction; its new purpose
-mapping test is included for canonical Linux CI. Collection and model calls remained disabled throughout.
+database. A fresh 44-migration PostgreSQL database inside the Compose network passed the focused
+receipt/output/extraction suite 16/16. The host-side test attempt first encountered a wrong local
+credential and then Windows `EADDRNOTAVAIL`; the Compose-network rerun is the verified result. Collection
+and model calls remained disabled throughout.

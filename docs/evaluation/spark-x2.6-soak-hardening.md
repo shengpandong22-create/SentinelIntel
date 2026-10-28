@@ -52,12 +52,13 @@ The 37 waiting production articles were deliberately not processed during code h
 ## Verification
 
 - `node --test tests/llm-structured-output.test.ts tests/content-extract.test.ts`: 10/10 pass.
+- Fresh Compose-network PostgreSQL 17 (44 migrations), focused receipt/output/extraction tests: 16/16 pass.
 - `npm run typecheck`: pass.
 - `npm run build -w @aihot/web`: pass.
 - `node --test apps/web/tests/*.test.ts`: 25/25 pass.
 - `git diff --check`: pass.
 - Score-stability aggregation executed against the soak database and returned the figures above.
 
-The focused DB receipt suite remains a canonical-CI gate. The Windows host could not open another local
-PostgreSQL socket after one corrected credential retry (`EADDRNOTAVAIL`); this is recorded as an
-environment limitation rather than claimed as a passing integration check.
+The Windows host could not open another local PostgreSQL socket after one corrected credential retry
+(`EADDRNOTAVAIL`), so the same suite was run against a fresh database from the newly built application
+image inside the Compose network. Canonical Linux CI remains the final cross-environment gate.
