@@ -2179,3 +2179,35 @@ any frozen evaluation result.
   presentation data rather than a live intelligence claim and does not read or modify frozen Evaluation
   datasets. A fresh PostgreSQL 17 database passed apply, count verification, repeated apply and purge; the
   local deployed site passed public item/hot/Story-agent reads and the full smoke check with safety gates off.
+
+## Post-soak runtime hardening
+
+The 2026-10-25 through 2026-10-28 Spark X2.6 soak is complete. This is maintenance after Phase 8,
+not a new Phase and not a revision of frozen Evaluation data. The live run observed 179 articles,
+162 analyses, 101 selected items and 22 Stories; 37 articles remained waiting when the capped daily
+budget closed. The implementation follow-up is on `codex/soak-hardening`.
+
+- Structured model output now scans complete JSON objects independently, accepts the first candidate
+  matching the requested schema, and classifies empty, missing, invalid and schema-invalid output.
+  Tool-call-shaped JSON and non-finite scores remain fail-closed and their receipts are rejected with a
+  bounded diagnostic. Offline regression: 8 structured-output/safety-sweep cases pass.
+- Unknown-receipt recovery now recognizes the real article step purposes (`prefilter_article`,
+  `score_article`, `structure_article`, `understand_article`, `summarize_article`) instead of the
+  nonexistent `analyze_article` purpose, so an automatically released unknown response can requeue its
+  failed article without a duplicate call for already received exact logical keys.
+- A disabled model valve is a provider wait, not an article failure. The safety sweep stays idle while
+  model calls are disabled, and the Runs view counts every article with a scheduled retry (including
+  budget waits, whose attempt counter intentionally stays zero).
+- MSRC vulnerability pages use the official public MSRC JSON endpoint as an internal extraction adapter.
+  The adapter preserves the official description, severity, impact, CVSS fields, disclosure/exploitation
+  state and revision time; it does not change public full-text policy. Two offline extraction cases pass.
+- The Models admin view reports dual-score pair count, mean/p50/p95/max absolute gap and threshold
+  crossings without changing selection behavior or the frozen Phase 1 thresholds. The soak snapshot was
+  162 pairs, mean gap 13.69, p95 33.9, maximum 51 and 44 threshold crossings. Any behavioral scoring
+  change still requires a development replay and threshold review.
+
+Verification at this checkpoint: TypeScript typecheck passes; production web build passes; web tests
+25/25 pass; the 10 new DB-free regressions pass; the score-stability SQL executes against the soak
+database. The focused database receipt suite could not be rerun locally because the Windows host could
+not open a new PostgreSQL socket (`EADDRNOTAVAIL`) after one credential correction; its new purpose
+mapping test is included for canonical Linux CI. Collection and model calls remained disabled throughout.
