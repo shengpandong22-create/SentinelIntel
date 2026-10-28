@@ -10,7 +10,8 @@ import { analyzeArticle, AnalysisInterruptedError } from "../editorial/analyze.t
 import { isHistorical } from "../content/materials.ts";
 import { publishArticle } from "../publication/publish.ts";
 import { BudgetExceededError, ProviderRejectedError, ReceiptBusyError, ReceiptUnknownError } from "../providers/receipts.ts";
-import { ModelOutputError } from "../providers/llm.ts";
+import { ModelCallsDisabledError, ModelOutputError } from "../providers/llm.ts";
+import { config } from "../config.ts";
 import { ensureQueue, enqueue, QUEUES, shutdownSignal } from "./queue.ts";
 
 /** Minutes to wait after the n-th failed attempt; one more failure after the last ends in "failed". */
@@ -135,9 +136,9 @@ async function afterFailure(articleId: string, error: unknown): Promise<{ state:
   // failure and must neither consume processing_attempts nor turn an incomplete chain terminal.
   if (error instanceof AnalysisInterruptedError || shutdownSignal.signal.aborted) throw error;
   const message = String(error instanceof Error ? error.message : error).slice(0, 500);
-  if (error instanceof ReceiptBusyError || error instanceof BudgetExceededError) {
+  if (error instanceof ReceiptBusyError || error instanceof BudgetExceededError || error instanceof ModelCallsDisabledError) {
     // Not the article's fault: the same request is in flight, or the budget window is full.
-    const seconds = error instanceof BudgetExceededError ? error.retryAfterSeconds : 60;
+    const seconds = error instanceof BudgetExceededError ? error.retryAfterSeconds : error instanceof ModelCallsDisabledError ? 3600 : 60;
     const retryAt = new Date(Date.now() + seconds * 1000);
     await sql`UPDATE articles SET processing_state = 'new', processing_error = ${message}, processing_retry_at = ${retryAt}, processing_queued_at = NULL WHERE id = ${articleId}`;
     return { state: "waiting", retryAt };
@@ -206,6 +207,7 @@ export async function registerExtractionJobs(boss: PgBoss) {
  * a lost job, a retry that came due). Articles already queued or running are left alone.
  */
 export async function sweepUnprocessed(): Promise<{ enqueued: number }> {
+  if (!config.modelCallsEnabled) return { enqueued: 0 };
   const rows = await sql<{ id: string }[]>`
     SELECT id FROM articles
     WHERE processing_state = 'new' AND created_at < now() - interval '3 minutes'

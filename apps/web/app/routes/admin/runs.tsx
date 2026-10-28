@@ -20,7 +20,7 @@ interface Runs {
   receipts: { counts: Record<string, number>; issues: Row[] };
   deliveries: Row[];
   errors: Row[];
-  retrying: { count: number; next: string | null };
+  retrying: { count: number; due: number; next: string | null };
   ingest: Row[];
   leaderboard: { at: string; sources: Array<{ key: string; ok: boolean; at: string; lastOkAt: string | null; changed?: boolean; rows?: number; error?: string }> } | null;
 }
@@ -176,7 +176,7 @@ export default function RunsAdmin({ loaderData }: Route.ComponentProps) {
           title="处理失败（30 天，按错误归类）"
           right={
             <span className="flex items-center gap-3">
-              {r.retrying.count > 0 && <span>等待重试 {num(r.retrying.count)} 条 · 下一次 <Time at={r.retrying.next} /></span>}
+              {r.retrying.count > 0 && <span>等待重试 {num(r.retrying.count)} 条{r.retrying.due > 0 ? `（已到期 ${num(r.retrying.due)} 条）` : ""} · 下一次 <Time at={r.retrying.next} /></span>}
               {r.errors.length > 0 && <Button size="sm" onClick={() => setRequeue("")}>全部重新处理</Button>}
             </span>
           }

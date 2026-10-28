@@ -10,7 +10,7 @@ import { closeDb, sql } from "@aihot/backend/db";
 import { chatJson, ModelOutputError } from "@aihot/backend/providers/llm";
 import { embeddingsAvailable } from "@aihot/backend/providers/embeddings";
 import { BudgetExceededError, paidRequest, ReceiptUnknownError } from "@aihot/backend/providers/receipts";
-import { autoReleaseUnknownReceipts } from "@aihot/backend/admin/runs";
+import { articleIdFromAnalysisReceipt, autoReleaseUnknownReceipts } from "@aihot/backend/admin/runs";
 
 const usage = { prompt_tokens: 80, completion_tokens: 20, total_tokens: 100 };
 let answer: (hit: number) => string = () => '{"ok":true}';
@@ -35,6 +35,14 @@ test("the migrations seed a budget for every paid service", async () => {
   const rows = await sql<{ service: string }[]>`SELECT service FROM budgets`;
   const services = new Set(rows.map((r) => r.service));
   for (const s of ["jina", "socialdata", "dajiala", "zhipu", "deepseek", "mimo", "dashscope"]) assert.ok(services.has(s), `no budget for ${s}`);
+});
+
+test("recognizes every article-analysis receipt purpose for recovery", () => {
+  for (const purpose of ["prefilter_article", "score_article", "structure_article", "understand_article", "summarize_article"]) {
+    assert.equal(articleIdFromAnalysisReceipt(purpose, "article:article-123@4"), "article-123");
+  }
+  assert.equal(articleIdFromAnalysisReceipt("group_event", "article:article-123@4"), null);
+  assert.equal(articleIdFromAnalysisReceipt("score_article", "story:123@4"), null);
 });
 
 test("an answer already received is reused instead of bought again", async () => {
