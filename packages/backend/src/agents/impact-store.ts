@@ -25,10 +25,10 @@ export async function resolveOrCreateEntity(
   name: string,
   extraAliases: string[] = [],
 ): Promise<EntityRow> {
-  return sql.begin((tx) => resolveEntity(tx, kind, name, extraAliases));
+  return sql.begin((tx) => resolveImpactEntity(tx, kind, name, extraAliases));
 }
 
-async function resolveEntity(tx: Db, kind: "vendor" | "product_family", name: string, extraAliases: string[]): Promise<EntityRow> {
+export async function resolveImpactEntity(tx: Db, kind: "vendor" | "product_family", name: string, extraAliases: string[]): Promise<EntityRow> {
   const candidate = name.trim();
   if (!candidate || candidate.length > 200) throw new Error(`invalid ${kind} entity name`);
   const aliases = [...new Set(extraAliases.map((alias) => alias.trim()).filter((alias) => alias && alias.length <= 200))];
@@ -112,8 +112,8 @@ export async function applyImpactProposal(input: {
                   ${tx.json(row as never)})`;
         continue;
       }
-      const vendor = await resolveEntity(tx, "vendor", row.vendor, []);
-      const product = await resolveEntity(tx, "product_family", row.product, [row.vendor]);
+      const vendor = await resolveImpactEntity(tx, "vendor", row.vendor, []);
+      const product = await resolveImpactEntity(tx, "product_family", row.product, [row.vendor]);
       vendorEntities.add(vendor.id);
       productEntities.add(product.id);
       const unknownOnly = row.confidence !== "high";

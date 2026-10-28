@@ -5,11 +5,14 @@
 需要一台装了 Docker（带 Compose）的机器。云服务器建议至少 2 核、4 GB 内存，构建镜像时要用到。
 
 ```bash
-git clone https://github.com/KKKKhazix/AIHOT.git myhot
-cd myhot
+git clone https://github.com/shengpandong22-create/SentinelIntel.git sentinelintel
+cd sentinelintel
 node scripts/init-env.ts --llm-key <你的模型 API Key>
 docker compose up -d --build
 ```
+
+只做免费、短期的面试演示时，可在现有电脑上使用 Cloudflare Quick Tunnel，不购买服务器或
+域名。它不保证固定网址或在线时间，详见 [`deploy-local-tunnel.md`](deploy-local-tunnel.md)。
 
 `init-env.ts` 会生成 `.env`，填好随机密钥和管理员密码，并把密码打印一次。机器上没有 Node 的话，把 `.env.example` 复制成 `.env`，自己填 `ADMIN_PASSWORD`（至少 12 位）、`SESSION_SECRET`、`IMG_PROXY_SIGN_SECRET`、`POSTGRES_PASSWORD`（各用 `openssl rand -hex 32` 生成）和 `LLM_API_KEY`。
 

@@ -51,8 +51,10 @@ export async function runsOverview() {
       SELECT value FROM settings WHERE key = 'leaderboard.fetch'`,
   ]);
   // Articles waiting to retry after a passing provider problem (they are not failed).
-  const [retrying] = await sql<{ n: number; next: Date | null }[]>`
-    SELECT count(*)::int AS n, min(processing_retry_at) AS next FROM articles WHERE processing_state = 'new' AND processing_attempts > 0`;
+  const [retrying] = await sql<{ n: number; due: number; next: Date | null }[]>`
+    SELECT count(*)::int AS n, count(*) FILTER (WHERE processing_retry_at <= now())::int AS due,
+           min(processing_retry_at) AS next
+    FROM articles WHERE processing_state = 'new' AND processing_retry_at IS NOT NULL`;
   const now = Date.now();
   return {
     checkedAt: new Date(now).toISOString(),
@@ -70,7 +72,7 @@ export async function runsOverview() {
     receipts: { counts: Object.fromEntries(receipts.map((r) => [r.status, r.n])), issues: receiptIssues },
     deliveries,
     errors,
-    retrying: { count: retrying?.n ?? 0, next: retrying?.next ?? null },
+    retrying: { count: retrying?.n ?? 0, due: retrying?.due ?? 0, next: retrying?.next ?? null },
     ingest,
     leaderboard: leaderboard[0]
       ? { at: leaderboard[0].value.at, sources: Object.entries(leaderboard[0].value.sources).map(([key, v]) => ({ key, ...v })).sort((a, b) => Number(a.ok) - Number(b.ok) || a.key.localeCompare(b.key)) }
@@ -88,7 +90,7 @@ async function release(id: number, error: string, actor: string, note: string, b
     UPDATE receipts SET status = 'failed', error = ${error}, updated_at = now() WHERE id = ${id} AND status = 'unknown' RETURNING subject, purpose`;
   if (!before) return null;
   await sql`UPDATE receipt_attempts SET status = 'failed', error = ${error} WHERE receipt_id = ${id} AND status = 'unknown'`;
-  const article = before.purpose === "analyze_article" ? /^article:([^@]+)@/.exec(before.subject ?? "")?.[1] : undefined;
+  const article = articleIdFromAnalysisReceipt(before.purpose, before.subject);
   let requeued = false;
   if (article) {
     const [a] = await sql`UPDATE articles SET processing_state = 'new', processing_attempts = 0, processing_retry_at = NULL, processing_error = NULL
@@ -111,6 +113,14 @@ export async function releaseReceipt(id: number, input: { billed: boolean; note:
 
 const AUTO_RELEASE_AFTER_MS = 30 * 60_000;
 const AUTO_RELEASE_NOTE = "自动放行：结果未知超过 30 分钟，未核对是否计费";
+const ARTICLE_ANALYSIS_PURPOSES = new Set([
+  "prefilter_article", "score_article", "structure_article", "understand_article", "summarize_article",
+]);
+
+export function articleIdFromAnalysisReceipt(purpose: string, subject: string | null): string | null {
+  if (!ARTICLE_ANALYSIS_PURPOSES.has(purpose)) return null;
+  return /^article:([^@]+)@\d+$/.exec(subject ?? "")?.[1] ?? null;
+}
 
 /**
  * Every 10 minutes (ops.recover): unknown receipts older than half an hour are released

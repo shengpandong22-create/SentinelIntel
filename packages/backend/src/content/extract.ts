@@ -21,6 +21,55 @@ export interface ExtractedBody {
 
 const MIN_BODY_CHARS = 200;
 
+type MsrcVulnerability = {
+  cveNumber?: unknown;
+  cveTitle?: unknown;
+  description?: unknown;
+  severity?: unknown;
+  impact?: unknown;
+  baseScore?: unknown;
+  vectorString?: unknown;
+  publiclyDisclosed?: unknown;
+  exploited?: unknown;
+  customerActionRequired?: unknown;
+  latestRevisionDate?: unknown;
+};
+
+const escapeHtml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+/** A stable internal body from MSRC's public API; publication still obeys the source full-text flags. */
+export function msrcVulnerabilityBody(record: MsrcVulnerability, url: string): ExtractedBody | null {
+  const value = (v: unknown) => typeof v === "string" || typeof v === "number" ? String(v).trim() : "";
+  const title = [value(record.cveNumber), value(record.cveTitle)].filter(Boolean).join(" ");
+  const description = value(record.description) ? sanitizeBody(value(record.description), url) : "";
+  const facts = ([
+    ["Severity", record.severity], ["Impact", record.impact], ["CVSS base score", record.baseScore],
+    ["CVSS vector", record.vectorString], ["Publicly disclosed", record.publiclyDisclosed],
+    ["Exploited", record.exploited], ["Customer action required", record.customerActionRequired],
+    ["Latest revision", record.latestRevisionDate],
+  ] as Array<[string, unknown]>).map(([label, raw]) => [label, value(raw)] as const).filter(([, v]) => v);
+  const html = sanitizeBody([
+    title ? `<h2>${escapeHtml(title)}</h2>` : "",
+    description,
+    facts.length ? `<dl>${facts.map(([label, v]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(v)}</dd>`).join("")}</dl>` : "",
+  ].join(""), url);
+  const text = stripTags(html);
+  return text.length >= MIN_BODY_CHARS ? { html, text, images: [], via: "readability" } : null;
+}
+
+async function extractMsrcVulnerability(url: string): Promise<ExtractedBody | null> {
+  const match = /^https:\/\/msrc\.microsoft\.com\/update-guide\/vulnerability\/(CVE-\d{4}-\d+)\/?$/i.exec(url);
+  if (!match) return null;
+  const endpoint = `https://api.msrc.microsoft.com/sug/v2.0/en-US/vulnerability/${encodeURIComponent(match[1]!.toUpperCase())}`;
+  const res = await guardedFetch(endpoint, { headers: { accept: "application/json" }, timeoutMs: 20_000, maxBytes: 1024 * 1024 });
+  if (res.status !== 200 || !/json/i.test(res.headers.get("content-type") ?? "")) return null;
+  try {
+    return msrcVulnerabilityBody(JSON.parse(res.text()) as MsrcVulnerability, url);
+  } catch {
+    return null;
+  }
+}
+
 export function readable(html: string, url: string): ExtractedBody | null {
   const { document } = parseHTML(html);
   try {
@@ -70,6 +119,8 @@ function markdownToHtml(md: string): string {
 
 export async function extractFromUrl(url: string, opts: { allowJina: boolean; subject: string }): Promise<ExtractedBody | null> {
   try {
+    const msrc = await extractMsrcVulnerability(url);
+    if (msrc) return msrc;
     const res = await guardedFetch(url, { timeoutMs: 20_000, maxBytes: 6 * 1024 * 1024 });
     const type = res.headers.get("content-type") ?? "";
     if (res.status === 200 && /html/.test(type)) {

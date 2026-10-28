@@ -90,10 +90,12 @@ export async function humanReviews(filters: { status?: string }) {
   const rows = await sql<{
     id: number; public_id: string; story_id: number; story_title: string; run_id: string;
     reason: string; status: "open" | "resolved" | "dismissed"; payload: Record<string, unknown>;
-    created_at: Date; resolved_at: Date | null;
+    created_at: Date; resolved_at: Date | null; version: number; resolved_by: string | null;
+    resolution_reason: string | null;
   }[]>`
     SELECT h.id, h.public_id::text, h.story_id, st.title AS story_title, h.run_id::text,
-           h.reason, h.status, h.payload, h.created_at, h.resolved_at
+           h.reason, h.status, h.payload, h.created_at, h.resolved_at, h.version,
+           h.resolved_by, h.resolution_reason
     FROM impact_human_reviews h JOIN stories st ON st.id = h.story_id
     WHERE (${filters.status ?? null}::text IS NULL OR h.status = ${filters.status ?? null})
     ORDER BY h.created_at DESC, h.id DESC LIMIT ${PAGE_SIZE}`;
@@ -108,6 +110,9 @@ export async function humanReviews(filters: { status?: string }) {
     payload: row.payload ?? {},
     createdAt: row.created_at.toISOString(),
     resolvedAt: row.resolved_at?.toISOString() ?? null,
+    version: row.version,
+    resolvedBy: row.resolved_by,
+    resolutionReason: row.resolution_reason,
   }));
 }
 

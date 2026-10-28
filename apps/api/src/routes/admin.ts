@@ -12,6 +12,7 @@ import { banSource, eraseFeedback, feedbackScreenshot, listFeedback, unbanSource
 import { listMonitorEvents, listMonitorPosts, relinkPost, resolveMonitorPost, reviewReceipt, setWithdrawn, updateMonitorEvent } from "@aihot/backend/admin/monitor";
 import { releaseReceipt, requeueFailedArticles, resolveDelivery, runsOverview } from "@aihot/backend/admin/runs";
 import { agentRuns, humanReviews, impactReviewRows, trackingPlans } from "@aihot/backend/admin/agents";
+import { resolveImpactReview } from "@aihot/backend/admin/impact-reviews";
 import { evalResults } from "@aihot/backend/admin/eval";
 import { listBudgets, listTargets, replaceContactQr, setTargetEnabled, updateBudget } from "@aihot/backend/admin/settings";
 import { createSource, fetchNow, listSources, previewSource, sourceDetail, updateSource } from "@aihot/backend/admin/sources";
@@ -94,10 +95,12 @@ export function registerAdmin(app: FastifyInstance) {
   // Runs (F20)
   app.get("/api/admin/runs", adminHandler(async () => runsOverview()));
 
-  // Phase 7 agent intelligence views (read-only; no approval workflow in this phase)
+  // Agent intelligence views plus the post-Phase 8 audited Product Impact review command.
   app.get("/api/admin/agent-runs", adminHandler(async (req) => agentRuns({ phase: q(req).phase, status: q(req).status, page: page(req) })));
   app.get("/api/admin/tracking-plans", adminHandler(async (req) => trackingPlans({ status: q(req).status })));
   app.get("/api/admin/human-reviews", adminHandler(async (req) => humanReviews({ status: q(req).status })));
+  app.post("/api/admin/human-reviews/:id/resolve", adminHandler(async (req, reply, admin) =>
+    orNotFound(req, reply, await resolveImpactReview(Number(param(req, "id")), body(req), actorOf(admin)))));
   app.get("/api/admin/product-impact-review", adminHandler(async () => ({ rows: await impactReviewRows() })));
   app.get("/api/admin/eval-results", adminHandler(async () => evalResults()));
   app.post("/api/admin/receipts/:id/release", adminHandler(async (req, reply, admin) => orNotFound(req, reply, await releaseReceipt(Number(param(req, "id")), body(req) as never, actorOf(admin)))));

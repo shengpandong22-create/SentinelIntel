@@ -2147,3 +2147,68 @@ model, API exposure, Story sections, read-only admin views, MCP `get_story` exte
 `docs/00-sentinelintel/08-Phase7-UI-Admin-MCP-Plan.md` §7 for the acceptance matrix). Canonical Linux
 CI on the Phase 7 pull request is the final post-push check before Phase 7 may be marked complete.
 Phase 8 (final evaluation) must not begin before Phase 7 closes.
+
+## Post-Phase-8 interview-readiness hardening
+
+This work is maintenance after the accepted Phase 8 closeout, not a new Phase and not a revision of
+any frozen evaluation result.
+
+- **P0 runtime wiring:** the Docker agent now receives the default-off Product Impact feature gate,
+  and the Security Research Agent has a production queue, scheduler and TypeScript orchestrator.
+  Both research network gates remain required; no model or network call is enabled by default.
+- **P1 human review loop:** open `impact_human_reviews` can now be dismissed or, for an immutable
+  medium-confidence row only, accepted through an authenticated CSRF-protected admin command. Accept
+  reparses the stored row, verifies every Evidence id belongs to the same Story, requires a completed
+  Phase 6 source run, appends a product-specific current impact row, preserves exploit status as
+  `unknown`, and never mutates Story or Fact state. Pure-unknown reviews cannot be accepted.
+- Review resolution uses an optimistic version, records actor/reason/time on the review, appends an
+  `impact_human_review_actions` audit row, and also writes the common admin audit log. Concurrent or
+  repeated resolution fails closed.
+- Verification: migration `0047` applies on an empty PostgreSQL 17 database; the focused backend
+  review/API/auth/view tests pass (13 tests including the transactional and API command cases), the production
+  web build and five admin-view tests pass, TypeScript typecheck passes, and Compose config validates.
+- **Free local demo deployment:** an account-less Cloudflare Quick Tunnel exposed only the loopback-bound
+  Web service, with collection, models and all Agent gates disabled. Local and public smoke checks passed,
+  MCP initialization passed after explicit host allowlisting, `/admin` remained authentication-protected,
+  and no database/API/Agent port was published. This is an ephemeral interview demo rather than an uptime
+  claim; evidence and limitations are recorded in `docs/evaluation/local-demo-deployment.md`.
+- **Offline interview content pack:** `scripts/seed-security-demo.ts` now creates a visibly labelled,
+  reversible `security-v1` demo set without collection, model or network calls: 24 public items grouped into
+  8 Stories, 24 external Evidence records, 3 product-impact rows, 5 open human reviews, one hot ranking and
+  one non-overwriting daily report. All links point to official NVD, CISA or vendor pages; the pack is demo
+  presentation data rather than a live intelligence claim and does not read or modify frozen Evaluation
+  datasets. A fresh PostgreSQL 17 database passed apply, count verification, repeated apply and purge; the
+  local deployed site passed public item/hot/Story-agent reads and the full smoke check with safety gates off.
+
+## Post-soak runtime hardening
+
+The 2026-10-25 through 2026-10-28 Spark X2.6 soak is complete. This is maintenance after Phase 8,
+not a new Phase and not a revision of frozen Evaluation data. The live run observed 179 articles,
+162 analyses, 101 selected items and 22 Stories; 37 articles remained waiting when the capped daily
+budget closed. The implementation follow-up is on `codex/soak-hardening`.
+
+- Structured model output now scans complete JSON objects independently, accepts the first candidate
+  matching the requested schema, and classifies empty, missing, invalid and schema-invalid output.
+  Tool-call-shaped JSON and non-finite scores remain fail-closed and their receipts are rejected with a
+  bounded diagnostic. Offline regression: 8 structured-output/safety-sweep cases pass.
+- Unknown-receipt recovery now recognizes the real article step purposes (`prefilter_article`,
+  `score_article`, `structure_article`, `understand_article`, `summarize_article`) instead of the
+  nonexistent `analyze_article` purpose, so an automatically released unknown response can requeue its
+  failed article without a duplicate call for already received exact logical keys.
+- A disabled model valve is a provider wait, not an article failure. The safety sweep stays idle while
+  model calls are disabled, and the Runs view counts every article with a scheduled retry (including
+  budget waits, whose attempt counter intentionally stays zero).
+- MSRC vulnerability pages use the official public MSRC JSON endpoint as an internal extraction adapter.
+  The adapter preserves the official description, severity, impact, CVSS fields, disclosure/exploitation
+  state and revision time; it does not change public full-text policy. Two offline extraction cases pass.
+- The Models admin view reports dual-score pair count, mean/p50/p95/max absolute gap and threshold
+  crossings without changing selection behavior or the frozen Phase 1 thresholds. The soak snapshot was
+  162 pairs, mean gap 13.69, p95 33.9, maximum 51 and 44 threshold crossings. Any behavioral scoring
+  change still requires a development replay and threshold review.
+
+Verification at this checkpoint: TypeScript typecheck passes; production web build passes; web tests
+25/25 pass; the 10 new DB-free regressions pass; the score-stability SQL executes against the soak
+database. A fresh 44-migration PostgreSQL database inside the Compose network passed the focused
+receipt/output/extraction suite 16/16. The host-side test attempt first encountered a wrong local
+credential and then Windows `EADDRNOTAVAIL`; the Compose-network rerun is the verified result. Collection
+and model calls remained disabled throughout.

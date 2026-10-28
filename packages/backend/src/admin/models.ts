@@ -23,9 +23,19 @@ interface UsageRow {
   currency: string | null;
 }
 
+interface ScoreStabilityRow {
+  model: string;
+  pairs: number;
+  mean_gap: number;
+  p50_gap: number;
+  p95_gap: number;
+  max_gap: number;
+  threshold_crossings: number;
+}
+
 export async function modelsOverview(days = 7) {
   const since = new Date(Date.now() - days * 86400_000);
-  const [sources, usage, prices, history, benches] = await Promise.all([
+  const [sources, usage, scoreStability, prices, history, benches] = await Promise.all([
     modelSources(),
     sql<UsageRow[]>`
       SELECT r.purpose, a.model, r.request->>'promptVersion' AS prompt_version, count(*)::int AS calls,
@@ -39,6 +49,23 @@ export async function modelsOverview(days = 7) {
       FROM receipt_attempts a JOIN receipts r ON r.id = a.receipt_id
       WHERE a.started_at >= ${since} AND a.origin = 'live' AND a.model IS NOT NULL
       GROUP BY 1, 2, 3 ORDER BY 1, 4 DESC`,
+    sql<ScoreStabilityRow[]>`
+      WITH pairs AS (
+        SELECT coalesce(output->>'scoreModel', model, 'unknown') AS model,
+               (output->'scores'->>0)::numeric AS first,
+               (output->'scores'->>1)::numeric AS second,
+               (output->>'threshold')::numeric AS threshold
+        FROM analyses
+        WHERE created_at >= ${since} AND jsonb_typeof(output->'scores') = 'array'
+          AND jsonb_array_length(output->'scores') = 2
+      )
+      SELECT model, count(*)::int AS pairs,
+             avg(abs(first - second))::float AS mean_gap,
+             percentile_cont(0.5) WITHIN GROUP (ORDER BY abs(first - second))::float AS p50_gap,
+             percentile_cont(0.95) WITHIN GROUP (ORDER BY abs(first - second))::float AS p95_gap,
+             max(abs(first - second))::float AS max_gap,
+             count(*) FILTER (WHERE (first < threshold) <> (second < threshold))::int AS threshold_crossings
+      FROM pairs GROUP BY model ORDER BY pairs DESC`,
     sql<{ service: string; model: string; currency: string; input_per_mtok: string | null; output_per_mtok: string | null }[]>`
       SELECT service, model, currency, input_per_mtok, output_per_mtok FROM service_prices`,
     sql<{ at: Date; actor: string; subject: string; reason: string | null; before: unknown; after: unknown }[]>`
@@ -82,7 +109,15 @@ export async function modelsOverview(days = 7) {
       })),
   }));
   const choices = Object.values(MODELS).map((m) => ({ key: m.key, service: m.service, vision: !!m.vision }));
-  return { days, capabilities, choices, history, benches };
+  return { days, capabilities, scoreStability: scoreStability.map((r) => ({
+    model: r.model,
+    pairs: r.pairs,
+    meanGap: r.mean_gap,
+    p50Gap: r.p50_gap,
+    p95Gap: r.p95_gap,
+    maxGap: r.max_gap,
+    thresholdCrossings: r.threshold_crossings,
+  })), choices, history, benches };
 }
 
 /** Switches a capability to another registered model (or back to the environment/default when null). */

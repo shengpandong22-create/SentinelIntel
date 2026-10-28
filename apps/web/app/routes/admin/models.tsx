@@ -27,6 +27,7 @@ interface Usage {
 interface Models {
   days: number;
   capabilities: Array<{ key: string; label: string; env: string; defaultModel: string; vision: boolean; current: { model: string; source: "admin" | "env" | "default" }; usage: Usage[] }>;
+  scoreStability: Array<{ model: string; pairs: number; meanGap: number; p50Gap: number; p95Gap: number; maxGap: number; thresholdCrossings: number }>;
   choices: Array<{ key: string; service: string; vision: boolean }>;
   history: Array<{ at: string; actor: string; subject: string; reason: string | null; before: { model: string; source: string } | null; after: { model: string; source: string } | null }>;
   benches: Array<{ id: string; label: string; sample_size: number; prompt_version: string | null; models: string[]; created_at: string }>;
@@ -122,6 +123,28 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
             </Card>
           );
         })}
+      </div>
+
+      <div className="mt-5">
+        <Card title="双评分稳定性" pad={false}>
+          {m.scoreStability.length ? (
+            <DataTable
+              dense
+              rows={m.scoreStability}
+              rowKey={(r) => r.model}
+              columns={[
+                { key: "m", label: "模型", render: (r) => <span className="font-mono text-[12px]">{r.model}</span> },
+                { key: "n", label: "评分对", align: "right", render: (r) => num(r.pairs) },
+                { key: "avg", label: "平均差", align: "right", render: (r) => r.meanGap.toFixed(1) },
+                { key: "p", label: "差值 p50 / p95", align: "right", render: (r) => `${r.p50Gap.toFixed(1)} / ${r.p95Gap.toFixed(1)}` },
+                { key: "max", label: "最大差", align: "right", render: (r) => r.maxGap.toFixed(1) },
+                { key: "x", label: "跨门槛", align: "right", render: (r) => <span title="两次独立评分分别落在门槛两侧">{num(r.thresholdCrossings)}</span> },
+              ]}
+            />
+          ) : (
+            <Empty>{m.days} 天内没有完整的双评分记录</Empty>
+          )}
+        </Card>
       </div>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-2">

@@ -109,21 +109,78 @@ export interface ChatJsonResult<T> {
   usage: Record<string, unknown> | null;
 }
 
-export class ModelOutputError extends Error {}
+export type ModelOutputErrorKind = "empty" | "no_json" | "invalid_json" | "schema";
 
-function extractJson(text: string): unknown {
-  let t = text.trim();
-  const fence = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(t);
-  if (fence) t = fence[1]!;
-  const start = t.indexOf("{");
-  const end = t.lastIndexOf("}");
-  if (start === -1 || end === -1) throw new ModelOutputError("No JSON object in model output");
-  const body = t.slice(start, end + 1);
-  try {
-    return JSON.parse(body);
-  } catch {
-    return JSON.parse(escapeControlCharsInStrings(body));
+export class ModelOutputError extends Error {
+  readonly kind: ModelOutputErrorKind;
+  constructor(kind: ModelOutputErrorKind, message: string) {
+    super(message);
+    this.kind = kind;
   }
+}
+
+export class ModelCallsDisabledError extends Error {}
+
+/** Returns complete top-level JSON objects without joining unrelated objects around them. */
+function jsonObjectCandidates(text: string): string[] {
+  const candidates: string[] = [];
+  let start = -1;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]!;
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+    if (ch === "{") {
+      if (depth === 0) start = i;
+      depth += 1;
+    } else if (ch === "}" && depth > 0) {
+      depth -= 1;
+      if (depth === 0 && start >= 0) {
+        candidates.push(text.slice(start, i + 1));
+        start = -1;
+      }
+    }
+  }
+  return candidates;
+}
+
+export function parseStructuredOutput<S extends z.ZodType>(schema: S, content: string): z.infer<S> {
+  const text = content.trim();
+  if (!text) throw new ModelOutputError("empty", "Empty model output");
+  const fence = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(text);
+  const candidates = jsonObjectCandidates(fence?.[1] ?? text);
+  if (!candidates.length) throw new ModelOutputError("no_json", "No JSON object in model output");
+  let parsedAny = false;
+  let lastError: unknown;
+  for (const candidate of candidates) {
+    let value: unknown;
+    try {
+      value = JSON.parse(candidate);
+    } catch {
+      try {
+        value = JSON.parse(escapeControlCharsInStrings(candidate));
+      } catch (error) {
+        lastError = error;
+        continue;
+      }
+    }
+    parsedAny = true;
+    const result = schema.safeParse(value);
+    if (result.success) return result.data;
+    lastError = result.error;
+  }
+  const detail = String(lastError).slice(0, 400);
+  throw new ModelOutputError(parsedAny ? "schema" : "invalid_json", `${parsedAny ? "JSON did not match schema" : "Invalid JSON object"}: ${detail}`);
 }
 
 /** Models sometimes emit raw newlines or tabs inside JSON strings (multi-line posts); escape only those. */
@@ -154,7 +211,7 @@ function isConnectFailure(error: unknown): boolean {
 export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): Promise<ChatJsonResult<z.infer<S>>> {
   const spec = MODELS[opts.model];
   if (!spec) throw new Error(`Unknown model ${opts.model}`);
-  if (!config.modelCallsEnabled) throw new Error("Model calls are disabled (MODEL_CALLS_ENABLED=false)");
+  if (!config.modelCallsEnabled) throw new ModelCallsDisabledError("Model calls are disabled (MODEL_CALLS_ENABLED=false)");
   const baseUrl = credential("models", spec.baseUrlEnv);
   const apiKey = credential("models", spec.apiKeyEnv);
   if (!baseUrl || !apiKey || !spec.model) throw new Error(`Model ${opts.model} is not configured (${spec.baseUrlEnv}, ${spec.apiKeyEnv}${spec.key === "default" ? ", LLM_MODEL" : ""})`);
@@ -225,11 +282,14 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
   const content = response.choices?.[0]?.message?.content ?? "";
   let parsed: z.infer<S>;
   try {
-    parsed = opts.schema.parse(opts.parse ? opts.parse(content) : extractJson(content));
+    parsed = opts.parse ? opts.schema.parse(opts.parse(content)) : parseStructuredOutput(opts.schema, content);
   } catch (error) {
     // Unusable output: record it and let a later attempt pay for a fresh answer.
-    await rejectReceivedResponse(receipt.receiptId, `unusable output: ${String(error).slice(0, 500)}`);
-    throw new ModelOutputError(`Model ${opts.model} returned unusable output for ${opts.subject}: ${String(error).slice(0, 300)}`);
+    const outputError = error instanceof ModelOutputError
+      ? error
+      : new ModelOutputError("schema", `JSON did not match schema: ${String(error).slice(0, 400)}`);
+    await rejectReceivedResponse(receipt.receiptId, `unusable output (${outputError.kind}): ${outputError.message.slice(0, 450)}`);
+    throw new ModelOutputError(outputError.kind, `Model ${opts.model} returned unusable output (${outputError.kind}) for ${opts.subject}: ${outputError.message.slice(0, 240)}`);
   }
   return { data: parsed, receiptId: receipt.receiptId, reused: receipt.reused, model: spec.key, usage: response.usage ?? null };
 }
