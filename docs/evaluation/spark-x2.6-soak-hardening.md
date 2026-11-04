@@ -49,6 +49,42 @@ The 37 waiting production articles were deliberately not processed during code h
    reviewing their failure group. Do not bulk-requeue them together with budget-waiting rows.
 6. Disable model calls again when the backlog reaches zero or the budget cap is reached.
 
+### Bounded recovery scheduling
+
+The post-merge closeout exposed an operational detail that is easy to misread as provider failure:
+with several analysis jobs active, a small newly released budget window can be spread across the
+prefilter, two score calls, structure and writing stages of different articles. The receipts remain
+valid and reusable, but no individual article reaches its atomic analysis commit. Article-count
+progress can therefore remain flat while `received` receipts increase.
+
+For a bounded backlog recovery, keep collection off and process one article chain at a time. When the
+receipt budget reports a minute or hour wait, retain that article and wait for the stated window rather
+than moving to another article. A received response is reused through its exact logical key on the next
+attempt. Stop immediately on an unknown receipt, repeated unusable model output or a serious provider
+failure. This scheduling rule changes neither prompts nor thresholds and does not bypass receipts or
+the database budget.
+
+The 2026-11-04 closeout verified the behavior against the deployed database: lowering analysis
+concurrency and then using a single-chain recovery loop converted previously partial receipt sets into
+completed article analyses, while the original 4/minute, 60/hour and 300/day limits remained enforced.
+The remaining waiting count reached zero before the final safety shutdown. The database then contained
+196 analyzed articles and 7 previously terminal failed articles; LLM receipts were 1,035 completed,
+12 failed and 22 received, with no pending or unknown receipt. Collection stayed disabled throughout,
+and model calls were disabled again before the normal Worker was restored.
+
+Restarting the normal Worker exposed one final queue invariant defect: analyze jobs already queued before
+the serial closeout could run after their revision had been committed and downgrade the article back to
+`new` when the model valve was off. `processArticle()` now treats an ordinary job for an `analyzed`,
+`blocked` or `skipped` article as a stale duplicate and returns without another model call or analysis
+row; explicit admin re-evaluation remains allowed through its attempt tag. The affected article states
+were repaired only where the latest analysis matched the current revision. A fresh 44-migration database
+passes the focused analysis suite 9/9, including the duplicate-job regression, and the rebuilt disabled
+Worker preserved the repaired 196/7 terminal-state split.
+
+The post-closeout seven-day dual-score diagnostic covers 37 pairs: mean absolute gap 11.54, median 9,
+p95 28, maximum 60 and 5 threshold crossings. These are operational observations only; prompts,
+thresholds and frozen Evaluation data were not changed.
+
 ## Verification
 
 - `node --test tests/llm-structured-output.test.ts tests/content-extract.test.ts`: 10/10 pass.

@@ -10,7 +10,7 @@ import { after, before, test } from "node:test";
 import { closeDb, sql } from "@aihot/backend/db";
 import { upsertMaterial } from "@aihot/backend/content/materials";
 import { analyzeArticle, SCORE_SYSTEM, tierThreshold } from "@aihot/backend/editorial/analyze";
-import { queueProcessing } from "@aihot/backend/jobs/content";
+import { processArticle, queueProcessing } from "@aihot/backend/jobs/content";
 import { QUEUES, stopBoss } from "@aihot/backend/jobs/queue";
 import { compactAnswerFirstSummary, enforceIdentity, parseTranslateOutput, PREFILTER_SYSTEM } from "@aihot/backend/editorial/writing";
 import { promptText } from "@aihot/backend/editorial/prompts";
@@ -220,4 +220,16 @@ test("analysing the same revision again reuses every paid answer", async () => {
   const again = await analyzeArticle(id);
   assert.equal(provider.hits(), hits, "no new requests");
   assert.deepEqual([again!.reused, again!.receiptIds], [true, first!.receiptIds]);
+});
+
+test("a stale duplicate queue job cannot rerun or downgrade an already analyzed revision", async () => {
+  scoreAnswers.CLEAR = [82, 76];
+  const id = await article("CLEAR", { url: `https://example.com/CLEAR-duplicate-job-${T}`, title: `CLEAR duplicate queue job ${T}` });
+  assert.equal((await processArticle(id)).state, "pass");
+  const hits = provider.hits();
+  const before = Number((await sql`SELECT count(*) AS n FROM analyses WHERE article_id=${id}`)[0]!.n);
+  assert.equal((await processArticle(id)).state, "analyzed");
+  assert.equal(provider.hits(), hits, "the duplicate job makes no provider request");
+  assert.equal(Number((await sql`SELECT count(*) AS n FROM analyses WHERE article_id=${id}`)[0]!.n), before, "the duplicate job inserts no second analysis");
+  assert.equal((await sql`SELECT processing_state FROM articles WHERE id=${id}`)[0]!.processing_state, "analyzed");
 });

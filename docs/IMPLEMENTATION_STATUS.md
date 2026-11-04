@@ -2205,6 +2205,17 @@ budget closed. The implementation follow-up is on `codex/soak-hardening`.
   crossings without changing selection behavior or the frozen Phase 1 thresholds. The soak snapshot was
   162 pairs, mean gap 13.69, p95 33.9, maximum 51 and 44 threshold crossings. Any behavioral scoring
   change still requires a development replay and threshold review.
+- **Bounded backlog closeout (2026-11-04):** the 37 budget-waiting articles were resumed with collection
+  off and the original 4/minute, 60/hour and 300/day limits. Serial single-chain recovery reused settled
+  receipts and cleared the waiting set; the final database state was 196 analyzed / 7 previously failed,
+  with LLM receipts 1,035 completed / 12 failed / 22 received and zero pending or unknown. Models were
+  disabled again before the normal Worker was restored.
+- A stale duplicate analyze job could previously rerun a revision that another worker had already
+  committed, then downgrade its article to `new` if the model valve was disabled. Ordinary jobs now
+  short-circuit terminal article states while explicit attempt-tagged re-evaluation remains available.
+  The focused fresh-database analysis suite passes 9/9, including the regression. The seven-day
+  post-closeout score diagnostic recorded 37 pairs (mean gap 11.54, median 9, p95 28, maximum 60,
+  5 threshold crossings); no scoring policy changed.
 
 Verification at this checkpoint: TypeScript typecheck passes; production web build passes; web tests
 25/25 pass; the 10 new DB-free regressions pass; the score-stability SQL executes against the soak

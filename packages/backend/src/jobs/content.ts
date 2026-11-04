@@ -100,6 +100,12 @@ export async function processArticle(articleId: string, opts: { attemptTag?: str
     SELECT s.participation_mode, a.processing_state, a.revision, a.backfill, a.published_at, a.discovered_at FROM articles a JOIN sources s ON s.id = a.source_id WHERE a.id = ${articleId}`;
   if (!found) return { state: "missing" };
   const row = { ...found, historical: isHistorical(found) };
+  // A stale duplicate queue job can survive after another worker has already committed this revision.
+  // Ordinary jobs must never downgrade or duplicate a terminal result; an explicit re-evaluation keeps
+  // using attemptTag and is therefore allowed through.
+  if (!opts.attemptTag && ["analyzed", "blocked", "skipped"].includes(row.processing_state)) {
+    return { state: row.processing_state };
+  }
   if (row.participation_mode !== "editorial") {
     // Normally queued straight for grouping (queueProcessing); an explicit re-evaluation lands here.
     const { group } = await settleNonEditorial(articleId);
