@@ -42,15 +42,20 @@ export const ANALYZE_PROMPT_VERSION = Object.values(PROMPT_VERSIONS).join("+");
 
 // ── Scoring ───────────────────────────────────────────────────────────────────────────────
 
-/** Independent score calls per article; their sum decides, their mean (floored) is shown. */
+/** Independent score calls per article; both must pass, while their mean (floored) is shown. */
 export const SCORE_CALLS = 2;
 
 /**
- * The thresholds on the mean score, per source tier (industry/selection.ts): selected when
- * score1 + score2 >= 2 × threshold. Tiers without a threshold are not scored for 精选.
+ * The thresholds per source tier (industry/selection.ts). Tiers without a threshold are not scored
+ * for 精选.
  */
 export function tierThreshold(tier: string): number | null {
   return SELECTION.thresholds[tier] ?? null;
+}
+
+/** A split vote stays an ordinary update; both independent judgements must clear the same threshold. */
+export function scoresPassSelection(values: number[] | null, threshold: number | null): boolean {
+  return threshold !== null && values?.length === SCORE_CALLS && values.every((value) => value >= threshold);
 }
 
 /** Unselected items above this mean are written like selected ones. */
@@ -383,13 +388,13 @@ export function normalizeAnalysis(run: AnalysisRun) {
   // Past the prefilter (PASS or UNKNOWN) an item is relevant, but without a usable Chinese title and
   // summary it cannot be published: it waits.
   const relevance = label === "BLOCK" ? "block" : run.writing && (!titleZh || !summaryZh) ? "unknown" : "pass";
-  // Selected when the two scores add up to twice the tier threshold; the mean, floored,
-  // is the score shown (it never decides a half point on its own).
+  // The mean, floored, remains the score shown. Selection is a separate two-vote decision so one
+  // unusually high score cannot compensate for the other independent judgement missing the threshold.
   const values = run.scores && !run.scores.refused ? run.scores.values : null;
   const sum = values?.length === SCORE_CALLS ? values.reduce((total, v) => total + v, 0) : null;
   const score = sum === null ? null : Math.floor(sum / SCORE_CALLS);
   const threshold = run.scores?.threshold ?? null;
-  const selected = relevance === "pass" && sum !== null && threshold !== null && sum >= threshold * SCORE_CALLS;
+  const selected = relevance === "pass" && scoresPassSelection(values, threshold);
   const subjects = run.structure?.subjects ?? [];
   const tags = [...(run.writing?.tags ?? run.structure?.tags ?? [])];
   for (const s of subjects) {
