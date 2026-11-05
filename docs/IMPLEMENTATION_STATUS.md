@@ -2262,3 +2262,22 @@ missing scores and invalid score counts; a normalization regression proves that 
 mean score 32 but is not selected. The labels express the owner's homepage preference rather than
 security-expert gold. Full provenance, limitations, rollback and the locked sample are recorded in
 `docs/evaluation/selection-owner-review.md` and `selection-aggregation-validation-plan.md`.
+
+### Bounded production shadow observation
+
+A preregistered 24-hour read-only comparison started on 2026-11-05 with only Cisco Security
+Advisories, Fortinet PSIRT and MSRC enabled, all Agent gates off, and the existing Spark X2.6 budget
+limited to 4/minute, 60/hour and 300/day. It stopped fail-closed after about two hours when receipt
+1156 entered `unknown` following a 120-second provider timeout, exactly as required by the locked stop
+condition. Collection and model calls were disabled, the normal Worker was recreated, the previous
+source enablement and LLM budget were restored, and public `/` and `/hot` checks returned 200.
+
+The abbreviated run collected 68 articles and created 18 analysis rows. The production two-vote rule
+selected 13 while the read-only former mean rule would have selected 17; all four demotions were MSRC
+Chromium relay entries and impossible promotions were zero. Agreement was 14/18 (77.8%). Because only
+13 newly collected articles were analyzed, Cisco had no completed analysis in the window, and the run
+terminated on a provider failure, this is operational evidence only: it does not establish general
+improvement, measure recall, or close the score-stability limitation. Prompts, thresholds and the
+deterministic predicate remain unchanged. Full counts, receipt evidence, per-source effects and the
+four owner-review candidates are recorded in
+`docs/evaluation/selection-two-vote-shadow-observation.md`.
