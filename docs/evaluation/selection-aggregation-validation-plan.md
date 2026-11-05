@@ -1,6 +1,6 @@
 # Selection aggregation validation plan
 
-Status: `PREREGISTERED_AWAITING_OWNER_LABELS`
+Status: `DEVELOPMENT_GATE_PASSED`
 
 This is a development validation of an existing selection decision, not a new Phase and not a rewrite
 of the frozen Phase 1 benchmark. It follows the 30-label convenience study in
@@ -65,3 +65,38 @@ The candidate passes this small validation only if all are true:
 Passing is evidence for a production-change proposal, not authorization to deploy. A change still needs
 a minimal implementation contract, regression tests, canonical CI and an explicit rollback note. Failure
 or insufficient decisive labels keeps the current policy unchanged. No frozen holdout is read or rerun.
+
+## Locked-label result
+
+The owner returned decisive labels for all 15 cases: 8 `featured`, 5 `ordinary` and 2 `noise`. No case
+was replaced or excluded after scoring. The result against the already stored score pairs is:
+
+| Policy | TP | FN | FP | TN | Accuracy | Featured recall | Specificity | Balanced accuracy |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Current mean of two | 8 | 0 | 4 | 3 | 0.733 | 1.000 | 0.429 | 0.714 |
+| Both scores must pass | 8 | 0 | 2 | 5 | 0.867 | 1.000 | 0.714 | 0.857 |
+
+All preregistered gates pass: 15 decisive labels exceed the minimum, false positives fall by two,
+false negatives do not increase, and balanced accuracy increases. The candidate also agrees with the
+earlier convenience-set direction, but this table alone remains small owner-preference evidence rather
+than a general security-quality claim.
+
+## Production-change contract
+
+The minimal proposed change is only the final homepage selection predicate:
+
+1. keep two independent score calls, existing prompts, source-tier thresholds and displayed floored
+   mean score unchanged;
+2. select only when relevance is `pass`, exactly two usable scores exist, a threshold exists, and both
+   scores are individually greater than or equal to that threshold;
+3. keep the existing near-selected/understanding path unchanged so borderline material still receives
+   rich copy and remains available as an ordinary security update;
+4. add a pure decision helper and regression cases for split votes, exact-threshold votes, missing votes
+   and ordinary two-pass selection;
+5. do not rewrite historical analysis rows. The policy applies only to analyses produced after deploy;
+6. rollback is the one-line predicate restoration to the mean-of-two rule. No schema or data migration
+   is involved.
+
+Acceptance requires focused regression tests, TypeScript typecheck, fresh-database analysis tests, web
+build/tests, Compose validation and canonical Linux CI. Deployment keeps collection, models and all Agent
+gates disabled; no live model call is needed to validate this deterministic change.

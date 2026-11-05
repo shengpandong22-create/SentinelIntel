@@ -2246,3 +2246,19 @@ development replay and its single permitted safe retry produced zero false merge
 attachments, confirming that conservative Story splitting remains unresolved. The consumed holdout was
 not rerun. Full commands, receipts, tokens, latency, failed-candidate evidence and limitations are in
 `docs/evaluation/evidence-driven-hardening-plan.md`; raw run files remain ignored under `.data/`.
+
+## Owner-reviewed selection policy validation
+
+Three blinded convenience batches established 30 decisive owner-preference labels, then a separately
+preregistered 15-case disjoint development batch compared the existing mean-of-two selection rule with
+a two-vote rule. The independent batch had 8 featured and 7 ordinary/noise labels. Requiring both
+scores to meet the unchanged tier threshold reduced false positives from 4 to 2, kept true positives
+at 8/8 and increased balanced accuracy from 0.714 to 0.857; all preregistered gates passed.
+
+The resulting deterministic policy changes only new analyses: both independent scores must meet the
+existing threshold. Prompts, model routing, score display, near-selected writing, thresholds and stored
+historical rows remain unchanged. A pure fail-closed helper covers split votes, exact-threshold votes,
+missing scores and invalid score counts; a normalization regression proves that `[0, 64]` still displays
+mean score 32 but is not selected. The labels express the owner's homepage preference rather than
+security-expert gold. Full provenance, limitations, rollback and the locked sample are recorded in
+`docs/evaluation/selection-owner-review.md` and `selection-aggregation-validation-plan.md`.
