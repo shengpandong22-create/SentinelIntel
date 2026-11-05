@@ -1,6 +1,6 @@
 # Evidence-driven hardening plan
 
-Status: `AUDIT_IN_PROGRESS`  
+Status: `DEVELOPMENT_GATE_PASSED`
 Branch: `codex/evidence-driven-hardening`  
 Scope: strengthen existing behavior only; no new product capability and no frozen-holdout tuning.
 
@@ -51,6 +51,37 @@ must not be promoted from development evidence alone.
   exhaustion without forward progress, or a serious provider failure.
 - One diagnosis and one safe alternative are the retry limit. Raw keys and `.data/` results are never
   committed.
+
+### Development attempt log
+
+`roundup-precedence-candidate` was preregistered above and run on the same seeded 40-case development
+slice as the baseline (`seed=8`: 9 ROUNDUP positives and 31 confusable controls). The prompt-only
+precedence wording did **not** improve ROUNDUP recall: baseline and candidate were both `0/9`. It also
+reduced SAME_STORY F1 from `0.435` to `0.364`; therefore this candidate is rejected and will not be
+promoted. Both runs completed 39 receipts with zero provider failures. Raw reports stay in ignored
+`.data/hardening/` and their receipt/token/latency summaries will be copied into the final audit.
+
+One final development alternative is allowed before closing this target: make the already-required
+multi-topic check explicit in the structured decision schema (`multi_topic_side` plus
+`contained_item`) so the model must classify each side before choosing the relation. This does not add
+a new relation or deterministic override; the relation remains the model's output. It uses the same
+seeded slice and the same promotion gates. If ROUNDUP recall remains zero or another class breaches the
+gate, stop tuning and retain the production baseline.
+
+The structured alternative passed the preregistered 40-case gate. ROUNDUP moved from precision /
+recall / F1 `0 / 0 / 0` to `0.667 / 0.444 / 0.533` (4/9 recalled). SAME_OCCURRENCE precision moved
+from `0.571` to `0.667`, and SAME_STORY precision from `0.313` to `0.417`; neither precision gate
+regressed. Overall accuracy moved from `0.650` to `0.725`, while macro-F1 moved from `0.502` to
+`0.661`. The baseline used 39 receipts / 64,263 total tokens / 233,948 ms provider latency; the
+structured candidate used 39 receipts / 75,890 total tokens / 271,220 ms. These are development
+observations, not replacements for the canonical holdout metrics.
+
+The first Stage C replay stopped after one provider `no_json` failure. The single permitted safe retry
+completed and produced zero false merges, but also `0/16` true attachments on this slice. This satisfies
+the safety gate but demonstrates that the structured relation improvement does **not** solve the wider
+recall-to-attachment weakness. The candidate is therefore limited to ROUNDUP relation classification;
+Stage C conservative splitting remains an accepted, explicitly reported limitation for a later disjoint
+development experiment. No consumed holdout was rerun.
 
 ## 4. Acceptance and reporting
 
