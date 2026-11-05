@@ -36,3 +36,43 @@ The useful finding is qualitative: the owner distinguishes a substantive advisor
 version/remediation information from a title-only or information-only revision. A larger blinded batch
 should stratify source, severity, remediation detail and information-only revisions before any policy
 change is preregistered.
+
+## Batch 2: stratified review
+
+The second batch deliberately mixed actionable advisories, incomplete severe disclosures, routine
+updates, information-only revisions and low-value notices. Scores remained hidden during review.
+
+| Article id | Short title | Owner label | Score 1 | Score 2 | Threshold | Current mean decision |
+|---|---|---:|---:|---:|---:|---:|
+| `b21kdjjtuo737fu9xldaz8o9u` | Nexus MPLS OAM RCE | ordinary | 86 | 80 | 32 | featured |
+| `tx0rncpkewvk4as965arw39bg` | FortiSandbox GUI authentication bypass | featured | 55 | 80 | 32 | featured |
+| `d2z34q2j7t0fr32ilo5wvxdof` | Fortinet local double-free denial of service | featured | 62 | 48 | 32 | featured |
+| `y6ocpxh7wljyxh4eidz9a6ea8` | Snort 3 security-hardening roundup | featured | 79 | 70 | 32 | featured |
+| `a810ufc95dwx3dqv8knzf2sue` | Azure AI Foundry SSRF without remediation detail | ordinary | 32 | 29 | 32 | not featured |
+| `httolkocjkac7boqnffz2e27r` | Exchange Online RCE without remediation detail | ordinary | 30 | 14 | 32 | not featured |
+| `d47puki0c5vq261ist0au18np` | Unified Communications hardening roundup | ordinary | 74 | 74 | 32 | featured |
+| `cc0v9otdoetzkv59mrjw90bb5` | Expressway unauthenticated root command execution | featured | 85 | 79 | 32 | featured |
+| `epfbusx4ma02cbfg61v30zacp` | ASP.NET Core information-only update | noise | 20 | 35 | 32 | not featured |
+| `u8iwohfzpr31uutq2x3glwrjd` | Chromium information leak inherited by Edge | ambiguous | 19 | 43 | 32 | not featured |
+| `bzz8nyix3jracstrf7tsgdj0t` | Cisco advance publication notice | ordinary | 71 | 54 | 32 | featured |
+| `a78xtobwu4g1atwpg8udmq11c` | FortiSIEM broken authorization | featured | 46 | 46 | 32 | featured |
+
+The Nexus label carries an owner condition: the reviewed summary did not present a complete operational
+workaround; a clearly executable workaround would have changed the choice from `ordinary` to
+`featured`. The Chromium/Edge item was explicitly judged acceptable as either `ordinary` or `noise`,
+so it is recorded as `ambiguous` and excluded from binary strategy comparisons rather than being forced
+into a class.
+
+## Combined diagnostic after two batches
+
+There are 19 decisive labels: 7 `featured` and 12 `ordinary/noise`. On this deliberately enriched,
+non-random set, the current mean-of-two rule matches 12/19 labels. Score 1 alone also matches 12/19;
+score 2 alone matches 10/19; requiring both scores to meet the existing threshold matches 14/19
+(5 true positives, 2 false negatives, 3 false positives and 9 true negatives). The apparent 2-case
+advantage is not yet a promotion gate: the sample is small, owner-specific and enriched for disagreement.
+
+The more stable product signal is that severity alone is insufficient. The owner promotes advisories
+with actionable upgrade or remediation information, but often keeps incomplete disclosures, broad
+routine hardening roundups and advance notices as ordinary even when both model scores are high. The
+next batch should specifically distinguish complete workarounds from generic "upgrade" language and
+should include more low-scoring but actionable advisories before any aggregation change is proposed.
