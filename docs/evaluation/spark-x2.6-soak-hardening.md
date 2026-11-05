@@ -64,6 +64,19 @@ attempt. Stop immediately on an unknown receipt, repeated unusable model output 
 failure. This scheduling rule changes neither prompts nor thresholds and does not bypass receipts or
 the database budget.
 
+The guarded operator command makes that procedure reproducible. Stop the normal Worker, keep all other
+safety valves off, enable the model valve only for this process, and run for example:
+
+```text
+node scripts/recover-analysis-backlog.ts --allow-model --worker-stopped --limit=30 --max-wait-seconds=7200
+```
+
+The command refuses to run without both acknowledgements, refuses collection or Agent gates, orders
+articles by already-settled receipt count, keeps retrying the same article across a budget wait, and
+stops on unknown receipts, unusable model output or another fatal provider error. After it exits, disable
+model calls before restoring the normal Worker. Sliding minute/hour/day waits now use the oldest live
+attempt in the saturated database window, rather than fixed 60/600/3600-second guesses.
+
 The 2026-11-04 closeout verified the behavior against the deployed database: lowering analysis
 concurrency and then using a single-chain recovery loop converted previously partial receipt sets into
 completed article analyses, while the original 4/minute, 60/hour and 300/day limits remained enforced.
