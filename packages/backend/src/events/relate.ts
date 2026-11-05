@@ -51,11 +51,29 @@ export const PAIR_SYSTEM = promptText("group-pair");
 export const SIGNAL_SYSTEM = promptText("group-signal");
 
 const RelationSchema = z.enum(RELATIONS).catch("UNRELATED");
+const MultiTopicSideSchema = z.enum(["NONE", "QUERY", "CANDIDATE"]);
+
+const BatchDecisionSchema = z.object({
+  id: z.string(),
+  multi_topic_side: MultiTopicSideSchema,
+  contained_item: z.boolean(),
+  relation: RelationSchema,
+  confidence: z.coerce.number().min(0).max(1).catch(0.5),
+  note: z.string().max(400).catch(""),
+}).superRefine((decision, ctx) => {
+  if (decision.multi_topic_side !== "NONE" && decision.contained_item && decision.relation !== "ROUNDUP") {
+    ctx.addIssue({
+      code: "custom",
+      path: ["relation"],
+      message: "multi-topic containment must use ROUNDUP",
+    });
+  }
+});
 
 export const BatchSchema = z.object({
   query: z.string().max(400).catch(""),
   decisions: z
-    .array(z.object({ id: z.string(), relation: RelationSchema, confidence: z.coerce.number().min(0).max(1).catch(0.5), note: z.string().max(400).catch("") }))
+    .array(BatchDecisionSchema)
     .catch([]),
 });
 
