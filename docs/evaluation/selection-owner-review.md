@@ -76,3 +76,47 @@ with actionable upgrade or remediation information, but often keeps incomplete d
 routine hardening roundups and advance notices as ordinary even when both model scores are high. The
 next batch should specifically distinguish complete workarounds from generic "upgrade" language and
 should include more low-scoring but actionable advisories before any aggregation change is proposed.
+
+## Batch 3: remediation-quality review
+
+The third batch tested the owner's emerging distinction between a complete, executable mitigation and
+generic upgrade language. Scores remained hidden during review.
+
+| Article id | Short title | Owner label | Score 1 | Score 2 | Threshold | Current mean decision |
+|---|---|---:|---:|---:|---:|---:|
+| `lfshk954d63oosz9z1wrny5yy` | FortiSIEM arbitrary file write with port restriction | featured | 51 | 70 | 32 | featured |
+| `q789kpykh3yvrhc4h0jh8w2yw` | FortiOS GUI denial of service with virtual patch | featured | 42 | 82 | 32 | featured |
+| `j1revcr8r9gw0bznuv3wpbloa` | Nexus NGOAM RCEs with state-check command | featured | 41 | 58 | 32 | featured |
+| `mpd42e3lu69shdb4vb7pbcfjm` | APIC contract bypass with configuration switch | featured | 84 | 85 | 32 | featured |
+| `q6bqupwmda6igh3qhpnuf5k74` | Secure Email root file write with update procedure | featured | 84 | 92 | 32 | featured |
+| `ml1ifkbfgs4nfrhfabb9has02` | NX-OS Python sandbox escape, upgrade only | ordinary | 50 | 57 | 32 | featured |
+| `x14w2ydk4xq1r54joafc2ca7y` | Expressway hardening release, no workaround | ordinary | 67 | 63 | 32 | featured |
+| `zjypgfdx5lu3rjhunb9ys4df4` | AAD App Proxy EoP without remediation detail | ordinary | 38 | 43 | 32 | featured |
+| `sdjayzrfaomysfr258f72id3n` | Azure Kubernetes configuration-service EoP | noise | 26 | 32 | 32 | not featured |
+| `n7d0b0j63vlepju5yjiqaf02c` | Azure VM Inspector EoP without remediation detail | noise | 30 | 35 | 32 | featured |
+| `m31j1335sbyko2flqs0juee69` | Chromium authorization issue inherited by Edge | ordinary | 17 | 39 | 32 | not featured |
+
+## Thirty-label checkpoint
+
+The three batches now contain 30 decisive owner labels: 12 `featured` and 18 `ordinary/noise`, plus
+one excluded ambiguous label. This is enough for a first product-preference checkpoint, but it remains
+a convenience development sample rather than an independently sampled holdout.
+
+| Aggregation policy | Matches | Accuracy | TP | FN | FP | TN |
+|---|---:|---:|---:|---:|---:|---:|
+| Current mean of two | 19/30 | 0.633 | 10 | 2 | 9 | 9 |
+| Score 1 only | 20/30 | 0.667 | 11 | 1 | 9 | 9 |
+| Score 2 only | 15/30 | 0.500 | 11 | 1 | 14 | 4 |
+| Both scores must pass | 22/30 | 0.733 | 10 | 2 | 6 | 12 |
+
+The stricter two-vote rule reduces false positives from 9 to 6 without changing the current rule's
+10/12 recall on owner-featured items. That is a promising development observation, not authorization
+to change production: the examples were selected by the system operator, several came from the same
+vendors, and the labels express one owner's homepage preference rather than security-expert truth.
+
+The qualitative rule is now consistent across batches: an actionable workaround, virtual patch,
+configuration switch, state-check command or concrete update procedure can justify `featured` even for
+a narrower vulnerability. Generic upgrade advice, a serious title without remediation detail, or an
+information-only update usually remains `ordinary` or `noise`. A production proposal should first turn
+that distinction into an explicit prompt rubric, preregister a disjoint development comparison, and
+measure whether it preserves recall while reducing false positives.
