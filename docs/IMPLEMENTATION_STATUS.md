@@ -2229,3 +2229,20 @@ database. A fresh 44-migration PostgreSQL database inside the Compose network pa
 receipt/output/extraction suite 16/16. The host-side test attempt first encountered a wrong local
 credential and then Windows `EADDRNOTAVAIL`; the Compose-network rerun is the verified result. Collection
 and model calls remained disabled throughout.
+
+## Post-soak evidence-driven grouping hardening
+
+This maintenance pass changes only the existing event-relation decision contract. It does not add a
+Phase, alter a frozen dataset or replace any canonical Phase 2 metric. On a preregistered 40-case
+development slice (`seed=8`, 9 ROUNDUP positives), a prompt-order-only attempt failed at 0/9 ROUNDUP
+recall and was rejected. The accepted structured attempt requires the model to state which side is a
+multi-topic collection and whether the other side is a contained item before choosing the relation;
+inconsistent containment decisions fail closed.
+
+The structured development result improved ROUNDUP precision / recall / F1 from `0 / 0 / 0` to
+`0.667 / 0.444 / 0.533` (4/9). SAME_OCCURRENCE precision changed from `0.571` to `0.667` and
+SAME_STORY precision from `0.313` to `0.417`, so the preregistered precision guards passed. A Stage C
+development replay and its single permitted safe retry produced zero false merges but 0/16 true
+attachments, confirming that conservative Story splitting remains unresolved. The consumed holdout was
+not rerun. Full commands, receipts, tokens, latency, failed-candidate evidence and limitations are in
+`docs/evaluation/evidence-driven-hardening-plan.md`; raw run files remain ignored under `.data/`.
