@@ -76,6 +76,11 @@ regressed. Overall accuracy moved from `0.650` to `0.725`, while macro-F1 moved 
 structured candidate used 39 receipts / 75,890 total tokens / 271,220 ms. These are development
 observations, not replacements for the canonical holdout metrics.
 
+The two new decision fields retain `NONE` / `false` parser defaults for older cached responses and the
+existing deterministic test fixtures. New prompts require the fields explicitly, and a response that
+does provide a positive containment check with a non-ROUNDUP relation is rejected fail-closed. This
+keeps the public behavior compatible without silently accepting a contradictory new-format decision.
+
 The first Stage C replay stopped after one provider `no_json` failure. The single permitted safe retry
 completed and produced zero false merges, but also `0/16` true attachments on this slice. This satisfies
 the safety gate but demonstrates that the structured relation improvement does **not** solve the wider

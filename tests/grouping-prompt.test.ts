@@ -25,6 +25,7 @@ test("grouping decisions require the explicit multi-topic containment check", ()
     id: "C1", multi_topic_side: "QUERY", contained_item: true,
     relation: "SAME_STORY", confidence: 0.9, note: "inconsistent",
   }] });
-  assert.deepEqual(missingCheck.decisions, []);
+  assert.equal(missingCheck.decisions[0]!.multi_topic_side, "NONE");
+  assert.equal(missingCheck.decisions[0]!.contained_item, false);
   assert.deepEqual(inconsistent.decisions, []);
 });

@@ -51,12 +51,12 @@ export const PAIR_SYSTEM = promptText("group-pair");
 export const SIGNAL_SYSTEM = promptText("group-signal");
 
 const RelationSchema = z.enum(RELATIONS).catch("UNRELATED");
-const MultiTopicSideSchema = z.enum(["NONE", "QUERY", "CANDIDATE"]);
+const MultiTopicSideSchema = z.enum(["NONE", "QUERY", "CANDIDATE"]).catch("NONE");
 
 const BatchDecisionSchema = z.object({
   id: z.string(),
   multi_topic_side: MultiTopicSideSchema,
-  contained_item: z.boolean(),
+  contained_item: z.boolean().catch(false),
   relation: RelationSchema,
   confidence: z.coerce.number().min(0).max(1).catch(0.5),
   note: z.string().max(400).catch(""),
