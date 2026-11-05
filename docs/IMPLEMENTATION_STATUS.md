@@ -2216,6 +2216,12 @@ budget closed. The implementation follow-up is on `codex/soak-hardening`.
   The focused fresh-database analysis suite passes 9/9, including the regression. The seven-day
   post-closeout score diagnostic recorded 37 pairs (mean gap 11.54, median 9, p95 28, maximum 60,
   5 threshold crossings); no scoring policy changed.
+- `scripts/recover-analysis-backlog.ts` now provides the guarded, single-chain recovery procedure used
+  during closeout. It requires explicit model and stopped-Worker acknowledgements, keeps collection and
+  Agents off, reuses settled receipts, waits on the same article, and stops fail-closed on unknown or
+  unusable outcomes. Budget errors derive their retry time from the actual sliding receipt-attempt
+  window. A fresh 44-migration PostgreSQL 17 database passes the combined receipt and analysis suites
+  16/16; typecheck and the command's disabled-by-default guard pass.
 
 Verification at this checkpoint: TypeScript typecheck passes; production web build passes; web tests
 25/25 pass; the 10 new DB-free regressions pass; the score-stability SQL executes against the soak

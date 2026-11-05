@@ -86,20 +86,32 @@ async function checkBudget(tx: Db, service: string): Promise<void> {
     SELECT per_minute, per_hour, per_day FROM budgets WHERE service = ${service}`;
   if (!budget) return; // default rows come with the migrations; a service an operator removed is unlimited
   // Every request sent counts, retries of the same logical request included.
-  const [counts] = await tx<{ minute: number; hour: number; day: number }[]>`
+  const [counts] = await tx<{
+    minute: number; hour: number; day: number;
+    minute_reset_at: Date | null; hour_reset_at: Date | null; day_reset_at: Date | null;
+  }[]>`
     SELECT
       count(*) FILTER (WHERE started_at > now() - interval '1 minute') AS minute,
       count(*) FILTER (WHERE started_at > now() - interval '1 hour') AS hour,
-      count(*) AS day
+      count(*) AS day,
+      min(started_at) FILTER (WHERE started_at > now() - interval '1 minute') + interval '1 minute' AS minute_reset_at,
+      min(started_at) FILTER (WHERE started_at > now() - interval '1 hour') + interval '1 hour' AS hour_reset_at,
+      min(started_at) + interval '1 day' AS day_reset_at
     FROM receipt_attempts
     WHERE service = ${service} AND origin = 'live' AND started_at > now() - interval '1 day'`;
   const c = counts!;
   if (budget.per_minute <= 0 || budget.per_hour <= 0 || budget.per_day <= 0) {
     throw new BudgetExceededError(service, "stopped", 3600);
   }
-  if (c.minute >= budget.per_minute) throw new BudgetExceededError(service, "minute", 60);
-  if (c.hour >= budget.per_hour) throw new BudgetExceededError(service, "hour", 600);
-  if (c.day >= budget.per_day) throw new BudgetExceededError(service, "day", 3600);
+  if (c.minute >= budget.per_minute) throw new BudgetExceededError(service, "minute", secondsUntil(c.minute_reset_at, 60));
+  if (c.hour >= budget.per_hour) throw new BudgetExceededError(service, "hour", secondsUntil(c.hour_reset_at, 600));
+  if (c.day >= budget.per_day) throw new BudgetExceededError(service, "day", secondsUntil(c.day_reset_at, 3600));
+}
+
+/** Whole seconds until a sliding budget window releases, with one second of clock-skew margin. */
+export function secondsUntil(resetAt: Date | null, fallback: number, nowMs = Date.now()): number {
+  if (!resetAt || !Number.isFinite(resetAt.getTime())) return fallback;
+  return Math.max(1, Math.ceil((resetAt.getTime() - nowMs) / 1000) + 1);
 }
 
 /**

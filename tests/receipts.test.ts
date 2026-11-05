@@ -9,7 +9,7 @@ import { config } from "@aihot/backend/config";
 import { closeDb, sql } from "@aihot/backend/db";
 import { chatJson, ModelOutputError } from "@aihot/backend/providers/llm";
 import { embeddingsAvailable } from "@aihot/backend/providers/embeddings";
-import { BudgetExceededError, paidRequest, ReceiptUnknownError } from "@aihot/backend/providers/receipts";
+import { BudgetExceededError, paidRequest, ReceiptUnknownError, secondsUntil } from "@aihot/backend/providers/receipts";
 import { articleIdFromAnalysisReceipt, autoReleaseUnknownReceipts } from "@aihot/backend/admin/runs";
 
 const usage = { prompt_tokens: 80, completion_tokens: 20, total_tokens: 100 };
@@ -35,6 +35,13 @@ test("the migrations seed a budget for every paid service", async () => {
   const rows = await sql<{ service: string }[]>`SELECT service FROM budgets`;
   const services = new Set(rows.map((r) => r.service));
   for (const s of ["jina", "socialdata", "dajiala", "zhipu", "deepseek", "mimo", "dashscope"]) assert.ok(services.has(s), `no budget for ${s}`);
+});
+
+test("budget retry timing follows the actual sliding-window reset", () => {
+  const now = Date.parse("2026-11-05T00:00:00Z");
+  assert.equal(secondsUntil(new Date(now + 23_400), 600, now), 25, "rounds up and keeps a one-second margin");
+  assert.equal(secondsUntil(new Date(now - 10_000), 600, now), 1, "an elapsed window retries immediately but not at zero");
+  assert.equal(secondsUntil(null, 600, now), 600, "missing database evidence uses the conservative fallback");
 });
 
 test("recognizes every article-analysis receipt purpose for recovery", () => {
