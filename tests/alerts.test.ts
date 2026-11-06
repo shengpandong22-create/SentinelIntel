@@ -7,7 +7,7 @@ import { after, before, test } from "node:test";
 import { closeDb, sql } from "@aihot/backend/db";
 import { getBoss, stopBoss } from "@aihot/backend/jobs/queue";
 import { upsertMaterial } from "@aihot/backend/content/materials";
-import { checkAlerts } from "@aihot/backend/operations/alerts";
+import { checkAlerts, collectFindings } from "@aihot/backend/operations/alerts";
 
 const T = tag();
 const SOURCE = `test-alerts-${T}`;
@@ -57,4 +57,27 @@ test("an outage is announced once, repeated hourly, and closed with one recovery
   assert.deepEqual(stuck(r.sent), ["content.process:recovered"]);
   r = await checkAlerts(t0 + 80 * 60_000);
   assert.deepEqual(stuck(r.sent), []);
+});
+
+test("unknown receipt finding distinguishes the first in-doubt call from an unknown retry", async () => {
+  const marker = `alerts-unknown-${tag()}`;
+  const rows = await sql<{ id: number }[]>`
+    INSERT INTO receipts (logical_key, service, purpose, subject, status, attempts)
+    VALUES
+      (${`${marker}-first`}, ${marker}, 'test_first', 'test:first', 'unknown', 1),
+      (${`${marker}-retry`}, ${marker}, 'test_retry', 'test:retry', 'unknown', 2)
+    RETURNING id`;
+  try {
+    const finding = (await collectFindings()).find((f) => f.key === "receipts.unknown");
+    assert.ok(finding);
+    assert.match(finding.title, /付费请求结果未知/);
+    assert.doesNotMatch(finding.title, /自动重试过一次/);
+    assert.match(finding.detail ?? "", /首次结果未知/);
+    assert.match(finding.detail ?? "", /等待一次自动放行/);
+    assert.match(finding.detail ?? "", /重试后仍未知/);
+    assert.match(finding.detail ?? "", /需要人工核对/);
+    assert.match(finding.detail ?? "", new RegExp(marker));
+  } finally {
+    await sql`DELETE FROM receipts WHERE id IN ${sql(rows.map((r) => r.id))}`;
+  }
 });

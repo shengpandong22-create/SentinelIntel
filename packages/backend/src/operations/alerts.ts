@@ -154,12 +154,23 @@ export async function collectFindings(now = Date.now()): Promise<Finding[]> {
   }
 
   // ---- Follow-ups for the daily digest ------------------------------------------------------------
-  const [r] = await sql<{ receipts: number; services: string | null; deliveries: number }[]>`
+  const [r] = await sql<{ receipts: number; first_unknown: number; repeated_unknown: number; services: string | null; deliveries: number }[]>`
     SELECT (SELECT count(*)::int FROM receipts WHERE status = 'unknown') AS receipts,
+           (SELECT count(*)::int FROM receipts WHERE status = 'unknown' AND attempts <= 1) AS first_unknown,
+           (SELECT count(*)::int FROM receipts WHERE status = 'unknown' AND attempts > 1) AS repeated_unknown,
            (SELECT string_agg(DISTINCT service || '/' || purpose, '、') FROM receipts WHERE status = 'unknown') AS services,
            (SELECT count(*)::int FROM deliveries WHERE status = 'unknown') AS deliveries`;
   if (r!.receipts > 0) {
-    out.push({ key: "receipts.unknown", level: "digest", title: `${r!.receipts} 个付费请求自动重试过一次，结果仍未知`, detail: `${r!.services}；后台“运行”页核对后放行` });
+    const stages = [
+      r!.first_unknown > 0 && `首次结果未知 ${r!.first_unknown} 个（等待一次自动放行）`,
+      r!.repeated_unknown > 0 && `重试后仍未知 ${r!.repeated_unknown} 个（需要人工核对）`,
+    ].filter(Boolean).join("；");
+    out.push({
+      key: "receipts.unknown",
+      level: "digest",
+      title: `${r!.receipts} 个付费请求结果未知`,
+      detail: `${stages}；${r!.services}；重试后仍未知的请求需在后台“运行”页核对供应商控制台后放行`,
+    });
   }
   if (r!.deliveries > 0) out.push({ key: "deliveries.unknown", level: "digest", title: `${r!.deliveries} 条飞书内容群推送不确定是否送达`, detail: "后台“运行”页核对群里有没有，再标记或重发" });
 

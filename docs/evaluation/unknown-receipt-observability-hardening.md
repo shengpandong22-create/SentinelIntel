@@ -1,6 +1,6 @@
 # Unknown receipt observability hardening
 
-Status: `ACCEPTED_FOR_IMPLEMENTATION`
+Status: `IMPLEMENTED_AND_LOCALLY_VERIFIED`
 
 ## Evidence
 
@@ -36,3 +36,15 @@ thresholds, the two-vote predicate, sources, Agents and frozen Evaluation data a
 3. A mixed set reports both counts without exposing request content or credentials.
 4. Focused tests create both real database shapes and fail against the previous wording.
 5. Existing receipt invariants and tests remain green; no paid or network call is made by the tests.
+
+## Result
+
+The finding now reports a neutral total and separates `attempts <= 1` (first unknown, waiting for the
+single automatic release) from `attempts > 1` (a retry whose outcome is still unknown and therefore
+needs provider-console verification). It does not expose request or response content. Receipt 1156's
+subsequent database history confirms that the existing one-release lifecycle itself needed no change.
+
+Verification on a fresh PostgreSQL 17 database with all 44 migrations: the focused alert and receipt
+suites pass 9/9, including real first-unknown and retried-unknown database shapes. TypeScript typecheck,
+the production web build, web tests 25/25, Compose configuration and `git diff --check` pass. The tests
+use a local stub provider only; no paid or external request was made.
