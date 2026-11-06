@@ -2281,3 +2281,24 @@ improvement, measure recall, or close the score-stability limitation. Prompts, t
 deterministic predicate remain unchanged. Full counts, receipt evidence, per-source effects and the
 four owner-review candidates are recorded in
 `docs/evaluation/selection-two-vote-shadow-observation.md`.
+
+Receipt 1156's subsequent history confirmed that the existing one-release lifecycle worked as designed:
+the first unknown was released once after 30 minutes, its article was requeued, and no logical-key or
+budget boundary was bypassed. The reproduced defect was operator wording that described every first
+unknown as already retried. PR #24 (`6accf71`) now distinguishes first in-doubt calls from retries that
+still require provider-console review; fresh-database alert/receipt tests pass 9/9.
+
+A separately preregistered 12-hour v2 observation began on 2026-11-06. It stopped fail-closed after
+about two hours when two independent `group_article` receipts returned no JSON. It added no articles but
+completed 19 queued analyses: production selected 13, the former mean would select 16, agreement was
+16/19 (84.2%), and all three demotions were MSRC Chromium relay notices. Cisco and Fortinet each had
+only one analyzed row, so the source distribution remains unsuitable for generalization. No unknown or
+pending receipt remained at shutdown; collection/models/Agents are off, the normal Worker is restored,
+the pre-run sources and budget are restored, and `/` plus `/hot` return 200.
+
+Across both abbreviated live observations, every demotion was an incomplete MSRC Chromium relay notice,
+which is directionally consistent with the owner's labels. Neither run is large or balanced enough to
+claim general improvement or close score stability, and v2 reproduced a provider-output reliability
+limit. The predicate remains deployed, but another paid observation is deferred until new evidence can
+address repeated Spark X2.6 no-JSON output. Full v2 evidence and three unlabelled owner-review candidates
+are in `docs/evaluation/selection-two-vote-shadow-observation-v2.md`.
