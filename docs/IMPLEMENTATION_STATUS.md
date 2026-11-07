@@ -2302,3 +2302,14 @@ claim general improvement or close score stability, and v2 reproduced a provider
 limit. The predicate remains deployed, but another paid observation is deferred until new evidence can
 address repeated Spark X2.6 no-JSON output. Full v2 evidence and three unlabelled owner-review candidates
 are in `docs/evaluation/selection-two-vote-shadow-observation-v2.md`.
+
+A third, preregistered 24-hour observation moved structure and grouping to the configured DeepSeek
+provider while retaining Spark for prefiltering, scoring, understanding and summarization. It completed
+without an early-stop condition: the 36-row waiting backlog cleared, one new MSRC article traversed the
+full production path, and all 185 post-baseline receipts completed (45 DeepSeek, 140 Spark) with zero
+failed, pending or unknown outcomes. DeepSeek completed 39 structure and 6 grouping calls without a
+malformed result. The read-only policy comparison recorded 25 two-vote versus 33 former-mean selections;
+all eight demotions were MSRC Chromium relays. Because 38 of 39 analysis rows came from the prior queue,
+the sample was source-imbalanced and only one article was newly collected, so this is operational
+reliability evidence rather than general quality proof. Full evidence and limitations are in
+`docs/evaluation/selection-two-vote-shadow-observation-v3.md`.

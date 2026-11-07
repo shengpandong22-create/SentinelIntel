@@ -1,6 +1,6 @@
 # Hybrid-model two-vote shadow observation v3
 
-Status: `PREREGISTERED_ACTIVE`
+Status: `COMPLETE_BOUNDED_OPERATIONAL_EVIDENCE`
 
 Window: 2026-11-06 21:19:29 through 2026-11-07 21:19:29 Asia/Shanghai (24 hours).
 
@@ -71,3 +71,58 @@ volume, or no forward progress after one diagnosis and one safe alternative. On 
 
 This observation is informative only. A small or source-imbalanced sample cannot establish general
 quality improvement, and no consumed holdout is rerun.
+
+## Closeout
+
+The fixed window completed at 2026-11-07 21:19:29 Asia/Shanghai without triggering an early-stop
+condition. Collection and model calls were disabled, the captured ten-source enablement was restored,
+the `llm` budget was restored to 300/6000/40000, the `deepseek` budget was restored to
+100/2000/20000, and only the normal Worker was recreated. All Agent gates remain disabled.
+
+### Pipeline and provider results
+
+- The 36 pre-existing waiting articles were all cleared. One previously failed article also recovered;
+  final state was 266 analyzed, 5 failed and 0 waiting out of 272 articles.
+- The window created 39 analysis rows: 7 Cisco, 2 Fortinet and 30 MSRC. Of those rows, 38 belonged to
+  the pre-existing queue and one to a newly collected MSRC article.
+- All 72 scheduled source fetches succeeded (24 per source). They observed 1,200 Cisco entries, 1,200
+  Fortinet entries and 5,388 MSRC entries; only MSRC produced one unseen article.
+- The new article, `CVE-2026-83844 Windows Paint Remote Code Execution Vulnerability`, completed the
+  full collection, Spark scoring/understanding, DeepSeek structure/group and Story-digest path and was
+  selected by the production policy.
+- DeepSeek completed 39 structure receipts and 6 grouping receipts. There were no malformed, failed,
+  pending or unknown DeepSeek receipts. The grouping calls produced valid structured decisions; this
+  operational run does not provide labelled grouping precision or recall.
+- Spark completed 140 receipts and DeepSeek completed 45 receipts. Every one of the 185 post-baseline
+  receipts finished `completed`; receipt attempts contained no terminal error. A transient Spark
+  understanding attempt was retried safely and its receipt completed.
+- Provider-reported usage was 507,774 Spark tokens and 77,412 DeepSeek tokens. Mean/max attempt latency
+  was about 5.2/75.2 seconds for Spark and 1.5/3.4 seconds for DeepSeek. Recorded database cost remained
+  zero and is not an independently verified invoice.
+- Five Stories and one Fact were created during the window while the prior backlog was being drained;
+  these raw counts are not a grouping-quality metric because the backlog predates the observation.
+
+### Read-only selection comparison
+
+The production two-vote policy selected 25 of the 39 analysis rows. The former mean policy would have
+selected 33. Agreement was 31/39 (79.5%); all 8 disagreements were former-mean pass / two-vote fail,
+and impossible promotions were zero.
+
+| Source | Analysed | Two-vote | Former mean | Demotions |
+| --- | ---: | ---: | ---: | ---: |
+| Cisco Security Advisories | 7 | 7 | 7 | 0 |
+| Fortinet PSIRT | 2 | 2 | 2 | 0 |
+| Microsoft MSRC | 30 | 16 | 24 | 8 |
+
+All eight demotions were incomplete MSRC Chromium relay entries with split score pairs. This is
+directionally consistent with the owner's earlier labels and the first two observations, but the
+sample remains heavily MSRC-weighted and contains only one newly collected article. It therefore does
+not prove a general quality improvement or close the score-stability limitation.
+
+### Safety and health
+
+No new unknown receipt, repeated malformed output, stale pending receipt, abnormal retry volume or
+provider failure occurred. The final local smoke suite passed every public route, API, feed, static
+asset and MCP initialization check. `/admin` remained protected by a redirect to login. Database and
+Agent containers were healthy; the Web, API and normal Worker remained running. No prompt, threshold,
+model routing, two-vote predicate, frozen dataset or historical decision was changed.
