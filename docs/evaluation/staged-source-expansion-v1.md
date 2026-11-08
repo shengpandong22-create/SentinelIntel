@@ -1,6 +1,8 @@
 # Staged source expansion v1
 
-Status: `PREFLIGHT_PASSED_AWAITING_FIXED_WINDOW`
+Status: `PREREGISTERED_ACTIVE`
+
+Fixed window: 2026-11-08 22:05:33 through 2026-11-09 22:05:33 Asia/Shanghai.
 
 This maintenance plan follows the completed hybrid-model observation in
 `selection-two-vote-shadow-observation-v3.md`. It adds no product capability and changes no prompt,
@@ -74,3 +76,14 @@ of one new source excludes that source from the remainder of this window and is 
 At deadline or early stop, collection and model calls are disabled, the captured source and budget state
 is restored, only the normal Worker is recreated, public health is verified and a durable report is
 written. Small or source-imbalanced results remain operational evidence, not a general quality claim.
+
+## Locked baseline
+
+- Articles: 272 total; 267 analyzed, 5 failed and 0 waiting.
+- Analyses: 302 rows, maximum id 326.
+- Receipts: 1,507 rows, maximum id 1,507; 1,463 completed, 15 failed, 29 received, zero pending and zero unknown.
+- Pre-run budgets: `llm` 300/6000/40000 and `deepseek` 100/2000/20000.
+- CERT-EU and NCSC UK have no stored `initializedAt`, so their first stored results are explicitly
+  first-import backfill. Cisco, Fortinet and MSRC are already initialized.
+- Exact pre-run source enablement and budgets are captured in ignored
+  `.data/staged-source-expansion-v1.json` for closeout restoration.
