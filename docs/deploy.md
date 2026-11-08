@@ -76,6 +76,27 @@ docker compose logs -f --tail 100 api worker web
 ## 花多少钱
 
 - **模型**：每条新资料至少预筛一次；可能入选的再评分两次，入选的还要写标题摘要、打标签、归组，另外还有日报和事件综述。我们用示范信源在本地试跑，第一次导入的 152 条资料一共用了大约 930 次模型调用。之后每天用多少，取决于你的信源每天更新多少条。后台“模型与评测”页能看到每一步的调用次数和输入输出 token 数。
+
+### SentinelIntel 已验证的混合模型分工
+
+SentinelIntel 的 24 小时受控运行使用默认模型完成预筛、两次评分、理解和摘要，并把结构抽取、
+事件归组与归组复核交给 `deepseek-flash`。185 个窗口内回执全部完成，其中 DeepSeek 的 39 次结构
+抽取和 6 次归组没有格式错误、失败、pending 或 unknown。这个结果只证明当前接口和结构化输出的
+运行兼容性，不代表归组准确率提高。
+
+配置时保留默认 `LLM_*`，另外设置：
+
+```dotenv
+DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
+DEEPSEEK_API_KEY=你的密钥
+STRUCTURE_MODEL=deepseek-flash
+GROUP_MODEL=deepseek-flash
+GROUP_REVIEW_MODEL=deepseek-flash
+```
+
+不要提交 `.env` 或密钥。`COLLECT_ENABLED` 与 `MODEL_CALLS_ENABLED` 仍应默认关闭，只在有固定窗口、
+预算和停止条件的运行中临时打开。详细证据和限制见
+[`selection-two-vote-shadow-observation-v3.md`](evaluation/selection-two-vote-shadow-observation-v3.md)。
 - **付费采集**（X、公众号、Jina）：按请求计费，默认不启用，填了 key 才会用。
 - 所有付费服务都有每分钟、每小时、每天的调用上限（后台“设置 → 预算”），超过就暂停，不会一夜之间刷爆账单。填 0 表示立即停用这个服务。
 
