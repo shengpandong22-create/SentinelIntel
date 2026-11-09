@@ -2313,3 +2313,13 @@ all eight demotions were MSRC Chromium relays. Because 38 of 39 analysis rows ca
 the sample was source-imbalanced and only one article was newly collected, so this is operational
 reliability evidence rather than general quality proof. Full evidence and limitations are in
 `docs/evaluation/selection-two-vote-shadow-observation-v3.md`.
+
+The first staged source expansion then added CERT-EU and UK NCSC to Cisco, Fortinet and MSRC for a
+preregistered 24-hour window. All 110 scheduled fetch runs succeeded, each source finished healthy with
+zero failures, and 30 first-window articles were created (28 backfill). The pipeline produced 31 analysis
+rows and cleared the queue; all 156 receipts completed, including 30 DeepSeek structure and 2 grouping
+calls, with zero failed, pending or unknown outcomes. Production selected 18 rows versus 21 under the
+read-only former mean rule; all three demotions were UK NCSC backfill. Because the sample was dominated
+by first-import material and Cisco/Fortinet produced no unseen items, this verifies operational source
+onboarding and isolation rather than ordinary daily yield or general selection quality. Full evidence
+and limitations are in `docs/evaluation/staged-source-expansion-v1.md`.
